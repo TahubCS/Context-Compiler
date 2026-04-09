@@ -30,7 +30,13 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 
 ### 3. Styling & UI
 * Use Tailwind CSS for all styling. Do not use CSS modules or styled-components.
-* When creating new UI components, check if a Shadcn UI component exists first.
+* **ALWAYS check the installed Shadcn components before building custom UI.** The following 21 components already exist in `src/components/ui/` — use them instead of reinventing:
+  * **Layout/Structure:** `card`, `separator`, `scroll-area`, `tabs`
+  * **Forms:** `button`, `input`, `textarea`, `label`, `select`, `checkbox`, `switch`
+  * **Feedback:** `alert`, `badge`, `progress`, `skeleton`, `sonner` (toasts)
+  * **Overlays:** `dialog`, `dropdown-menu`, `tooltip`
+  * **Data:** `table`, `accordion`
+* **Do NOT run `bunx shadcn add`** for any component in the list above — it is already installed.
 * Keep components highly modular and separated into `src/components/ui` (reusable elements) and `src/components/features` (domain-specific elements).
 
 ### 4. Code Quality
@@ -52,16 +58,35 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * All database connection strings are managed exclusively in `prisma.config.ts` under the `datasource` object.
 
 ### 8. Design System & Theming (shadcn/ui Custom Preset)
-* The project uses a custom shadcn/ui preset with a Dark deep-gray background, a **Cyan** primary accent, **Emerald** chart colors, and **Large** border radii.
-* **NEVER hardcode hex codes or specific Tailwind color scales** (e.g., do not use `bg-cyan-600` or `text-gray-400`). 
-* **STRICTLY use semantic theme variables:**
-  * Backgrounds: `bg-background`, `bg-card`, `bg-muted`
-  * Text: `text-foreground`, `text-muted-foreground`, `text-primary`
-  * Borders: `border-border`, `border-input`
-  * Buttons/Accents: `bg-primary text-primary-foreground` or `bg-secondary text-secondary-foreground`
-* **Icons:** Strictly use `lucide-react` icons.
-* **Tailwind v4:** This project uses Tailwind CSS v4. Be aware of v4 changes (no `tailwind.config.ts` required, CSS-variable driven configuration).
-* **Dark Mode:** Assume the application is heavily dark-mode focused based on the UI preset.
+* The project uses a custom shadcn/ui preset with a dark deep-gray background, a **blue/cyan** primary accent, **teal** chart colors, and **large** border radii. All colors use the OKLCH color space — do not convert to hex or HSL.
+* **NEVER hardcode hex codes, OKLCH values, or specific Tailwind color scales** (e.g., do not use `bg-cyan-600`, `text-gray-400`, or `oklch(0.52 0.105 223.128)`).
+* **STRICTLY use semantic CSS variable tokens for all colors:**
+  * **Backgrounds:** `bg-background`, `bg-card`, `bg-muted`, `bg-popover`
+  * **Text:** `text-foreground`, `text-muted-foreground`, `text-primary`, `text-card-foreground`
+  * **Borders:** `border-border`, `border-input`
+  * **Primary actions:** `bg-primary text-primary-foreground`
+  * **Secondary/subtle:** `bg-secondary text-secondary-foreground`
+  * **Accent/hover states:** `bg-accent text-accent-foreground`
+  * **Destructive:** `bg-destructive text-destructive` (for errors/warnings)
+  * **Sidebar (use these inside the sidebar only):** `bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-primary text-sidebar-primary-foreground`, `bg-sidebar-accent text-sidebar-accent-foreground`, `border-sidebar-border`
+  * **Charts:** `text-chart-1` through `text-chart-5` (teal gradient scale)
+  * **Focus rings:** `ring-ring`
+* **Border radius — use Tailwind radius utilities that map to the custom token scale:**
+  * `rounded-sm` → ~8px, `rounded-md` → ~11px, `rounded-lg` → ~14px
+  * `rounded-xl` → ~22px, `rounded-2xl` → ~29px, `rounded-3xl` → ~35px, `rounded-4xl` → ~42px
+  * Buttons use `rounded-4xl`, inputs use `rounded-3xl`, cards use `rounded-xl` or `rounded-2xl`
+* **Shadcn component conventions:**
+  * `Card` supports a `size` prop (`"default"` | `"sm"`) — use `"sm"` for compact layouts
+  * `Button` supports `variant` (`default`, `outline`, `secondary`, `ghost`, `destructive`, `link`) and `size` (`xs`, `sm`, `default`, `lg`, `icon`, `icon-sm`, `icon-lg`)
+  * `Tabs` supports `orientation` (`"horizontal"` | `"vertical"`) and `listVariant` (`"default"` | `"line"`)
+  * `Select` supports a `size` prop (`"sm"` | `"default"`)
+  * `Switch` supports a `size` prop (`"sm"` | `"default"`)
+  * `Tooltip` defaults to `delayDuration={0}` and uses inverted colors (`bg-foreground text-background`)
+  * `DropdownMenu` item content uses `bg-popover/70` with `backdrop-blur-2xl` glassmorphic style
+  * `Dialog` uses `rounded-4xl` and includes an optional `showCloseButton` prop (default `true`)
+* **Icons:** Strictly use `lucide-react` icons. Never use other icon libraries.
+* **Tailwind v4:** This project uses Tailwind CSS v4 — no `tailwind.config.ts`. All theme configuration is CSS-variable driven via `src/app/globals.css`.
+* **Dark Mode:** The `dark` class is forced on `<html>` in the root layout. Always design for dark mode as the primary experience.
 
 ### 9. Routing & Architecture Strict Guidelines
 * **Pattern:** We use Next.js App Router Route Groups to separate concerns.

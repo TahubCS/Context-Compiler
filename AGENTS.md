@@ -84,11 +84,23 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
   * `Tooltip` defaults to `delayDuration={0}` and uses inverted colors (`bg-foreground text-background`)
   * `DropdownMenu` item content uses `bg-popover/70` with `backdrop-blur-2xl` glassmorphic style
   * `Dialog` uses `rounded-4xl` and includes an optional `showCloseButton` prop (default `true`)
-* **Icons:** Strictly use `lucide-react` icons. Never use other icon libraries.
+* **Icons:** Use `lucide-react` for all icons. **Exception:** `lucide-react` does not include a GitHub icon — use `LuGithub` from `react-icons/lu` (already installed) for any GitHub-branded icon.
 * **Tailwind v4:** This project uses Tailwind CSS v4 — no `tailwind.config.ts`. All theme configuration is CSS-variable driven via `src/app/globals.css`.
 * **Dark Mode:** The `dark` class is forced on `<html>` in the root layout. Always design for dark mode as the primary experience.
 
-### 9. Routing & Architecture Strict Guidelines
+### 9. Database Utility Layer (CRITICAL)
+* **All Prisma interactions MUST go through `src/lib/db/`.** Do not import `prisma` directly in pages, layouts, or API routes — import helpers from `@/lib/db` instead.
+* **Never copy `isPrismaConnectivityError`** — it lives only in `src/lib/db/errors.ts`.
+* **Before writing any Prisma query**, check if a helper already exists in `src/lib/db/`:
+  * `getUserRepositories(userId)` — fetches the user's repositories with the standard select shape
+  * `upsertGitHubRepositories(userId, repos)` — bulk upserts repos in 50-item batches
+  * `upsertSupabaseUser(user)` — syncs a Supabase auth user into the Prisma User table
+  * `getUserSubscriptionTier(userId)` — returns the user's `SubscriptionTier` enum value
+* **If a helper doesn't exist**, add it to the appropriate `src/lib/db/*.ts` file and export it through `src/lib/db/index.ts`. New models get their own file (e.g., `src/lib/db/code-documents.ts`).
+* **Types for Prisma results** MUST use `Prisma.<Model>GetPayload<{ select: typeof SELECT_CONST }>` — never hand-write field shapes that duplicate the schema. The shared `RepositoryListItem` type is exported from `@/lib/db`.
+* The raw `prisma` client is also re-exported from `@/lib/db` for use inside `src/lib/db/*.ts` files only.
+
+### 10. Routing & Architecture Strict Guidelines
 * **Pattern:** We use Next.js App Router Route Groups to separate concerns.
 * **Public Routes:** Reside in `(public)`. Includes `/` (landing) and `/pricing`.
 * **Protected Routes:** Reside in `(app)`. Includes `/dashboard`, `/repo/[repoId]`, and `/settings`. 

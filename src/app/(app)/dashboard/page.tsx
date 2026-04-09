@@ -1,22 +1,7 @@
 import { RepositoryList } from "@/components/features/repositories/repository-list"
 import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
-import { prisma } from "@/lib/prisma"
+import { upsertSupabaseUser, getUserRepositories, isPrismaConnectivityError } from "@/lib/db"
 import { createClient } from "@/utils/supabase/server"
-
-function isPrismaConnectivityError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  const message = error.message.toLowerCase()
-
-  return (
-    message.includes("tenant or user not found") ||
-    message.includes("driveradaptererror") ||
-    message.includes("can't reach database server") ||
-    message.includes("connection")
-  )
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -29,53 +14,12 @@ export default async function DashboardPage() {
   const displayName =
     user.user_metadata.full_name ?? user.user_metadata.user_name ?? user.email
 
-  let repositories: {
-    id: string
-    name: string
-    fullName: string
-    githubUrl: string
-    defaultBranch: string | null
-    isPrivate: boolean
-    scanStatus: string
-    lastScannedAt: Date | null
-  }[] = []
+  let repositories: Awaited<ReturnType<typeof getUserRepositories>> = []
   let databaseError: string | null = null
 
   try {
-    if (user.email) {
-      await prisma.user.upsert({
-        where: { id: user.id },
-        update: {
-          email: user.email,
-          githubId: user.user_metadata.provider_id?.toString() ?? null,
-          name: user.user_metadata.full_name ?? user.user_metadata.user_name ?? null,
-          avatarUrl: user.user_metadata.avatar_url ?? null,
-        },
-        create: {
-          id: user.id,
-          email: user.email,
-          githubId: user.user_metadata.provider_id?.toString() ?? null,
-          name: user.user_metadata.full_name ?? user.user_metadata.user_name ?? null,
-          avatarUrl: user.user_metadata.avatar_url ?? null,
-        },
-      })
-    }
-
-    repositories = await prisma.repository.findMany({
-      where: { userId: user.id },
-      select: {
-        id: true,
-        name: true,
-        fullName: true,
-        githubUrl: true,
-        defaultBranch: true,
-        isPrivate: true,
-        scanStatus: true,
-        lastScannedAt: true,
-      },
-      orderBy: [{ updatedAt: "desc" }],
-      take: 100,
-    })
+    await upsertSupabaseUser(user)
+    repositories = await getUserRepositories(user.id)
   } catch (dbError) {
     if (isPrismaConnectivityError(dbError)) {
       databaseError =

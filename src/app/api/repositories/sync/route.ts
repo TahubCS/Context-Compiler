@@ -1,35 +1,13 @@
-import { prisma } from "@/lib/prisma"
 import { createClient } from "@/utils/supabase/server"
+import { upsertSupabaseUser, upsertGitHubRepositories, isPrismaConnectivityError } from "@/lib/db"
+import type { GitHubRepoInput } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 const GITHUB_REPOS_PER_PAGE = 100
 const GITHUB_MAX_PAGES = 10
 
-type GitHubRepository = {
-  name: string
-  full_name: string
-  html_url: string
-  default_branch: string | null
-  private: boolean
-}
-
-function isPrismaConnectivityError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  const message = error.message.toLowerCase()
-
-  return (
-    message.includes("tenant or user not found") ||
-    message.includes("driveradaptererror") ||
-    message.includes("can't reach database server") ||
-    message.includes("connection")
-  )
-}
-
 async function fetchGitHubRepositories(providerToken: string) {
-  const repositories: GitHubRepository[] = []
+  const repositories: GitHubRepoInput[] = []
 
   for (let page = 1; page <= GITHUB_MAX_PAGES; page += 1) {
     const query = new URLSearchParams({
@@ -61,7 +39,7 @@ async function fetchGitHubRepositories(providerToken: string) {
       throw new Error(`GitHub repositories request failed with status ${response.status}.`)
     }
 
-    const pageData = (await response.json()) as GitHubRepository[]
+    const pageData = (await response.json()) as GitHubRepoInput[]
     repositories.push(...pageData)
 
     if (pageData.length < GITHUB_REPOS_PER_PAGE) {
@@ -106,55 +84,8 @@ export async function POST() {
   try {
     const githubRepositories = await fetchGitHubRepositories(providerToken)
 
-    if (user.email) {
-      await prisma.user.upsert({
-        where: { id: user.id },
-        update: {
-          email: user.email,
-          githubId: user.user_metadata.provider_id?.toString() ?? null,
-          name: user.user_metadata.full_name ?? user.user_metadata.user_name ?? null,
-          avatarUrl: user.user_metadata.avatar_url ?? null,
-        },
-        create: {
-          id: user.id,
-          email: user.email,
-          githubId: user.user_metadata.provider_id?.toString() ?? null,
-          name: user.user_metadata.full_name ?? user.user_metadata.user_name ?? null,
-          avatarUrl: user.user_metadata.avatar_url ?? null,
-        },
-      })
-    }
-
-    if (githubRepositories.length === 0) {
-      return NextResponse.json({ syncedCount: 0 })
-    }
-
-    await prisma.$transaction(
-      githubRepositories.map((repository) =>
-        prisma.repository.upsert({
-          where: {
-            userId_githubUrl: {
-              userId: user.id,
-              githubUrl: repository.html_url,
-            },
-          },
-          update: {
-            name: repository.name,
-            fullName: repository.full_name,
-            defaultBranch: repository.default_branch,
-            isPrivate: repository.private,
-          },
-          create: {
-            userId: user.id,
-            name: repository.name,
-            fullName: repository.full_name,
-            githubUrl: repository.html_url,
-            defaultBranch: repository.default_branch,
-            isPrivate: repository.private,
-          },
-        })
-      )
-    )
+    await upsertSupabaseUser(user)
+    await upsertGitHubRepositories(user.id, githubRepositories)
 
     return NextResponse.json({ syncedCount: githubRepositories.length })
   } catch (error) {

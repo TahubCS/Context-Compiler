@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
-import { prisma } from "@/lib/prisma"
+import { getUserRepositories } from "@/lib/db"
 
 export async function GET() {
   const supabase = await createClient()
@@ -13,21 +13,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const repositories = await prisma.repository.findMany({
-    where: { userId: user.id },
-    select: {
-      id: true,
-      name: true,
-      fullName: true,
-      githubUrl: true,
-      defaultBranch: true,
-      isPrivate: true,
-      scanStatus: true,
-      lastScannedAt: true,
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-  })
+  const repositories = await getUserRepositories(user.id)
 
   return NextResponse.json({ repositories })
 }

@@ -1,21 +1,10 @@
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
-import { prisma } from "@/lib/prisma"
+import { getUserSubscriptionTier, isPrismaConnectivityError } from "@/lib/db"
 import { Button } from "@/components/ui/button"
 import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
 import { User, CreditCard } from "lucide-react"
-import { LuGithub } from "react-icons/lu";
-
-function isPrismaConnectivityError(error: unknown) {
-  if (!(error instanceof Error)) return false
-  const message = error.message.toLowerCase()
-  return (
-    message.includes("tenant or user not found") ||
-    message.includes("driveradaptererror") ||
-    message.includes("can't reach database server") ||
-    message.includes("connection")
-  )
-}
+import { LuGithub } from "react-icons/lu"
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -32,11 +21,7 @@ export default async function SettingsPage() {
   let subscriptionTier: string | null = null
 
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { subscriptionTier: true },
-    })
-    subscriptionTier = dbUser?.subscriptionTier ?? null
+    subscriptionTier = await getUserSubscriptionTier(user.id)
   } catch (err) {
     if (!isPrismaConnectivityError(err)) throw err
   }

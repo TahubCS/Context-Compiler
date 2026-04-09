@@ -1,19 +1,11 @@
-type RepositoryListItem = {
-  id: string
-  fullName: string
-  githubUrl: string
-  defaultBranch: string | null
-  isPrivate: boolean
-  scanStatus: string
-  lastScannedAt: Date | null
-}
+import { RepositoryListItem } from "@/lib/db"
 
 type RepositoryListProps = {
   repositories: RepositoryListItem[]
   databaseError: string | null
 }
 
-function formatScanStatus(status: string) {
+function formatScanStatus(status: RepositoryListItem["scanStatus"]) {
   return status.toLowerCase().replaceAll("_", " ")
 }
 

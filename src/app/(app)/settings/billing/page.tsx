@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
-import { prisma } from "@/lib/prisma"
+import { getUserSubscriptionTier, isPrismaConnectivityError } from "@/lib/db"
 import { Button } from "@/components/ui/button"
 import { CreditCard, Check } from "lucide-react"
 
@@ -31,17 +31,6 @@ const UPGRADE_TIERS = [
   },
 ]
 
-function isPrismaConnectivityError(error: unknown) {
-  if (!(error instanceof Error)) return false
-  const message = error.message.toLowerCase()
-  return (
-    message.includes("tenant or user not found") ||
-    message.includes("driveradaptererror") ||
-    message.includes("can't reach database server") ||
-    message.includes("connection")
-  )
-}
-
 export default async function BillingPage() {
   const supabase = await createClient()
   const {
@@ -50,14 +39,10 @@ export default async function BillingPage() {
 
   if (!user) return null
 
-  let subscriptionTier = "FREE"
+  let subscriptionTier: string = "FREE"
 
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { subscriptionTier: true },
-    })
-    subscriptionTier = dbUser?.subscriptionTier ?? "FREE"
+    subscriptionTier = (await getUserSubscriptionTier(user.id)) ?? "FREE"
   } catch (err) {
     if (!isPrismaConnectivityError(err)) throw err
   }

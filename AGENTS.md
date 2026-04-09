@@ -40,3 +40,13 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 
 ### 5. AI Microservice Architecture
 * Note: Heavy AI chunking, embedding generation, and AST parsing are handled by a separate Python FastAPI service. The Next.js app acts as the client and dashboard. Do not attempt to run heavy LangChain/LlamaIndex operations directly in the Next.js Node.js environment.
+
+### 6. Package Manager & Tooling
+* We strictly use **Bun** for all package management and script execution.
+* ALWAYS use `bun add <package>`, `bun add -d <package>`, and `bun run <script>`.
+* NEVER use `npm`, `yarn`, or `pnpm`.
+
+### 7. Prisma 7 Configuration
+* We are strictly using Prisma v7+.
+* NEVER put `url` or `directUrl` in the `prisma/schema.prisma` file. The datasource block should only contain `provider = "postgresql"`.
+* All database connection strings are managed exclusively in `prisma.config.ts` under the `datasource` object.

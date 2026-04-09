@@ -2,7 +2,6 @@ import { RepositoryList } from "@/components/features/repositories/repository-li
 import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/utils/supabase/server"
-import { redirect } from "next/navigation"
 
 function isPrismaConnectivityError(error: unknown) {
   if (!(error instanceof Error)) {
@@ -23,12 +22,9 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const {
     data: { user },
-    error,
   } = await supabase.auth.getUser()
 
-  if (error || !user) {
-    redirect("/")
-  }
+  if (!user) return null
 
   const displayName =
     user.user_metadata.full_name ?? user.user_metadata.user_name ?? user.email
@@ -90,23 +86,21 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <section className="rounded-xl border border-border bg-card p-6">
-          <h1 className="text-2xl font-bold text-foreground">Welcome, {displayName}!</h1>
-          <p className="mt-2 text-muted-foreground">
-            Sync your repositories from GitHub to start scanning and indexing code.
-          </p>
-          <div className="mt-4 w-full md:w-fit">
-            <SyncRepositoriesButton />
-          </div>
-          {databaseError ? (
-            <p className="mt-3 text-sm text-destructive">{databaseError}</p>
-          ) : null}
-        </section>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h1 className="text-2xl font-bold text-foreground">Welcome, {displayName}!</h1>
+        <p className="mt-2 text-muted-foreground">
+          Sync your repositories from GitHub to start scanning and indexing code.
+        </p>
+        <div className="mt-4 w-full md:w-fit">
+          <SyncRepositoriesButton />
+        </div>
+        {databaseError ? (
+          <p className="mt-3 text-sm text-destructive">{databaseError}</p>
+        ) : null}
+      </section>
 
-        <RepositoryList repositories={repositories} databaseError={databaseError} />
-      </div>
+      <RepositoryList repositories={repositories} databaseError={databaseError} />
     </div>
   )
 }

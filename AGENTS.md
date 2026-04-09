@@ -50,3 +50,15 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * We are strictly using Prisma v7+.
 * NEVER put `url` or `directUrl` in the `prisma/schema.prisma` file. The datasource block should only contain `provider = "postgresql"`.
 * All database connection strings are managed exclusively in `prisma.config.ts` under the `datasource` object.
+
+### 8. Design System & Theming (shadcn/ui Custom Preset)
+* The project uses a custom shadcn/ui preset with a Dark deep-gray background, a **Cyan** primary accent, **Emerald** chart colors, and **Large** border radii.
+* **NEVER hardcode hex codes or specific Tailwind color scales** (e.g., do not use `bg-cyan-600` or `text-gray-400`). 
+* **STRICTLY use semantic theme variables:**
+  * Backgrounds: `bg-background`, `bg-card`, `bg-muted`
+  * Text: `text-foreground`, `text-muted-foreground`, `text-primary`
+  * Borders: `border-border`, `border-input`
+  * Buttons/Accents: `bg-primary text-primary-foreground` or `bg-secondary text-secondary-foreground`
+* **Icons:** Strictly use `lucide-react` icons.
+* **Tailwind v4:** This project uses Tailwind CSS v4. Be aware of v4 changes (no `tailwind.config.ts` required, CSS-variable driven configuration).
+* **Dark Mode:** Assume the application is heavily dark-mode focused based on the UI preset.

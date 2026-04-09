@@ -1,4 +1,12 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Context Compiler 🧠⚡
+
+Context Compiler is a micro-SaaS developer tool designed to solve the "context window" problem in AI-assisted coding. By parsing and indexing full codebases using RAG (Retrieval-Augmented Generation), it allows developers to generate perfectly scoped architecture maps and context snippets. This ensures AI coding agents (like Claude, Cursor, or ChatGPT) understand the full project structure before writing code.
+
+### 🛠️ Tech Stack
+* **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
+* **Backend/Database:** Supabase (PostgreSQL), Prisma ORM
+* **AI Architecture:** Python microservice, Vector Database, LangChain/LlamaIndex
+* **Monetization & Real-time:** Stripe, Supabase Realtime (WebSockets)
 
 ## Getting Started
 

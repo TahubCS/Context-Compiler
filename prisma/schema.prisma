@@ -6,11 +6,78 @@ datasource db {
   provider = "postgresql"
 }
 
+enum SubscriptionTier {
+  FREE
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+enum RepositoryScanStatus {
+  IDLE
+  QUEUED
+  SCANNING
+  COMPLETED
+  FAILED
+}
+
 model User {
-  id        String   @id // This will explicitly match the Supabase Auth UUID
-  email     String   @unique
-  name      String?
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String           @id @db.Uuid // Explicitly matches Supabase Auth UUID
+  email            String           @unique
+  name             String?
+  avatarUrl        String?
+  githubId         String?          @unique
+  stripeCustomerId String?          @unique
+  subscriptionTier SubscriptionTier @default(FREE)
+  repositories     Repository[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model Repository {
+  id              String               @id @default(uuid()) @db.Uuid
+  userId          String               @db.Uuid
+  name            String
+  fullName        String
+  githubUrl       String
+  defaultBranch   String?
+  isPrivate       Boolean              @default(true)
+  lastScannedAt   DateTime?
+  scanStatus      RepositoryScanStatus @default(IDLE)
+  scanProgress    Int                  @default(0)
+  filesDiscovered Int                  @default(0)
+  filesProcessed  Int                  @default(0)
+  errorMessage    String?
+  codeDocuments   CodeDocument[]
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([userId, githubUrl])
+  @@index([userId])
+  @@index([userId, scanStatus])
+  @@index([lastScannedAt])
+}
+
+model CodeDocument {
+  id                  String     @id @default(uuid()) @db.Uuid
+  repositoryId        String     @db.Uuid
+  filePath            String
+  chunkIndex          Int        @default(0)
+  language            String?
+  content             String     @db.Text
+  contentHash         String
+  tokenCount          Int        @default(0)
+  embedding           Bytes? // Bytes fallback for embeddings; planned pgvector migration next phase.
+  embeddingModel      String?
+  embeddingDimensions Int?
+  metadata            Json?
+  repository          Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@unique([repositoryId, filePath, chunkIndex])
+  @@index([repositoryId, filePath])
+  @@index([repositoryId, contentHash])
+  @@index([repositoryId, language])
 }

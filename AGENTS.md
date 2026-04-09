@@ -62,3 +62,11 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * **Icons:** Strictly use `lucide-react` icons.
 * **Tailwind v4:** This project uses Tailwind CSS v4. Be aware of v4 changes (no `tailwind.config.ts` required, CSS-variable driven configuration).
 * **Dark Mode:** Assume the application is heavily dark-mode focused based on the UI preset.
+
+### 9. Routing & Architecture Strict Guidelines
+* **Pattern:** We use Next.js App Router Route Groups to separate concerns.
+* **Public Routes:** Reside in `(public)`. Includes `/` (landing) and `/pricing`.
+* **Protected Routes:** Reside in `(app)`. Includes `/dashboard`, `/repo/[repoId]`, and `/settings`. 
+* **Layout Rule:** All protected routes MUST be wrapped in the `(app)/layout.tsx` which provides the global Sidebar and Top Navigation. Do not build standalone navigation headers inside individual pages.
+* **UI Structure for `/repo/[repoId]`:** Must strictly follow a split-pane design: Left side for natural language search/chat, Right side for the "Context Cart" clipboard manager.
+* **API Routes:** All custom backend logic must live inside `/api/...` to separate UI from data fetching.

@@ -1,35 +1,39 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/client'
-import { PrismaClient } from '@prisma/client'
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
 
-const prisma = new PrismaClient()
+function getSupabaseServerConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-
-  if (code) {
-    const supabase = await createClient()
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-    
-    if (!error && data.user) {
-      // SYNC: Create or update the user in your Prisma database
-      await prisma.user.upsert({
-        where: { id: data.user.id },
-        update: {
-          email: data.user.email!,
-          name: data.user.user_metadata.full_name,
-          avatarUrl: data.user.user_metadata.avatar_url,
-        },
-        create: {
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.user_metadata.full_name,
-          avatarUrl: data.user.user_metadata.avatar_url,
-        },
-      })
-    }
+  if (!url || !key) {
+    throw new Error(
+      "Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY)."
+    )
   }
 
-  return NextResponse.redirect(`${origin}/dashboard`)
+  return { url, key }
+}
+
+export async function createClient() {
+  const cookieStore = await cookies()
+  const { url, key } = getSupabaseServerConfig()
+
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
+        } catch {
+          // Cookie writes are not always available in every server rendering context.
+        }
+      },
+    },
+  })
 }

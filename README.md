@@ -10,16 +10,10 @@ Context Compiler is a micro-SaaS developer tool designed to solve the "context w
 
 ## Getting Started
 
-First, run the development server:
+First, run the development server with Bun:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

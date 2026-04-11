@@ -19,6 +19,7 @@ export const REPOSITORY_LIST_SELECT = {
 
 const REPOSITORY_DETAIL_SELECT = {
   id: true,
+  name: true,
   fullName: true,
   defaultBranch: true,
   scanStatus: true,
@@ -61,6 +62,14 @@ export async function updateRepositoryScanStatus(
 export type RepositoryListItem = Prisma.RepositoryGetPayload<{
   select: typeof REPOSITORY_LIST_SELECT
 }>
+
+export async function hasUserRepositories(userId: string): Promise<boolean> {
+  const row = await prisma.repository.findFirst({
+    where: { userId },
+    select: { id: true },
+  })
+  return row !== null
+}
 
 export async function getUserRepositories(userId: string): Promise<RepositoryListItem[]> {
   return prisma.repository.findMany({

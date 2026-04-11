@@ -68,8 +68,12 @@ export async function POST(_req: Request, { params }: RouteParams) {
       callback_secret: process.env.AI_CALLBACK_SECRET,
     }),
     signal: AbortSignal.timeout(5000),
-  }).catch(() => {
-    // Best-effort — if the backend is unreachable, status stays QUEUED until backend comes up.
+  }).catch(async () => {
+    // Python service unreachable — reset to IDLE so the user can try again.
+    await updateRepositoryScanStatus(repoId, {
+      scanStatus: "IDLE",
+      errorMessage: "AI backend is not reachable. Make sure the Python service is running.",
+    }).catch(() => {})
   })
 
   return NextResponse.json({ status: "queued" })

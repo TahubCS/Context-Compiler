@@ -5,6 +5,7 @@ import { Search, ShoppingCart, GitBranch } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { ScanStatusBadge } from "@/components/features/repositories/scan-status-badge"
 import { ScanTriggerButton } from "@/components/features/repo/scan-trigger-button"
+import { ScanPoller } from "@/components/features/repo/scan-poller"
 
 type RepoPageProps = {
   params: Promise<{ repoId: string }>
@@ -28,8 +29,12 @@ export default async function RepoPage({ params }: RepoPageProps) {
 
   return (
     <div className="flex h-full flex-col gap-4">
+      {/* Poll for status updates while scan is in progress */}
+      <ScanPoller active={isBusy} />
+
       {/* Repo header */}
       <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-lg font-semibold text-foreground">{repository.fullName}</h1>
         <div className="flex items-center gap-2">
           <GitBranch className="size-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">{repository.defaultBranch ?? "main"}</span>

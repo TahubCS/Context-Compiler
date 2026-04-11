@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bunx prisma:*)"
+      "Bash(bunx prisma:*)",
+      "Bash(bun run:*)"
     ]
   }
 }

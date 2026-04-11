@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client"
+import { Prisma, RepositoryScanStatus } from "@prisma/client"
 import { prisma } from "./client"
 
 const UPSERT_CHUNK_SIZE = 50
@@ -11,8 +11,52 @@ export const REPOSITORY_LIST_SELECT = {
   defaultBranch: true,
   isPrivate: true,
   scanStatus: true,
+  scanProgress: true,
+  filesDiscovered: true,
+  filesProcessed: true,
   lastScannedAt: true,
 } as const
+
+const REPOSITORY_DETAIL_SELECT = {
+  id: true,
+  fullName: true,
+  defaultBranch: true,
+  scanStatus: true,
+  scanProgress: true,
+  filesDiscovered: true,
+  filesProcessed: true,
+} as const
+
+export type RepositoryDetail = Prisma.RepositoryGetPayload<{
+  select: typeof REPOSITORY_DETAIL_SELECT
+}>
+
+export async function getRepository(
+  repoId: string,
+  userId: string
+): Promise<RepositoryDetail | null> {
+  return prisma.repository.findFirst({
+    where: { id: repoId, userId },
+    select: REPOSITORY_DETAIL_SELECT,
+  })
+}
+
+export async function updateRepositoryScanStatus(
+  repositoryId: string,
+  data: {
+    scanStatus: RepositoryScanStatus
+    scanProgress?: number
+    filesDiscovered?: number
+    filesProcessed?: number
+    lastScannedAt?: Date
+    errorMessage?: string | null
+  }
+): Promise<void> {
+  await prisma.repository.update({
+    where: { id: repositoryId },
+    data,
+  })
+}
 
 export type RepositoryListItem = Prisma.RepositoryGetPayload<{
   select: typeof REPOSITORY_LIST_SELECT

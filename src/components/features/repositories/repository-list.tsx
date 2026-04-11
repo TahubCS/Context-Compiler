@@ -1,19 +1,14 @@
+import Link from "next/link"
 import { RepositoryListItem } from "@/lib/db"
+import { ScanStatusBadge } from "./scan-status-badge"
 
 type RepositoryListProps = {
   repositories: RepositoryListItem[]
   databaseError: string | null
 }
 
-function formatScanStatus(status: RepositoryListItem["scanStatus"]) {
-  return status.toLowerCase().replaceAll("_", " ")
-}
-
 function formatLastScannedAt(date: Date | null) {
-  if (!date) {
-    return "Never"
-  }
-
+  if (!date) return "Never"
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -46,14 +41,12 @@ export function RepositoryList({ repositories, databaseError }: RepositoryListPr
             <li key={repository.id} className="rounded-lg border border-border bg-background p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <a
-                    href={repository.githubUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <Link
+                    href={`/repo/${repository.id}`}
                     className="font-medium text-primary hover:underline"
                   >
                     {repository.fullName}
-                  </a>
+                  </Link>
                   <p className="text-sm text-muted-foreground">
                     {repository.isPrivate ? "Private" : "Public"} repository
                     {repository.defaultBranch
@@ -61,8 +54,14 @@ export function RepositoryList({ repositories, databaseError }: RepositoryListPr
                       : ""}
                   </p>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <p>Status: {formatScanStatus(repository.scanStatus)}</p>
+                <div className="flex flex-col items-start gap-1.5 text-sm text-muted-foreground md:items-end">
+                  <ScanStatusBadge status={repository.scanStatus} />
+                  {repository.scanStatus === "SCANNING" ? (
+                    <p>{repository.filesProcessed} / {repository.filesDiscovered} files</p>
+                  ) : null}
+                  {repository.scanStatus === "COMPLETED" ? (
+                    <p>{repository.filesProcessed} files indexed</p>
+                  ) : null}
                   <p>Last scanned: {formatLastScannedAt(repository.lastScannedAt)}</p>
                 </div>
               </div>

@@ -9,7 +9,10 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // The CLI exclusively uses the direct connection to push schema changes
-    url: process.env["DIRECT_URL"], 
+    // We apply migrations manually via Supabase SQL editor (direct connection is IPv6-only on free tier).
+    // The transaction pooler works for prisma generate.
+    // We use the session pooler (port 5432) for migrate commands to avoid IPv6 issues.
+    url: process.env["DATABASE_URL"],
+    directUrl: process.env["DIRECT_URL"],
   },
 });

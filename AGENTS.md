@@ -96,9 +96,11 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
   * `upsertGitHubRepositories(userId, repos)` — bulk upserts repos in 50-item batches
   * `upsertSupabaseUser(user)` — syncs a Supabase auth user into the Prisma User table
   * `getUserSubscriptionTier(userId)` — returns the user's `SubscriptionTier` enum value
+  * `searchCodeDocuments(repositoryId, queryVector, limit?)` — cosine similarity search; `queryVector` must be `number[]` of length 768
 * **If a helper doesn't exist**, add it to the appropriate `src/lib/db/*.ts` file and export it through `src/lib/db/index.ts`. New models get their own file (e.g., `src/lib/db/code-documents.ts`).
 * **Types for Prisma results** MUST use `Prisma.<Model>GetPayload<{ select: typeof SELECT_CONST }>` — never hand-write field shapes that duplicate the schema. The shared `RepositoryListItem` type is exported from `@/lib/db`.
 * The raw `prisma` client is also re-exported from `@/lib/db` for use inside `src/lib/db/*.ts` files only.
+* **`CodeDocument.embedding` is `Unsupported("vector(768)")`** — we use `gemini-embedding-001` with MRL dimensionality reduction to **768**. pgvector's HNSW index has a hard 2000-dimension ceiling, so 3072 is not usable. The Python service MUST output 768-dim vectors (not 3072 or 1536). **DO NOT change this value** — it will corrupt stored embeddings and break the HNSW index. Prisma cannot use `Unsupported` fields in `where`, `select`, or `orderBy`. All vector queries MUST use `prisma.$queryRaw`. The helper lives in `src/lib/db/code-documents.ts`.
 
 ### 10. Routing & Architecture Strict Guidelines
 * **Pattern:** We use Next.js App Router Route Groups to separate concerns.

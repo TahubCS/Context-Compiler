@@ -1,69 +1,45 @@
-import os
-import tempfile
+"""
+Repository scanner — clones a repo, chunks files, generates embeddings, and stores them.
+"""
+
 import hashlib
-import uuid
+import logging
+import tempfile
 from pathlib import Path
 
 import httpx
-import psycopg
 from git import Repo
-from google import genai
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+from config import (
+    CHUNK_MAX_LINES,
+    PROGRESS_EVERY,
+    SKIP_DIRS,
+    BINARY_EXTENSIONS,
+    LANGUAGE_MAP,
+)
+from ai import embed_text
+from vector_store import get_connection, upsert_chunk
 
-CHUNK_MAX_LINES = 100       # Max lines per chunk
-PROGRESS_EVERY = 10         # Call back every N files processed
-
-SKIP_DIRS = {
-    ".git", "node_modules", "vendor", "__pycache__", ".venv", "venv",
-    "dist", "build", ".next", ".turbo", "coverage",
-}
-
-BINARY_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
-    ".pdf", ".zip", ".tar", ".gz", ".woff", ".woff2", ".ttf", ".eot",
-    ".mp4", ".mp3", ".wav", ".avi", ".mov",
-    ".exe", ".dll", ".so", ".dylib", ".bin",
-    ".lock",  # package-lock / yarn.lock are too noisy
-}
-
-LANGUAGE_MAP = {
-    ".ts": "typescript", ".tsx": "typescript",
-    ".js": "javascript", ".jsx": "javascript",
-    ".py": "python",
-    ".go": "go",
-    ".rs": "rust",
-    ".java": "java",
-    ".cs": "csharp",
-    ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp",
-    ".c": "c", ".h": "c",
-    ".rb": "ruby",
-    ".php": "php",
-    ".swift": "swift",
-    ".kt": "kotlin",
-    ".md": "markdown",
-    ".json": "json",
-    ".yaml": "yaml", ".yml": "yaml",
-    ".sql": "sql",
-    ".sh": "bash",
-    ".html": "html",
-    ".css": "css",
-}
+logger = logging.getLogger("context-compiler.scanner")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _callback(url: str, secret: str, payload: dict) -> None:
     """Send a status update to the Next.js callback endpoint."""
     try:
-        httpx.patch(
+        logger.info("Callback -> %s  payload=%s", url, payload)
+        resp = httpx.patch(
             url,
             json=payload,
             headers={"x-callback-secret": secret},
             timeout=10,
         )
-    except Exception:
-        pass  # Best-effort — don't let callback failures abort the scan
+        if resp.status_code != 200:
+            logger.warning("Callback returned %s: %s", resp.status_code, resp.text)
+    except Exception as e:
+        logger.warning("Callback failed: %s", e)  # Best-effort — don't abort scan
 
 
 def _chunk_file(content: str) -> list[str]:
@@ -92,55 +68,8 @@ def _collect_files(repo_dir: Path) -> list[Path]:
     return files
 
 
-def _embed(client: genai.Client, text: str) -> list[float]:
-    result = client.models.embed_content(
-        model="models/gemini-embedding-001",
-        contents=text,
-        config={"output_dimensionality": 768},
-    )
-    return result.embeddings[0].values
-
-
-def _upsert_chunk(
-    conn,
-    repository_id: str,
-    file_path: str,
-    chunk_index: int,
-    language: str | None,
-    content: str,
-    content_hash: str,
-    token_count: int,
-    embedding: list[float],
-) -> None:
-    vector_literal = "[" + ",".join(str(v) for v in embedding) + "]"
-    conn.execute(
-        """
-        INSERT INTO "CodeDocument" (
-            id, "repositoryId", "filePath", "chunkIndex", language,
-            content, "contentHash", "tokenCount", embedding,
-            "embeddingModel", "embeddingDimensions", "updatedAt"
-        )
-        VALUES (
-            gen_random_uuid(), %s, %s, %s, %s,
-            %s, %s, %s, %s::vector,
-            'gemini-embedding-001', 768, NOW()
-        )
-        ON CONFLICT ("repositoryId", "filePath", "chunkIndex") DO UPDATE SET
-            content            = EXCLUDED.content,
-            "contentHash"      = EXCLUDED."contentHash",
-            embedding          = EXCLUDED.embedding,
-            "tokenCount"       = EXCLUDED."tokenCount",
-            "updatedAt"        = NOW()
-        WHERE "CodeDocument"."contentHash" != EXCLUDED."contentHash"
-        """,
-        (
-            repository_id, file_path, chunk_index, language,
-            content, content_hash, token_count, vector_literal,
-        ),
-    )
-
-
 # ── Main scan function ────────────────────────────────────────────────────────
+
 
 def run_scan(
     repository_id: str,
@@ -149,8 +78,6 @@ def run_scan(
     github_token: str,
     callback_url: str,
     callback_secret: str,
-    gemini_client: genai.Client,
-    db_url: str,
 ) -> None:
     """
     Full scan pipeline:
@@ -160,6 +87,10 @@ def run_scan(
     4. Upsert CodeDocument rows
     5. Callback with progress and final status
     """
+    logger.info(
+        "Starting scan for repo=%s url=%s branch=%s",
+        repository_id, github_url, default_branch,
+    )
     _callback(callback_url, callback_secret, {"scanStatus": "SCANNING"})
 
     try:
@@ -168,11 +99,14 @@ def run_scan(
             auth_url = github_url.replace(
                 "https://", f"https://x-access-token:{github_token}@"
             )
+            logger.info("Cloning %s (branch=%s) ...", github_url, default_branch)
             Repo.clone_from(auth_url, tmp_dir, branch=default_branch, depth=1)
+            logger.info("Clone complete")
 
             repo_dir = Path(tmp_dir)
             files = _collect_files(repo_dir)
             total_files = len(files)
+            logger.info("Discovered %d files to process", total_files)
 
             _callback(
                 callback_url,
@@ -180,13 +114,16 @@ def run_scan(
                 {"scanStatus": "SCANNING", "filesDiscovered": total_files},
             )
 
-            with psycopg.connect(db_url, autocommit=False) as conn:
+            logger.info("Connecting to database ...")
+            with get_connection() as conn:
+                logger.info("Database connected")
                 files_processed = 0
 
                 for file_path in files:
                     try:
                         content = file_path.read_text(encoding="utf-8", errors="ignore")
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("Could not read %s: %s", file_path, e)
                         continue
 
                     relative_path = str(file_path.relative_to(repo_dir))
@@ -198,12 +135,16 @@ def run_scan(
                         token_count = len(chunk_text.split())  # rough word-token estimate
 
                         try:
-                            embedding = _embed(gemini_client, chunk_text)
-                        except Exception:
+                            embedding = embed_text(chunk_text)
+                        except Exception as e:
+                            logger.error(
+                                "Embedding failed for %s chunk %d: %s",
+                                relative_path, chunk_index, e,
+                            )
                             continue
 
                         try:
-                            _upsert_chunk(
+                            upsert_chunk(
                                 conn,
                                 repository_id=repository_id,
                                 file_path=relative_path,
@@ -214,7 +155,11 @@ def run_scan(
                                 token_count=token_count,
                                 embedding=embedding,
                             )
-                        except Exception:
+                        except Exception as e:
+                            logger.error(
+                                "DB upsert failed for %s chunk %d: %s",
+                                relative_path, chunk_index, e,
+                            )
                             conn.rollback()
                             continue
 
@@ -232,6 +177,7 @@ def run_scan(
                             },
                         )
 
+        logger.info("Scan completed: %d/%d files processed", files_processed, total_files)
         _callback(
             callback_url,
             callback_secret,
@@ -243,6 +189,7 @@ def run_scan(
         )
 
     except Exception as exc:
+        logger.exception("Scan FAILED for repo=%s: %s", repository_id, exc)
         _callback(
             callback_url,
             callback_secret,

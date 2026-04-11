@@ -1,19 +1,19 @@
-from dotenv import load_dotenv
-load_dotenv()
+"""
+Context Compiler AI Backend — FastAPI application entry point.
+"""
 
-import os
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from pydantic import BaseModel
-from google import genai
 
+from config import logger  # noqa: F401 — ensures logging is configured on startup
+from ai import embed_text
 from scanner import run_scan
 
 app = FastAPI(title="Context Compiler AI Backend")
 
-_gemini_client = genai.Client(api_key=os.environ["GOOGLE_GEMINI_API_KEY"])
-
 
 # ── Request / Response models ─────────────────────────────────────────────────
+
 
 class ScanRequest(BaseModel):
     repository_id: str
@@ -30,6 +30,7 @@ class EmbedRequest(BaseModel):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+
 @app.post("/scan")
 async def trigger_scan(body: ScanRequest, background_tasks: BackgroundTasks):
     """
@@ -44,30 +45,28 @@ async def trigger_scan(body: ScanRequest, background_tasks: BackgroundTasks):
         github_token=body.github_token,
         callback_url=body.callback_url,
         callback_secret=body.callback_secret,
-        gemini_client=_gemini_client,
-        db_url=os.environ["DATABASE_URL"],
     )
     return {"status": "accepted"}
 
 
 @app.post("/embed")
-async def embed_text(body: EmbedRequest):
+async def embed_query(body: EmbedRequest):
     """
-    Single-text embedding endpoint used by the Next.js search API (Phase 3).
+    Single-text embedding endpoint used by the Next.js search API.
     Returns a 768-float vector via Gemini embedding-001 with MRL reduction.
     """
     if not body.text.strip():
         raise HTTPException(status_code=400, detail="text must not be empty")
 
-    result = _gemini_client.models.embed_content(
-        model="models/gemini-embedding-001",
-        contents=body.text,
-        config={"output_dimensionality": 768},
-    )
-    embedding = result.embeddings[0].values
+    embedding = embed_text(body.text)
     return {"embedding": embedding}
 
 
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

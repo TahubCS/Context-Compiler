@@ -4,11 +4,14 @@ Repository scanner — clones a repo, chunks files, generates embeddings, and st
 
 import hashlib
 import logging
+import os
+import shutil
 import tempfile
 from pathlib import Path
 
 import httpx
 from git import Repo
+from git.exc import GitCommandError
 
 from config import (
     CHUNK_MAX_LINES,
@@ -100,7 +103,22 @@ def run_scan(
                 "https://", f"https://x-access-token:{github_token}@"
             )
             logger.info("Cloning %s (branch=%s) ...", github_url, default_branch)
-            Repo.clone_from(auth_url, tmp_dir, branch=default_branch, depth=1)
+            try:
+                Repo.clone_from(auth_url, tmp_dir, branch=default_branch, depth=1)
+            except GitCommandError as e:
+                # Branch name stored in DB may be stale (e.g. repo uses 'master'
+                # but we stored 'main'). Fall back to the remote's default HEAD.
+                if "Remote branch" in str(e) and "not found" in str(e):
+                    logger.warning(
+                        "Branch '%s' not found — falling back to remote default HEAD.",
+                        default_branch,
+                    )
+                    # Clear the temp dir before re-cloning into it
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    os.makedirs(tmp_dir, exist_ok=True)
+                    Repo.clone_from(auth_url, tmp_dir, depth=1)
+                else:
+                    raise
             logger.info("Clone complete")
 
             repo_dir = Path(tmp_dir)

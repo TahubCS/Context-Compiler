@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { getRepository } from "@/lib/db"
-import { Search, ShoppingCart, GitBranch } from "lucide-react"
+import { Search, ShoppingCart, GitBranch, AlertCircle } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ScanStatusBadge } from "@/components/features/repositories/scan-status-badge"
 import { ScanTriggerButton } from "@/components/features/repo/scan-trigger-button"
 import { ScanPoller } from "@/components/features/repo/scan-poller"
@@ -51,6 +52,13 @@ export default async function RepoPage({ params }: RepoPageProps) {
           <ScanTriggerButton repoId={repoId} disabled={isBusy} />
         </div>
       </div>
+
+      {repository.scanStatus === "FAILED" && repository.errorMessage ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{repository.errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {isScanning ? (
         <Progress

@@ -1,9 +1,11 @@
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
 import { getUserSubscriptionTier, isPrismaConnectivityError } from "@/lib/db"
-import { Button } from "@/components/ui/button"
 import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
+import { EditProfileDialog } from "@/components/features/settings/edit-profile-dialog"
+import { Button } from "@/components/ui/button"
 import { User, CreditCard } from "lucide-react"
+
 import { LuGithub } from "react-icons/lu"
 
 export default async function SettingsPage() {
@@ -55,9 +57,7 @@ export default async function SettingsPage() {
           )}
         </div>
         <div className="mt-4">
-          <Button variant="outline" size="sm" disabled>
-            Edit Profile — Coming Soon
-          </Button>
+          <EditProfileDialog currentName={displayName} />
         </div>
       </section>
 

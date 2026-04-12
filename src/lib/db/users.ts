@@ -59,6 +59,13 @@ export async function getUserGithubToken(
   return row?.githubToken ?? null
 }
 
+export async function updateUserProfile(
+  userId: string,
+  data: { name: string }
+): Promise<void> {
+  await prisma.user.update({ where: { id: userId }, data })
+}
+
 export async function getUserSubscriptionTier(
   userId: string
 ): Promise<UserSubscriptionTier | null> {

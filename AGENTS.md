@@ -93,6 +93,8 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
   * `DropdownMenu` item content uses `bg-popover/70` with `backdrop-blur-2xl` glassmorphic style
   * `Dialog` uses `rounded-4xl` and includes an optional `showCloseButton` prop (default `true`)
 * **Icons:** Use `lucide-react` for all icons. **Exception:** `lucide-react` does not include a GitHub icon — use `LuGithub` from `react-icons/lu` (already installed) for any GitHub-branded icon.
+* **Modals & popup forms:** Always use the `Dialog` shadcn component for any overlay that contains a form, textarea, or requires user input. Never build inline expandable panels or custom overlay divs for this purpose.
+* **Notifications:** Always use `sonner` (`toast.success`, `toast.error`, `toast.info`, etc.) for all user-facing notifications. The `<Toaster>` is mounted globally in `src/components/providers.tsx` with `position="top-center"` and `richColors`. Never use `alert()` or custom toast implementations.
 * **Tailwind v4:** This project uses Tailwind CSS v4 — no `tailwind.config.ts`. All theme configuration is CSS-variable driven via `src/app/globals.css`.
 * **Dark Mode:** The `dark` class is forced on `<html>` in the root layout. Always design for dark mode as the primary experience.
 

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(bunx prisma:*)",
       "Bash(bun run:*)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(bun add:*)"
     ]
   }
 }

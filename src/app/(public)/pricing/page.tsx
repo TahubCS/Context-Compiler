@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
 
@@ -8,7 +9,9 @@ const tiers = [
     description: "For individual developers getting started.",
     features: ["1 repository", "100 searches / month", "Community support"],
     cta: "Get Started",
+    href: "/",
     highlighted: false,
+    tier: null,
   },
   {
     name: "Pro",
@@ -21,7 +24,9 @@ const tiers = [
       "Advanced context cart",
     ],
     cta: "Upgrade to Pro",
+    href: "/settings/billing",
     highlighted: true,
+    tier: "PRO",
   },
   {
     name: "Team",
@@ -34,7 +39,9 @@ const tiers = [
       "Audit logs",
     ],
     cta: "Upgrade to Team",
+    href: "/settings/billing",
     highlighted: false,
+    tier: "TEAM",
   },
 ]
 
@@ -78,9 +85,9 @@ export default function PricingPage() {
               <Button
                 className="w-full"
                 variant={tier.highlighted ? "default" : "outline"}
-                disabled
+                asChild
               >
-                {tier.cta} — Coming Soon
+                <Link href={tier.href}>{tier.cta}</Link>
               </Button>
             </div>
           </div>
@@ -88,7 +95,7 @@ export default function PricingPage() {
       </div>
 
       <p className="mt-10 text-center text-sm text-muted-foreground">
-        Billing powered by Stripe — coming soon.
+        Billing powered by Stripe.
       </p>
     </div>
   )

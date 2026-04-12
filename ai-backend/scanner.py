@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+import psycopg
 from git import Repo
 from git.exc import GitCommandError
 
@@ -173,7 +174,18 @@ def run_scan(
                                 token_count=token_count,
                                 embedding=embedding,
                             )
+                        except (psycopg.OperationalError, psycopg.InterfaceError) as e:
+                            # DB connection lost — abort the entire scan so the
+                            # outer handler can report FAILED instead of silently
+                            # completing with zero data stored.
+                            logger.error(
+                                "DB connectivity lost at %s chunk %d — aborting scan: %s",
+                                relative_path, chunk_index, e,
+                            )
+                            raise
                         except Exception as e:
+                            # Transient per-chunk error (bad data, constraint
+                            # violation, etc.) — log and skip this chunk only.
                             logger.error(
                                 "DB upsert failed for %s chunk %d: %s",
                                 relative_path, chunk_index, e,

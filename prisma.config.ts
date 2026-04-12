@@ -9,8 +9,10 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // Migrations are applied manually via Supabase SQL editor (direct connection is IPv6-only on free tier).
-    // Transaction pooler (DATABASE_URL) is used for prisma generate and migrate resolve.
-    url: process.env["DATABASE_URL"],
+    // Prisma v7 only supports `url` here — no separate migrationUrl.
+    // DIRECT_URL uses port 5432 (direct TCP, no PgBouncer) which is required
+    // for DDL migrations. Runtime queries also use this — the pooler (6543)
+    // is a production-scale optimization, not needed for dev.
+    url: process.env["DIRECT_URL"],
   },
 });

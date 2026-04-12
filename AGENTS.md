@@ -57,6 +57,14 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * NEVER put `url` or `directUrl` in the `prisma/schema.prisma` file. The datasource block should only contain `provider = "postgresql"`.
 * All database connection strings are managed exclusively in `prisma.config.ts` under the `datasource` object.
 
+### 7a. Database Migrations (CRITICAL)
+* **NEVER run any Prisma migration or push command.** All schema changes are applied by the user, not the agent.
+* When schema changes are needed, update `prisma/schema.prisma` and then **stop**. Inform the user what changed and instruct them to run:
+  ```
+  bun run prisma db push
+  ```
+* `prisma db push` is the correct dev command for Supabase — it diffs and applies schema changes directly without needing a shadow database. Do NOT suggest `prisma migrate dev` (requires shadow DB, unsupported by Supabase).
+
 ### 8. Design System & Theming (shadcn/ui Custom Preset)
 * The project uses a custom shadcn/ui preset with a dark deep-gray background, a **blue/cyan** primary accent, **teal** chart colors, and **large** border radii. All colors use the OKLCH color space — do not convert to hex or HSL.
 * **NEVER hardcode hex codes, OKLCH values, or specific Tailwind color scales** (e.g., do not use `bg-cyan-600`, `text-gray-400`, or `oklch(0.52 0.105 223.128)`).

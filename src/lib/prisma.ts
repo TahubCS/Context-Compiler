@@ -9,10 +9,10 @@ const globalForPrisma = globalThis as unknown as {
 
 function getPrismaConnectionString() {
   const connectionString =
-    process.env.PRISMA_DATABASE_URL ?? process.env.DIRECT_URL ?? process.env.DATABASE_URL
+    process.env.PRISMA_DATABASE_URL ?? process.env.DATABASE_URL ?? process.env.DIRECT_URL
 
   if (!connectionString) {
-    throw new Error("Missing PRISMA_DATABASE_URL, DIRECT_URL, or DATABASE_URL for Prisma.")
+    throw new Error("Missing PRISMA_DATABASE_URL, DATABASE_URL, or DIRECT_URL for Prisma.")
   }
 
   return connectionString

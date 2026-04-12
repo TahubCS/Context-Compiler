@@ -8,29 +8,36 @@ export async function POST(_req: Request, { params }: RouteParams) {
   const { repoId } = await params
 
   const supabase = await createClient()
-  const [{ data: userData }, { data: sessionData }] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase.auth.getSession(),
-  ])
+  const { data: userData } = await supabase.auth.getUser()
 
   const user = userData.user
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const repository = await prisma.repository.findFirst({
-    where: { id: repoId, userId: user.id },
-    select: { id: true, githubUrl: true, defaultBranch: true },
-  })
+  // Fetch repo + GitHub token from DB in a single parallel batch
+  const [repository, dbUser] = await Promise.all([
+    prisma.repository.findFirst({
+      where: { id: repoId, userId: user.id },
+      select: { id: true, githubUrl: true, defaultBranch: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { githubToken: true },
+    }),
+  ])
 
   if (!repository) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 })
   }
 
-  const providerToken = sessionData.session?.provider_token
-  if (!providerToken) {
+  // provider_token only exists in the Supabase session immediately after OAuth
+  // login — it's dropped after the first token refresh. We persist it to the
+  // User table in the auth callback so it's always available here.
+  const githubToken = dbUser?.githubToken
+  if (!githubToken) {
     return NextResponse.json(
-      { error: "Missing GitHub token. Please sign out and sign in again." },
+      { error: "GitHub token not found. Please sign out and sign in again." },
       { status: 400 }
     )
   }
@@ -63,7 +70,7 @@ export async function POST(_req: Request, { params }: RouteParams) {
       repository_id: repository.id,
       github_url: repository.githubUrl,
       default_branch: repository.defaultBranch ?? "main",
-      github_token: providerToken,
+      github_token: githubToken,
       callback_url: `${process.env.NEXT_PUBLIC_URL}/api/repo/${repoId}/scan/status`,
       callback_secret: process.env.AI_CALLBACK_SECRET,
     }),

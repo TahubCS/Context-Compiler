@@ -42,6 +42,27 @@ export async function getRepository(
   })
 }
 
+const REPOSITORY_SCAN_SELECT = {
+  id: true,
+  githubUrl: true,
+  defaultBranch: true,
+} as const
+
+export type RepositoryScanInfo = Prisma.RepositoryGetPayload<{
+  select: typeof REPOSITORY_SCAN_SELECT
+}>
+
+/** Fetches only the fields needed to trigger a scan. */
+export async function getRepositoryForScan(
+  repoId: string,
+  userId: string
+): Promise<RepositoryScanInfo | null> {
+  return prisma.repository.findFirst({
+    where: { id: repoId, userId },
+    select: REPOSITORY_SCAN_SELECT,
+  })
+}
+
 export async function updateRepositoryScanStatus(
   repositoryId: string,
   data: {

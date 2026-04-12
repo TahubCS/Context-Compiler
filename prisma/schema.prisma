@@ -27,6 +27,7 @@ model User {
   name             String?
   avatarUrl        String?
   githubId         String?          @unique
+  githubToken      String?          // GitHub OAuth access token — persisted from auth callback
   stripeCustomerId String?          @unique
   subscriptionTier SubscriptionTier @default(FREE)
   repositories     Repository[]

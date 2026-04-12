@@ -1,4 +1,4 @@
-import { upsertSupabaseUser, isPrismaConnectivityError } from "@/lib/db"
+import { upsertSupabaseUser, isPrismaConnectivityError, prisma } from "@/lib/db"
 import { createClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -44,6 +44,17 @@ export async function GET(request: Request) {
   if (!isPrismaUserSyncDisabled) {
     try {
       await upsertSupabaseUser(user)
+
+      // Persist the GitHub OAuth token while we have it — Supabase drops
+      // provider_token from the session after the first token refresh,
+      // so this is the only reliable moment to capture it.
+      const providerToken = data.session?.provider_token
+      if (providerToken) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { githubToken: providerToken },
+        })
+      }
     } catch (dbError) {
       // Do not block login if application DB sync fails after session exchange.
       if (isPrismaConnectivityError(dbError)) {

@@ -30,6 +30,35 @@ export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
   })
 }
 
+/**
+ * Persists the GitHub OAuth access token to the User row.
+ * Called during the auth callback — the only moment Supabase guarantees
+ * provider_token is present in the session.
+ */
+export async function updateUserGithubToken(
+  userId: string,
+  token: string
+): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { githubToken: token },
+  })
+}
+
+/**
+ * Retrieves the persisted GitHub OAuth token for a user.
+ * Returns null if the user doesn't exist or hasn't linked GitHub.
+ */
+export async function getUserGithubToken(
+  userId: string
+): Promise<string | null> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { githubToken: true },
+  })
+  return row?.githubToken ?? null
+}
+
 export async function getUserSubscriptionTier(
   userId: string
 ): Promise<UserSubscriptionTier | null> {

@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
 export type CartItem = {
   id: string
@@ -18,14 +19,19 @@ type ContextCartStore = {
   has: (id: string) => boolean
 }
 
-export const useContextCart = create<ContextCartStore>((set, get) => ({
-  items: [],
-  add: (item) =>
-    set((state) => {
-      if (state.items.some((i) => i.id === item.id)) return state
-      return { items: [...state.items, item] }
+export const useContextCart = create<ContextCartStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      add: (item) =>
+        set((state) => {
+          if (state.items.some((i) => i.id === item.id)) return state
+          return { items: [...state.items, item] }
+        }),
+      remove: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
+      clear: () => set({ items: [] }),
+      has: (id) => get().items.some((i) => i.id === id),
     }),
-  remove: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
-  clear: () => set({ items: [] }),
-  has: (id) => get().items.some((i) => i.id === id),
-}))
+    { name: "context-cart" }
+  )
+)

@@ -26,6 +26,7 @@ const REPOSITORY_DETAIL_SELECT = {
   scanProgress: true,
   filesDiscovered: true,
   filesProcessed: true,
+  errorMessage: true,
 } as const
 
 export type RepositoryDetail = Prisma.RepositoryGetPayload<{

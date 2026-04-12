@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress"
 import { ScanStatusBadge } from "@/components/features/repositories/scan-status-badge"
 import { ScanTriggerButton } from "@/components/features/repo/scan-trigger-button"
 import { ScanPoller } from "@/components/features/repo/scan-poller"
+import { SearchPane } from "@/components/features/repo/search-pane"
+import { ContextCartPane } from "@/components/features/repo/context-cart-pane"
 
 type RepoPageProps = {
   params: Promise<{ repoId: string }>
@@ -69,9 +71,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
             <Search className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Search</h2>
           </div>
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border">
-            <p className="text-sm text-muted-foreground">Natural language search coming soon.</p>
-          </div>
+          <SearchPane repoId={repoId} />
         </section>
 
         {/* Right pane — Context Cart (40%) */}
@@ -79,11 +79,8 @@ export default async function RepoPage({ params }: RepoPageProps) {
           <div className="flex items-center gap-2">
             <ShoppingCart className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Context Cart</h2>
-            <span className="ml-auto text-xs text-muted-foreground">0 items</span>
           </div>
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border">
-            <p className="text-sm text-muted-foreground">Selected code blocks will appear here.</p>
-          </div>
+          <ContextCartPane />
         </section>
       </div>
     </div>

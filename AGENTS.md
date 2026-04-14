@@ -144,3 +144,11 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 ### 13. Agent Handoff Rule
 * If you make a major architectural, workflow, schema, background-job, auth, billing, or deployment change, you must update `AGENTS.md` in the same turn so the next agent inherits the new rules.
 * Treat this as a standing command: after any major change, update `AGENTS.md` before ending the task.
+
+### 14. Saved Artifacts & Answer Workflow (CRITICAL)
+* `V1.3` introduces two new first-class user-owned artifacts: `SavedCart` and `AnswerSession`.
+* Saved artifact ownership is `userId` + `repositoryId` for now. Do not introduce workspace ownership before `V2`.
+* Saved carts and answer citations must store hybrid snapshots: keep `codeDocumentId` when available, but always persist `contentSnapshot` so exports survive rescans.
+* The left repo pane now supports three workflows: semantic search, repository QA, and saved answer recall. Search remains available; answer generation is additive, not a replacement.
+* Answer generation must run through the Python AI backend. Keep Next.js as orchestration/UI and do not move repo-answer synthesis into the app server.
+* Prompt export is plain text / markdown only in `V1.3`. Do not add file-generation or binary export formats in this release.

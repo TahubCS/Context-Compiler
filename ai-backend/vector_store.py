@@ -86,3 +86,42 @@ def delete_stale_chunks(conn, repository_id: str, scan_job_id: str) -> None:
         """,
         (repository_id, scan_job_id),
     )
+
+
+def search_similar_chunks(
+    conn,
+    repository_id: str,
+    query_vector: list[float],
+    limit: int = 6,
+) -> list[dict]:
+    """Fetch relevant code chunks for repository QA."""
+    vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
+    rows = conn.execute(
+        """
+        SELECT
+            id::text,
+            "filePath",
+            "chunkIndex",
+            language,
+            content,
+            (1 - (embedding <=> %s::vector))::float8 AS score
+        FROM "CodeDocument"
+        WHERE "repositoryId" = %s::uuid
+          AND embedding IS NOT NULL
+        ORDER BY embedding <=> %s::vector
+        LIMIT %s
+        """,
+        (vector_literal, repository_id, vector_literal, limit),
+    ).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "filePath": row[1],
+            "chunkIndex": row[2],
+            "language": row[3],
+            "content": row[4],
+            "score": float(row[5]),
+        }
+        for row in rows
+    ]

@@ -28,6 +28,11 @@ enum ScanJobStatus {
   FAILED
 }
 
+enum AnswerSessionStatus {
+  SAVED
+  ARCHIVED
+}
+
 model User {
   id                   String           @id @db.Uuid
   email                String           @unique
@@ -39,6 +44,8 @@ model User {
   stripeCustomerId     String?          @unique
   subscriptionTier     SubscriptionTier @default(FREE)
   repositories         Repository[]
+  savedCarts           SavedCart[]
+  answerSessions       AnswerSession[]
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 }
@@ -63,6 +70,8 @@ model Repository {
   activeScanJobId      String?              @db.Uuid
   codeDocuments        CodeDocument[]
   scanJobs             ScanJob[]
+  savedCarts           SavedCart[]
+  answerSessions       AnswerSession[]
   user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
@@ -121,4 +130,70 @@ model ScanJob {
   @@index([repositoryId, status])
   @@index([repositoryId, lastHeartbeatAt])
   @@index([triggeredByUserId])
+}
+
+model SavedCart {
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @db.Uuid
+  repositoryId String          @db.Uuid
+  title        String
+  description  String?
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository   Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  items        SavedCartItem[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([userId, repositoryId, updatedAt])
+  @@index([repositoryId, updatedAt])
+}
+
+model SavedCartItem {
+  id              String     @id @default(uuid()) @db.Uuid
+  savedCartId      String     @db.Uuid
+  codeDocumentId   String?    @db.Uuid
+  filePath         String
+  chunkIndex       Int
+  language         String?
+  contentSnapshot  String     @db.Text
+  score            Float?
+  orderIndex       Int
+  savedCart        SavedCart  @relation(fields: [savedCartId], references: [id], onDelete: Cascade)
+  createdAt        DateTime   @default(now())
+
+  @@index([savedCartId, orderIndex])
+  @@index([codeDocumentId])
+}
+
+model AnswerSession {
+  id           String              @id @default(uuid()) @db.Uuid
+  userId       String              @db.Uuid
+  repositoryId String              @db.Uuid
+  question     String              @db.Text
+  answer       String              @db.Text
+  status       AnswerSessionStatus @default(SAVED)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository   Repository          @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  citations    AnswerCitation[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([userId, repositoryId, updatedAt])
+  @@index([repositoryId, updatedAt])
+}
+
+model AnswerCitation {
+  id             String        @id @default(uuid()) @db.Uuid
+  answerSessionId String        @db.Uuid
+  codeDocumentId  String?       @db.Uuid
+  filePath        String
+  chunkIndex      Int
+  language        String?
+  contentSnapshot String        @db.Text
+  score           Float?
+  orderIndex      Int
+  answerSession   AnswerSession @relation(fields: [answerSessionId], references: [id], onDelete: Cascade)
+
+  @@index([answerSessionId, orderIndex])
+  @@index([codeDocumentId])
 }

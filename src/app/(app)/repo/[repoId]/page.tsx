@@ -99,7 +99,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
             <Search className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Search</h2>
           </div>
-          <SearchPane repoId={repoId} />
+          <SearchPane repoId={repoId} repositoryName={repository.fullName} />
         </section>
 
         {/* Right pane — Context Cart (40%) */}
@@ -108,7 +108,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
             <ShoppingCart className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Context Cart</h2>
           </div>
-          <ContextCartPane />
+          <ContextCartPane repoId={repoId} repositoryName={repository.fullName} />
         </section>
       </div>
     </div>

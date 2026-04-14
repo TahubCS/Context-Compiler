@@ -16,6 +16,9 @@ type ContextCartStore = {
   add: (item: CartItem) => void
   remove: (id: string) => void
   clear: () => void
+  clearRepository: (repositoryId: string) => void
+  replaceRepositoryItems: (repositoryId: string, items: CartItem[]) => void
+  getItemsForRepository: (repositoryId: string) => CartItem[]
   has: (id: string) => boolean
 }
 
@@ -30,6 +33,19 @@ export const useContextCart = create<ContextCartStore>()(
         }),
       remove: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
       clear: () => set({ items: [] }),
+      clearRepository: (repositoryId) =>
+        set((state) => ({
+          items: state.items.filter((item) => item.repositoryId !== repositoryId),
+        })),
+      replaceRepositoryItems: (repositoryId, items) =>
+        set((state) => ({
+          items: [
+            ...state.items.filter((item) => item.repositoryId !== repositoryId),
+            ...items,
+          ],
+        })),
+      getItemsForRepository: (repositoryId) =>
+        get().items.filter((item) => item.repositoryId === repositoryId),
       has: (id) => get().items.some((i) => i.id === id),
     }),
     { name: "context-cart" }

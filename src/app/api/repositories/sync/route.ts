@@ -39,7 +39,7 @@ async function fetchGitHubRepositories(providerToken: string) {
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         throw new Error(
-          "GitHub token is missing required permissions or expired. Please sign out and sign in again."
+          "GitHub token is missing required permissions or expired. Please reconnect GitHub."
         )
       }
 
@@ -94,7 +94,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "Missing GitHub token. Please sign out and sign in again to sync repositories.",
+          "GitHub needs to be reconnected before you can sync repositories.",
       },
       { status: 400 }
     )

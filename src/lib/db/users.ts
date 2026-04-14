@@ -6,6 +6,8 @@ import { prisma } from "./client"
 export type UserSubscriptionTier =
   Prisma.UserGetPayload<{ select: { subscriptionTier: true } }>["subscriptionTier"]
 
+export type GitHubConnectionStatus = "connected" | "needs_reconnect"
+
 export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
   if (!user.email) return
 
@@ -41,7 +43,6 @@ export async function clearUserGithubToken(userId: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
     data: {
-      githubToken: null,
       githubTokenEncrypted: null,
       githubTokenUpdatedAt: null,
     },
@@ -52,25 +53,28 @@ export async function getUserGithubToken(userId: string): Promise<string | null>
   const row = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      githubToken: true,
       githubTokenEncrypted: true,
     },
   })
 
-  if (!row) return null
-
-  if (row.githubTokenEncrypted) {
-    return decryptGithubToken(row.githubTokenEncrypted)
-  }
-
-  if (!row.githubToken) {
+  if (!row?.githubTokenEncrypted) {
     return null
   }
 
-  // Temporary plaintext fallback for existing rows. This lazily migrates
-  // legacy tokens on first use without requiring SQL-side encryption.
-  await updateUserGithubToken(userId, row.githubToken)
-  return row.githubToken
+  return decryptGithubToken(row.githubTokenEncrypted)
+}
+
+export async function getUserGitHubConnectionStatus(
+  userId: string
+): Promise<GitHubConnectionStatus> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      githubTokenEncrypted: true,
+    },
+  })
+
+  return row?.githubTokenEncrypted ? "connected" : "needs_reconnect"
 }
 
 export async function updateUserProfile(userId: string, data: { name: string }): Promise<void> {

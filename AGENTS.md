@@ -134,11 +134,12 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * GitHub OAuth tokens must never be stored or updated in plaintext route-handler code.
 * The source of truth for GitHub token persistence is `src/lib/db/users.ts`.
 * `updateUserGithubToken(userId, token)` must encrypt before writing to the database.
-* `getUserGithubToken(userId)` must decrypt before returning to callers and may temporarily fall back to the legacy plaintext `User.githubToken` column during rollout.
+* `getUserGithubToken(userId)` must decrypt before returning to callers. Do not add a plaintext token fallback back into runtime code.
 * Route handlers and pages must not write `githubToken` or `githubTokenEncrypted` directly with `prisma.user.update(...)`.
 * The server requires `GITHUB_TOKEN_ENCRYPTION_KEY` for token encryption and decryption.
-* During the V1.2 rollout, the legacy plaintext `githubToken` column remains only as a compatibility fallback. New writes must go to `githubTokenEncrypted`.
-* For auth and security schema changes, prefer additive rollout SQL first. Destructive column removal should happen only in a later explicit cleanup step.
+* The GitHub auth callback must fail loudly if the provider token is missing or cannot be encrypted/stored. Do not silently redirect authenticated users into the app when token capture failed.
+* `githubTokenEncrypted` is the only supported GitHub token field. If it is missing or invalid, reconnect GitHub through the existing OAuth flow.
+* For auth and security schema changes, prefer additive rollout SQL first. Column removal is allowed only once the encrypted path is already live and the manual SQL migration is provided.
 
 ### 13. Agent Handoff Rule
 * If you make a major architectural, workflow, schema, background-job, auth, billing, or deployment change, you must update `AGENTS.md` in the same turn so the next agent inherits the new rules.

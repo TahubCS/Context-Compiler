@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   // User table in the auth callback so it's always available here.
   if (!githubToken) {
     return NextResponse.json(
-      { error: "GitHub token not found. Please sign out and sign in again." },
+      { error: "GitHub needs to be reconnected before you can start a scan." },
       { status: 400 }
     )
   }

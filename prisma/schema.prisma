@@ -29,42 +29,44 @@ enum ScanJobStatus {
 }
 
 model User {
-  id               String           @id @db.Uuid // Explicitly matches Supabase Auth UUID
-  email            String           @unique
-  name             String?
-  avatarUrl        String?
-  githubId         String?          @unique
-  githubToken      String?          // GitHub OAuth access token — persisted from auth callback
-  stripeCustomerId String?          @unique
-  subscriptionTier SubscriptionTier @default(FREE)
-  repositories     Repository[]
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                   String           @id @db.Uuid
+  email                String           @unique
+  name                 String?
+  avatarUrl            String?
+  githubId             String?          @unique
+  githubToken          String?          // Legacy plaintext fallback during rollout only. Prefer githubTokenEncrypted.
+  githubTokenEncrypted String?
+  githubTokenUpdatedAt DateTime?
+  stripeCustomerId     String?          @unique
+  subscriptionTier     SubscriptionTier @default(FREE)
+  repositories         Repository[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 }
 
 model Repository {
-  id              String               @id @default(uuid()) @db.Uuid
-  userId          String               @db.Uuid
-  githubRepoId    String?
-  name            String
-  fullName        String
-  owner           String?
-  githubUrl       String
-  defaultBranch   String?
-  isPrivate       Boolean              @default(true)
-  lastScannedAt   DateTime?
+  id                  String               @id @default(uuid()) @db.Uuid
+  userId              String               @db.Uuid
+  githubRepoId        String?
+  name                String
+  fullName            String
+  owner               String?
+  githubUrl           String
+  defaultBranch       String?
+  isPrivate           Boolean              @default(true)
+  lastScannedAt       DateTime?
   lastIndexedCommitSha String?
-  scanStatus      RepositoryScanStatus @default(IDLE)
-  scanProgress    Int                  @default(0)
-  filesDiscovered Int                  @default(0)
-  filesProcessed  Int                  @default(0)
-  errorMessage    String?
-  activeScanJobId String?              @db.Uuid
-  codeDocuments   CodeDocument[]
-  scanJobs        ScanJob[]
-  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  scanStatus          RepositoryScanStatus @default(IDLE)
+  scanProgress        Int                  @default(0)
+  filesDiscovered     Int                  @default(0)
+  filesProcessed      Int                  @default(0)
+  errorMessage        String?
+  activeScanJobId     String?              @db.Uuid
+  codeDocuments       CodeDocument[]
+  scanJobs            ScanJob[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([userId, githubUrl])
   @@unique([userId, githubRepoId])

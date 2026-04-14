@@ -130,5 +130,16 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Stale code chunks must only be deleted after a scan completes successfully. Never delete old `CodeDocument` rows during a failed or abandoned scan.
 * Existing repositories may have `githubRepoId = NULL` until the next GitHub sync. If code depends on immutable GitHub repo identity, instruct the user to run repo sync after applying schema SQL.
 
-### 12. Agent Handoff Rule
+### 12. Auth & Token Storage (CRITICAL)
+* GitHub OAuth tokens must never be stored or updated in plaintext route-handler code.
+* The source of truth for GitHub token persistence is `src/lib/db/users.ts`.
+* `updateUserGithubToken(userId, token)` must encrypt before writing to the database.
+* `getUserGithubToken(userId)` must decrypt before returning to callers and may temporarily fall back to the legacy plaintext `User.githubToken` column during rollout.
+* Route handlers and pages must not write `githubToken` or `githubTokenEncrypted` directly with `prisma.user.update(...)`.
+* The server requires `GITHUB_TOKEN_ENCRYPTION_KEY` for token encryption and decryption.
+* During the V1.2 rollout, the legacy plaintext `githubToken` column remains only as a compatibility fallback. New writes must go to `githubTokenEncrypted`.
+* For auth and security schema changes, prefer additive rollout SQL first. Destructive column removal should happen only in a later explicit cleanup step.
+
+### 13. Agent Handoff Rule
 * If you make a major architectural, workflow, schema, background-job, auth, billing, or deployment change, you must update `AGENTS.md` in the same turn so the next agent inherits the new rules.
+* Treat this as a standing command: after any major change, update `AGENTS.md` before ending the task.

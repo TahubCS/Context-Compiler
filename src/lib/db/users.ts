@@ -1,14 +1,11 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { Prisma } from "@prisma/client"
+import { decryptGithubToken, encryptGithubToken } from "@/lib/crypto"
 import { prisma } from "./client"
 
 export type UserSubscriptionTier =
   Prisma.UserGetPayload<{ select: { subscriptionTier: true } }>["subscriptionTier"]
 
-/**
- * Upserts a Supabase-authenticated user into the Prisma User table.
- * Skips silently if user.email is null (no-op).
- */
 export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
   if (!user.email) return
 
@@ -30,39 +27,53 @@ export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
   })
 }
 
-/**
- * Persists the GitHub OAuth access token to the User row.
- * Called during the auth callback — the only moment Supabase guarantees
- * provider_token is present in the session.
- */
-export async function updateUserGithubToken(
-  userId: string,
-  token: string
-): Promise<void> {
+export async function updateUserGithubToken(userId: string, token: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
-    data: { githubToken: token },
+    data: {
+      githubTokenEncrypted: encryptGithubToken(token),
+      githubTokenUpdatedAt: new Date(),
+    },
   })
 }
 
-/**
- * Retrieves the persisted GitHub OAuth token for a user.
- * Returns null if the user doesn't exist or hasn't linked GitHub.
- */
-export async function getUserGithubToken(
-  userId: string
-): Promise<string | null> {
+export async function clearUserGithubToken(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      githubToken: null,
+      githubTokenEncrypted: null,
+      githubTokenUpdatedAt: null,
+    },
+  })
+}
+
+export async function getUserGithubToken(userId: string): Promise<string | null> {
   const row = await prisma.user.findUnique({
     where: { id: userId },
-    select: { githubToken: true },
+    select: {
+      githubToken: true,
+      githubTokenEncrypted: true,
+    },
   })
-  return row?.githubToken ?? null
+
+  if (!row) return null
+
+  if (row.githubTokenEncrypted) {
+    return decryptGithubToken(row.githubTokenEncrypted)
+  }
+
+  if (!row.githubToken) {
+    return null
+  }
+
+  // Temporary plaintext fallback for existing rows. This lazily migrates
+  // legacy tokens on first use without requiring SQL-side encryption.
+  await updateUserGithubToken(userId, row.githubToken)
+  return row.githubToken
 }
 
-export async function updateUserProfile(
-  userId: string,
-  data: { name: string }
-): Promise<void> {
+export async function updateUserProfile(userId: string, data: { name: string }): Promise<void> {
   await prisma.user.update({ where: { id: userId }, data })
 }
 

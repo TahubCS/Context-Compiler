@@ -1,5 +1,12 @@
 import { createClient } from "@/utils/supabase/server"
-import { upsertSupabaseUser, upsertGitHubRepositories, isPrismaConnectivityError } from "@/lib/db"
+import {
+  clearUserGithubToken,
+  getUserGithubToken,
+  isPrismaConnectivityError,
+  upsertGitHubRepositories,
+  updateUserGithubToken,
+  upsertSupabaseUser,
+} from "@/lib/db"
 import type { GitHubRepoInput } from "@/lib/db"
 import { NextResponse } from "next/server"
 
@@ -69,13 +76,25 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const providerToken = sessionData.session?.provider_token
+  const sessionProviderToken = sessionData.session?.provider_token
+  let providerToken = sessionProviderToken
+
+  if (!providerToken) {
+    try {
+      providerToken = await getUserGithubToken(user.id)
+    } catch (error) {
+      if (isPrismaConnectivityError(error)) {
+        return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+      }
+      throw error
+    }
+  }
 
   if (!providerToken) {
     return NextResponse.json(
       {
         error:
-          "Missing GitHub provider token in session. Please sign out and sign in again to sync repositories.",
+          "Missing GitHub token. Please sign out and sign in again to sync repositories.",
       },
       { status: 400 }
     )
@@ -85,11 +104,21 @@ export async function POST() {
     const githubRepositories = await fetchGitHubRepositories(providerToken)
 
     await upsertSupabaseUser(user)
+    if (sessionProviderToken) {
+      await updateUserGithubToken(user.id, sessionProviderToken)
+    }
     await upsertGitHubRepositories(user.id, githubRepositories)
 
     return NextResponse.json({ syncedCount: githubRepositories.length })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to sync repositories."
+
+    if (
+      error instanceof Error &&
+      error.message.includes("GitHub token is missing required permissions or expired")
+    ) {
+      await clearUserGithubToken(user.id).catch(() => {})
+    }
 
     if (isPrismaConnectivityError(error)) {
       return NextResponse.json(

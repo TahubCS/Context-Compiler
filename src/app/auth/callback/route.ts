@@ -1,4 +1,4 @@
-import { upsertSupabaseUser, isPrismaConnectivityError, prisma } from "@/lib/db"
+import { upsertSupabaseUser, isPrismaConnectivityError, updateUserGithubToken } from "@/lib/db"
 import { createClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -50,10 +50,7 @@ export async function GET(request: Request) {
       // so this is the only reliable moment to capture it.
       const providerToken = data.session?.provider_token
       if (providerToken) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { githubToken: providerToken },
-        })
+        await updateUserGithubToken(user.id, providerToken)
       }
     } catch (dbError) {
       // Do not block login if application DB sync fails after session exchange.

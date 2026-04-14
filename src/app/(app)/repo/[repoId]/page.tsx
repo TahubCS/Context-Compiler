@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
-import { getLatestScanJobForRepository, getRepository } from "@/lib/db"
+import { failStaleScanJobForRepository, getLatestScanJobForRepository, getRepository } from "@/lib/db"
 import { Search, ShoppingCart, GitBranch, AlertCircle, History } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -23,6 +23,8 @@ export default async function RepoPage({ params }: RepoPageProps) {
   } = await supabase.auth.getUser()
 
   if (!user) return null
+
+  await failStaleScanJobForRepository(repoId)
 
   const repository = await getRepository(repoId, user.id)
   if (!repository) notFound()

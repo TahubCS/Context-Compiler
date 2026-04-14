@@ -110,6 +110,7 @@ model ScanJob {
   filesProcessed   Int           @default(0)
   errorMessage     String?
   startedAt        DateTime?
+  lastHeartbeatAt  DateTime?
   completedAt      DateTime?
   repository       Repository    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   createdAt        DateTime      @default(now())
@@ -117,5 +118,6 @@ model ScanJob {
 
   @@index([repositoryId, createdAt])
   @@index([repositoryId, status])
+  @@index([repositoryId, lastHeartbeatAt])
   @@index([triggeredByUserId])
 }

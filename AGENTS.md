@@ -64,6 +64,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
   bun run prisma db push
   ```
 * `prisma db push` is the correct dev command for Supabase — it diffs and applies schema changes directly without needing a shadow database. Do NOT suggest `prisma migrate dev` (requires shadow DB, unsupported by Supabase).
+* **Free-tier Supabase fallback:** if direct Prisma connectivity is unavailable (for example Supabase free tier IPv4 restrictions), the agent should also provide a manual SQL migration file under `prisma/migrations/` that the user can run in Supabase SQL Editor. Do not leave schema-only changes without a runnable SQL path.
 
 ### 8. Design System & Theming (shadcn/ui Custom Preset)
 * The project uses a custom shadcn/ui preset with a dark deep-gray background, a **blue/cyan** primary accent, **teal** chart colors, and **large** border radii. All colors use the OKLCH color space — do not convert to hex or HSL.
@@ -119,3 +120,15 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * **Layout Rule:** All protected routes MUST be wrapped in the `(app)/layout.tsx` which provides the global Sidebar and Top Navigation. Do not build standalone navigation headers inside individual pages.
 * **UI Structure for `/repo/[repoId]`:** Must strictly follow a split-pane design: Left side for natural language search/chat, Right side for the "Context Cart" clipboard manager.
 * **API Routes:** All custom backend logic must live inside `/api/...` to separate UI from data fetching.
+
+### 11. Scan Architecture & Recovery (CRITICAL)
+* Repository scans are background jobs executed by the Python FastAPI service, not by the page itself.
+* The source of truth for scan execution is the `ScanJob` table plus the denormalized summary fields on `Repository`.
+* `Repository.activeScanJobId` must be treated as the lock for an in-flight scan. Do not queue a second scan while it is set unless recovery logic clears it first.
+* The Python scanner sends `SCANNING` callbacks periodically. `ScanJob.lastHeartbeatAt` is updated on every `SCANNING` status update and is used to detect abandoned scans.
+* Stale scan recovery is lazy: before queueing a new scan, and when loading `/repo/[repoId]`, the app should mark stale `SCANNING` jobs as `FAILED` if their heartbeat is too old.
+* Stale code chunks must only be deleted after a scan completes successfully. Never delete old `CodeDocument` rows during a failed or abandoned scan.
+* Existing repositories may have `githubRepoId = NULL` until the next GitHub sync. If code depends on immutable GitHub repo identity, instruct the user to run repo sync after applying schema SQL.
+
+### 12. Agent Handoff Rule
+* If you make a major architectural, workflow, schema, background-job, auth, billing, or deployment change, you must update `AGENTS.md` in the same turn so the next agent inherits the new rules.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import {
   createScanJob,
+  failStaleScanJobForRepository,
   failQueuedScanJob,
   getRepositoryForScan,
   getUserGithubToken,
@@ -19,6 +20,15 @@ export async function POST(req: Request, { params }: RouteParams) {
   const user = userData.user
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    await failStaleScanJobForRepository(repoId)
+  } catch (error) {
+    if (isPrismaConnectivityError(error)) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
+    throw error
   }
 
   let repository: Awaited<ReturnType<typeof getRepositoryForScan>>

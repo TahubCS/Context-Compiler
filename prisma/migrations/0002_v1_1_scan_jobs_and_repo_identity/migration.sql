@@ -27,11 +27,14 @@ CREATE TABLE IF NOT EXISTS "ScanJob" (
     "filesProcessed" INTEGER NOT NULL DEFAULT 0,
     "errorMessage" TEXT,
     "startedAt" TIMESTAMP(3),
+    "lastHeartbeatAt" TIMESTAMP(3),
     "completedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ScanJob_pkey" PRIMARY KEY ("id")
 );
+
+ALTER TABLE "ScanJob" ADD COLUMN IF NOT EXISTS "lastHeartbeatAt" TIMESTAMP(3);
 
 DO $$ BEGIN
   ALTER TABLE "ScanJob" ADD CONSTRAINT "ScanJob_repositoryId_fkey"
@@ -54,6 +57,9 @@ CREATE INDEX IF NOT EXISTS "ScanJob_repositoryId_createdAt_idx"
 
 CREATE INDEX IF NOT EXISTS "ScanJob_repositoryId_status_idx"
   ON "ScanJob"("repositoryId", "status");
+
+CREATE INDEX IF NOT EXISTS "ScanJob_repositoryId_lastHeartbeatAt_idx"
+  ON "ScanJob"("repositoryId", "lastHeartbeatAt");
 
 CREATE INDEX IF NOT EXISTS "ScanJob_triggeredByUserId_idx"
   ON "ScanJob"("triggeredByUserId");

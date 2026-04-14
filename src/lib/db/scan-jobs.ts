@@ -1,6 +1,8 @@
 import { Prisma, RepositoryScanStatus, ScanJobStatus } from "@prisma/client"
 import { prisma } from "./client"
 
+const STALE_SCAN_TIMEOUT_MS = 3 * 60 * 1000
+
 const SCAN_JOB_SELECT = {
   id: true,
   status: true,
@@ -9,6 +11,7 @@ const SCAN_JOB_SELECT = {
   filesProcessed: true,
   errorMessage: true,
   startedAt: true,
+  lastHeartbeatAt: true,
   completedAt: true,
   createdAt: true,
 } as const
@@ -65,6 +68,7 @@ export async function createScanJob(
         repositoryId,
         triggeredByUserId,
         status: ScanJobStatus.QUEUED,
+        lastHeartbeatAt: null,
       },
       select: { id: true },
     })
@@ -138,6 +142,7 @@ export async function updateScanJobStatus(
           data.status === ScanJobStatus.SCANNING
             ? (existingScanJob.startedAt ?? new Date())
             : undefined,
+        lastHeartbeatAt: data.status === ScanJobStatus.SCANNING ? new Date() : undefined,
         completedAt:
           data.status === ScanJobStatus.COMPLETED || data.status === ScanJobStatus.FAILED
             ? (existingScanJob.completedAt ?? new Date())
@@ -168,6 +173,62 @@ export async function updateScanJobStatus(
             : undefined,
       },
     })
+  })
+}
+
+export async function failStaleScanJobForRepository(
+  repositoryId: string
+): Promise<{ scanJobId: string } | null> {
+  const staleBefore = new Date(Date.now() - STALE_SCAN_TIMEOUT_MS)
+
+  return prisma.$transaction(async (tx) => {
+    const staleScanJob = await tx.scanJob.findFirst({
+      where: {
+        repositoryId,
+        status: ScanJobStatus.SCANNING,
+        OR: [
+          { lastHeartbeatAt: { lt: staleBefore } },
+          { lastHeartbeatAt: null, startedAt: { lt: staleBefore } },
+        ],
+      },
+      select: {
+        id: true,
+      },
+      orderBy: [{ startedAt: "asc" }],
+    })
+
+    if (!staleScanJob) {
+      return null
+    }
+
+    const repository = await tx.repository.findUnique({
+      where: { id: repositoryId },
+      select: { activeScanJobId: true },
+    })
+
+    await tx.scanJob.update({
+      where: { id: staleScanJob.id },
+      data: {
+        status: ScanJobStatus.FAILED,
+        errorMessage:
+          "Scan stopped unexpectedly. The Python scanner may have restarted or crashed. Please retry.",
+        completedAt: new Date(),
+      },
+    })
+
+    if (repository?.activeScanJobId === staleScanJob.id) {
+      await tx.repository.update({
+        where: { id: repositoryId },
+        data: {
+          scanStatus: RepositoryScanStatus.FAILED,
+          errorMessage:
+            "Scan stopped unexpectedly. The Python scanner may have restarted or crashed. Please retry.",
+          activeScanJobId: null,
+        },
+      })
+    }
+
+    return { scanJobId: staleScanJob.id }
   })
 }
 

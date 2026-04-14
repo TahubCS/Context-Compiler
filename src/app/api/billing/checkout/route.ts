@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
-import { getUserSubscriptionTier, isPrismaConnectivityError, prisma } from "@/lib/db"
+import { isPrismaConnectivityError, prisma } from "@/lib/db"
 import { getStripe, PRICE_IDS, type BillingTier } from "@/lib/stripe"
 
 export async function POST(req: Request) {

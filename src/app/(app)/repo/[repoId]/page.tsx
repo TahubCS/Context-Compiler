@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
-import { getRepository } from "@/lib/db"
-import { Search, ShoppingCart, GitBranch, AlertCircle } from "lucide-react"
+import { getLatestScanJobForRepository, getRepository } from "@/lib/db"
+import { Search, ShoppingCart, GitBranch, AlertCircle, History } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ScanStatusBadge } from "@/components/features/repositories/scan-status-badge"
@@ -26,9 +26,12 @@ export default async function RepoPage({ params }: RepoPageProps) {
 
   const repository = await getRepository(repoId, user.id)
   if (!repository) notFound()
+  const latestScanJob = await getLatestScanJobForRepository(repoId, user.id)
 
   const isScanning = repository.scanStatus === "SCANNING"
   const isBusy = repository.scanStatus === "QUEUED" || isScanning
+  const commitSha = repository.lastIndexedCommitSha
+  const shortCommitSha = commitSha ? commitSha.slice(0, 7) : null
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -42,6 +45,12 @@ export default async function RepoPage({ params }: RepoPageProps) {
           <GitBranch className="size-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">{repository.defaultBranch ?? "main"}</span>
         </div>
+        {shortCommitSha ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <History className="size-4" />
+            <span>Indexed at {shortCommitSha}</span>
+          </div>
+        ) : null}
         <ScanStatusBadge status={repository.scanStatus} />
         {isScanning && repository.filesDiscovered > 0 ? (
           <span className="text-xs text-muted-foreground">
@@ -58,6 +67,15 @@ export default async function RepoPage({ params }: RepoPageProps) {
           <AlertCircle className="size-4" />
           <AlertDescription>{repository.errorMessage}</AlertDescription>
         </Alert>
+      ) : null}
+
+      {latestScanJob ? (
+        <div className="text-xs text-muted-foreground">
+          Latest scan job {latestScanJob.id.slice(0, 8)}
+          {latestScanJob.indexedCommitSha
+            ? ` | commit ${latestScanJob.indexedCommitSha.slice(0, 7)}`
+            : ""}
+        </div>
       ) : null}
 
       {isScanning ? (

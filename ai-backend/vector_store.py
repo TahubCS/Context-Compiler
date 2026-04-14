@@ -35,6 +35,7 @@ def get_connection():
 
 def upsert_chunk(
     conn,
+    scan_job_id: str,
     repository_id: str,
     file_path: str,
     chunk_index: int,
@@ -49,16 +50,17 @@ def upsert_chunk(
     conn.execute(
         """
         INSERT INTO "CodeDocument" (
-            id, "repositoryId", "filePath", "chunkIndex", language,
+            id, "repositoryId", "lastSeenScanJobId", "filePath", "chunkIndex", language,
             content, "contentHash", "tokenCount", embedding,
             "embeddingModel", "embeddingDimensions", "updatedAt"
         )
         VALUES (
-            gen_random_uuid(), %s, %s, %s, %s,
+            gen_random_uuid(), %s, %s, %s, %s, %s,
             %s, %s, %s, %s::vector,
             %s, %s, NOW()
         )
         ON CONFLICT ("repositoryId", "filePath", "chunkIndex") DO UPDATE SET
+            "lastSeenScanJobId" = EXCLUDED."lastSeenScanJobId",
             content            = EXCLUDED.content,
             "contentHash"      = EXCLUDED."contentHash",
             embedding          = EXCLUDED.embedding,
@@ -67,8 +69,20 @@ def upsert_chunk(
         WHERE "CodeDocument"."contentHash" != EXCLUDED."contentHash"
         """,
         (
-            repository_id, file_path, chunk_index, language,
+            repository_id, scan_job_id, file_path, chunk_index, language,
             content, content_hash, token_count, vector_literal,
             EMBEDDING_MODEL, EMBEDDING_DIMENSIONS,
         ),
+    )
+
+
+def delete_stale_chunks(conn, repository_id: str, scan_job_id: str) -> None:
+    """Delete chunks for a repository that were not refreshed by the current scan."""
+    conn.execute(
+        """
+        DELETE FROM "CodeDocument"
+        WHERE "repositoryId" = %s
+          AND COALESCE("lastSeenScanJobId"::text, '') <> %s
+        """,
+        (repository_id, scan_job_id),
     )

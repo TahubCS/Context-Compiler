@@ -16,6 +16,7 @@ app = FastAPI(title="Context Compiler AI Backend")
 
 
 class ScanRequest(BaseModel):
+    scan_job_id: str
     repository_id: str
     github_url: str
     default_branch: str
@@ -39,6 +40,7 @@ async def trigger_scan(body: ScanRequest, background_tasks: BackgroundTasks):
     """
     background_tasks.add_task(
         run_scan,
+        scan_job_id=body.scan_job_id,
         repository_id=body.repository_id,
         github_url=body.github_url,
         default_branch=body.default_branch,

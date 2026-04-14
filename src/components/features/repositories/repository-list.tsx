@@ -60,7 +60,12 @@ export function RepositoryList({ repositories, databaseError }: RepositoryListPr
                     <p>{repository.filesProcessed} / {repository.filesDiscovered} files</p>
                   ) : null}
                   {repository.scanStatus === "COMPLETED" ? (
-                    <p>{repository.filesProcessed} files indexed</p>
+                    <p>
+                      {repository.filesProcessed} files indexed
+                      {repository.lastIndexedCommitSha
+                        ? ` | commit ${repository.lastIndexedCommitSha.slice(0, 7)}`
+                        : ""}
+                    </p>
                   ) : null}
                   <p>Last scanned: {formatLastScannedAt(repository.lastScannedAt)}</p>
                 </div>

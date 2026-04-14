@@ -15,12 +15,10 @@ export default async function RepoIndexPage() {
 
   const repositories = await getUserRepositories(user.id)
 
-  // If the user only has one repo, go straight to the workspace
   if (repositories.length === 1) {
     redirect(`/repo/${repositories[0].id}`)
   }
 
-  // No repos — send them to dashboard to sync first
   if (repositories.length === 0) {
     redirect("/dashboard")
   }
@@ -45,7 +43,8 @@ export default async function RepoIndexPage() {
                   <p className="font-medium text-foreground">{repo.fullName}</p>
                   <p className="text-xs text-muted-foreground">
                     {repo.isPrivate ? "Private" : "Public"}
-                    {repo.defaultBranch ? ` · ${repo.defaultBranch}` : ""}
+                    {repo.defaultBranch ? ` | ${repo.defaultBranch}` : ""}
+                    {repo.lastIndexedCommitSha ? ` | ${repo.lastIndexedCommitSha.slice(0, 7)}` : ""}
                   </p>
                 </div>
               </div>

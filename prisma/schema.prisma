@@ -21,6 +21,13 @@ enum RepositoryScanStatus {
   FAILED
 }
 
+enum ScanJobStatus {
+  QUEUED
+  SCANNING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id               String           @id @db.Uuid // Explicitly matches Supabase Auth UUID
   email            String           @unique
@@ -38,31 +45,39 @@ model User {
 model Repository {
   id              String               @id @default(uuid()) @db.Uuid
   userId          String               @db.Uuid
+  githubRepoId    String?
   name            String
   fullName        String
+  owner           String?
   githubUrl       String
   defaultBranch   String?
   isPrivate       Boolean              @default(true)
   lastScannedAt   DateTime?
+  lastIndexedCommitSha String?
   scanStatus      RepositoryScanStatus @default(IDLE)
   scanProgress    Int                  @default(0)
   filesDiscovered Int                  @default(0)
   filesProcessed  Int                  @default(0)
   errorMessage    String?
+  activeScanJobId String?              @db.Uuid
   codeDocuments   CodeDocument[]
+  scanJobs        ScanJob[]
   user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
   @@unique([userId, githubUrl])
+  @@unique([userId, githubRepoId])
   @@index([userId])
   @@index([userId, scanStatus])
+  @@index([userId, githubRepoId])
   @@index([lastScannedAt])
 }
 
 model CodeDocument {
   id                  String     @id @default(uuid()) @db.Uuid
   repositoryId        String     @db.Uuid
+  lastSeenScanJobId   String?    @db.Uuid
   filePath            String
   chunkIndex          Int        @default(0)
   language            String?
@@ -81,5 +96,26 @@ model CodeDocument {
   @@index([repositoryId, filePath])
   @@index([repositoryId, contentHash])
   @@index([repositoryId, language])
+  @@index([repositoryId, lastSeenScanJobId])
   @@index([embedding], map: "idx_code_documents_embedding")
+}
+
+model ScanJob {
+  id               String        @id @default(uuid()) @db.Uuid
+  repositoryId     String        @db.Uuid
+  triggeredByUserId String       @db.Uuid
+  status           ScanJobStatus @default(QUEUED)
+  indexedCommitSha String?
+  filesDiscovered  Int           @default(0)
+  filesProcessed   Int           @default(0)
+  errorMessage     String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  repository       Repository    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([repositoryId, createdAt])
+  @@index([repositoryId, status])
+  @@index([triggeredByUserId])
 }

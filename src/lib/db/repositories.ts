@@ -5,8 +5,10 @@ const UPSERT_CHUNK_SIZE = 50
 
 export const REPOSITORY_LIST_SELECT = {
   id: true,
+  githubRepoId: true,
   name: true,
   fullName: true,
+  owner: true,
   githubUrl: true,
   defaultBranch: true,
   isPrivate: true,
@@ -15,18 +17,24 @@ export const REPOSITORY_LIST_SELECT = {
   filesDiscovered: true,
   filesProcessed: true,
   lastScannedAt: true,
+  lastIndexedCommitSha: true,
 } as const
 
 const REPOSITORY_DETAIL_SELECT = {
   id: true,
+  githubRepoId: true,
   name: true,
   fullName: true,
+  owner: true,
+  githubUrl: true,
   defaultBranch: true,
   scanStatus: true,
   scanProgress: true,
   filesDiscovered: true,
   filesProcessed: true,
   errorMessage: true,
+  lastIndexedCommitSha: true,
+  activeScanJobId: true,
 } as const
 
 export type RepositoryDetail = Prisma.RepositoryGetPayload<{
@@ -45,8 +53,13 @@ export async function getRepository(
 
 const REPOSITORY_SCAN_SELECT = {
   id: true,
+  githubRepoId: true,
   githubUrl: true,
+  owner: true,
+  name: true,
+  fullName: true,
   defaultBranch: true,
+  activeScanJobId: true,
 } as const
 
 export type RepositoryScanInfo = Prisma.RepositoryGetPayload<{
@@ -73,6 +86,8 @@ export async function updateRepositoryScanStatus(
     filesProcessed?: number
     lastScannedAt?: Date
     errorMessage?: string | null
+    lastIndexedCommitSha?: string | null
+    activeScanJobId?: string | null
   }
 ): Promise<void> {
   await prisma.repository.update({
@@ -103,11 +118,15 @@ export async function getUserRepositories(userId: string): Promise<RepositoryLis
 }
 
 export type GitHubRepoInput = {
+  id: number
   name: string
   full_name: string
   html_url: string
   default_branch: string | null
   private: boolean
+  owner: {
+    login: string
+  }
 }
 
 /**
@@ -120,29 +139,61 @@ export async function upsertGitHubRepositories(
 ): Promise<void> {
   if (repos.length === 0) return
 
+  const existingRepositories = await prisma.repository.findMany({
+    where: { userId },
+    select: {
+      id: true,
+      githubRepoId: true,
+      githubUrl: true,
+    },
+  })
+
+  const existingByGithubRepoId = new Map(
+    existingRepositories
+      .filter((repository) => repository.githubRepoId)
+      .map((repository) => [repository.githubRepoId as string, repository.id])
+  )
+  const existingByGithubUrl = new Map(
+    existingRepositories.map((repository) => [repository.githubUrl, repository.id])
+  )
+
   for (let i = 0; i < repos.length; i += UPSERT_CHUNK_SIZE) {
     const chunk = repos.slice(i, i + UPSERT_CHUNK_SIZE)
 
     await prisma.$transaction(
-      chunk.map((repo) =>
-        prisma.repository.upsert({
-          where: { userId_githubUrl: { userId, githubUrl: repo.html_url } },
-          update: {
-            name: repo.name,
-            fullName: repo.full_name,
-            defaultBranch: repo.default_branch,
-            isPrivate: repo.private,
-          },
-          create: {
+      chunk.map((repo) => {
+        const githubRepoId = String(repo.id)
+        const existingRepositoryId =
+          existingByGithubRepoId.get(githubRepoId) ?? existingByGithubUrl.get(repo.html_url)
+
+        if (existingRepositoryId) {
+          return prisma.repository.update({
+            where: { id: existingRepositoryId },
+            data: {
+              githubRepoId,
+              name: repo.name,
+              fullName: repo.full_name,
+              owner: repo.owner.login,
+              githubUrl: repo.html_url,
+              defaultBranch: repo.default_branch,
+              isPrivate: repo.private,
+            },
+          })
+        }
+
+        return prisma.repository.create({
+          data: {
             userId,
+            githubRepoId,
             name: repo.name,
             fullName: repo.full_name,
+            owner: repo.owner.login,
             githubUrl: repo.html_url,
             defaultBranch: repo.default_branch,
             isPrivate: repo.private,
           },
         })
-      )
+      })
     )
   }
 }

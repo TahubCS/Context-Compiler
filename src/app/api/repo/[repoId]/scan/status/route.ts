@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
-import { RepositoryScanStatus } from "@prisma/client"
-import { updateRepositoryScanStatus, isPrismaConnectivityError } from "@/lib/db"
+import { ScanJobStatus } from "@prisma/client"
+import { isPrismaConnectivityError, updateScanJobStatus } from "@/lib/db"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
 type StatusCallbackBody = {
-  scanStatus: RepositoryScanStatus
+  scanJobId?: string
+  scanStatus: ScanJobStatus
+  indexedCommitSha?: string
   filesDiscovered?: number
   filesProcessed?: number
   errorMessage?: string
@@ -27,14 +29,19 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   const { scanStatus, filesDiscovered, filesProcessed, errorMessage } = body
+  const scanJobId = body.scanJobId?.trim()
+
+  if (!scanJobId) {
+    return NextResponse.json({ error: "scanJobId is required" }, { status: 400 })
+  }
 
   try {
-    await updateRepositoryScanStatus(repoId, {
-      scanStatus,
+    await updateScanJobStatus(scanJobId, repoId, {
+      status: scanStatus,
       filesDiscovered,
       filesProcessed,
       errorMessage: errorMessage ?? null,
-      lastScannedAt: scanStatus === "COMPLETED" ? new Date() : undefined,
+      indexedCommitSha: body.indexedCommitSha ?? null,
     })
   } catch (error) {
     if (isPrismaConnectivityError(error)) {

@@ -22,7 +22,7 @@ from config import (
     LANGUAGE_MAP,
 )
 from ai import embed_text
-from vector_store import get_connection, upsert_chunk
+from vector_store import delete_stale_chunks, get_connection, upsert_chunk
 
 logger = logging.getLogger("context-compiler.scanner")
 
@@ -76,6 +76,7 @@ def _collect_files(repo_dir: Path) -> list[Path]:
 
 
 def run_scan(
+    scan_job_id: str,
     repository_id: str,
     github_url: str,
     default_branch: str,
@@ -92,10 +93,14 @@ def run_scan(
     5. Callback with progress and final status
     """
     logger.info(
-        "Starting scan for repo=%s url=%s branch=%s",
-        repository_id, github_url, default_branch,
+        "Starting scan job=%s for repo=%s url=%s branch=%s",
+        scan_job_id, repository_id, github_url, default_branch,
     )
-    _callback(callback_url, callback_secret, {"scanStatus": "SCANNING"})
+    _callback(
+        callback_url,
+        callback_secret,
+        {"scanJobId": scan_job_id, "scanStatus": "SCANNING"},
+    )
 
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -123,6 +128,7 @@ def run_scan(
             logger.info("Clone complete")
 
             repo_dir = Path(tmp_dir)
+            indexed_commit_sha = Repo(repo_dir).head.commit.hexsha
             files = _collect_files(repo_dir)
             total_files = len(files)
             logger.info("Discovered %d files to process", total_files)
@@ -130,7 +136,12 @@ def run_scan(
             _callback(
                 callback_url,
                 callback_secret,
-                {"scanStatus": "SCANNING", "filesDiscovered": total_files},
+                {
+                    "scanJobId": scan_job_id,
+                    "scanStatus": "SCANNING",
+                    "indexedCommitSha": indexed_commit_sha,
+                    "filesDiscovered": total_files,
+                },
             )
 
             logger.info("Connecting to database ...")
@@ -165,6 +176,7 @@ def run_scan(
                         try:
                             upsert_chunk(
                                 conn,
+                                scan_job_id=scan_job_id,
                                 repository_id=repository_id,
                                 file_path=relative_path,
                                 chunk_index=chunk_index,
@@ -201,18 +213,25 @@ def run_scan(
                             callback_url,
                             callback_secret,
                             {
+                                "scanJobId": scan_job_id,
                                 "scanStatus": "SCANNING",
+                                "indexedCommitSha": indexed_commit_sha,
                                 "filesDiscovered": total_files,
                                 "filesProcessed": files_processed,
                             },
                         )
+
+                delete_stale_chunks(conn, repository_id, scan_job_id)
+                conn.commit()
 
         logger.info("Scan completed: %d/%d files processed", files_processed, total_files)
         _callback(
             callback_url,
             callback_secret,
             {
+                "scanJobId": scan_job_id,
                 "scanStatus": "COMPLETED",
+                "indexedCommitSha": indexed_commit_sha,
                 "filesDiscovered": total_files,
                 "filesProcessed": files_processed,
             },
@@ -223,5 +242,9 @@ def run_scan(
         _callback(
             callback_url,
             callback_secret,
-            {"scanStatus": "FAILED", "errorMessage": str(exc)},
+            {
+                "scanJobId": scan_job_id,
+                "scanStatus": "FAILED",
+                "errorMessage": str(exc),
+            },
         )

@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
-import { prisma, updateRepositoryScanStatus, isPrismaConnectivityError } from "@/lib/db"
+import {
+  createScanJob,
+  failQueuedScanJob,
+  getRepositoryForScan,
+  getUserGithubToken,
+  isPrismaConnectivityError,
+} from "@/lib/db"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
-export async function POST(_req: Request, { params }: RouteParams) {
+export async function POST(req: Request, { params }: RouteParams) {
   const { repoId } = await params
 
   const supabase = await createClient()
@@ -15,17 +21,20 @@ export async function POST(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Fetch repo + GitHub token from DB in a single parallel batch
-  const [repository, dbUser] = await Promise.all([
-    prisma.repository.findFirst({
-      where: { id: repoId, userId: user.id },
-      select: { id: true, githubUrl: true, defaultBranch: true },
-    }),
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { githubToken: true },
-    }),
-  ])
+  let repository: Awaited<ReturnType<typeof getRepositoryForScan>>
+  let githubToken: Awaited<ReturnType<typeof getUserGithubToken>>
+
+  try {
+    ;[repository, githubToken] = await Promise.all([
+      getRepositoryForScan(repoId, user.id),
+      getUserGithubToken(user.id),
+    ])
+  } catch (error) {
+    if (isPrismaConnectivityError(error)) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
+    throw error
+  }
 
   if (!repository) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 })
@@ -34,7 +43,6 @@ export async function POST(_req: Request, { params }: RouteParams) {
   // provider_token only exists in the Supabase session immediately after OAuth
   // login — it's dropped after the first token refresh. We persist it to the
   // User table in the auth callback so it's always available here.
-  const githubToken = dbUser?.githubToken
   if (!githubToken) {
     return NextResponse.json(
       { error: "GitHub token not found. Please sign out and sign in again." },
@@ -42,15 +50,21 @@ export async function POST(_req: Request, { params }: RouteParams) {
     )
   }
 
+  if (repository.activeScanJobId) {
+    return NextResponse.json(
+      { error: "A scan is already queued or in progress for this repository." },
+      { status: 409 }
+    )
+  }
+
+  let scanJobId: string
   try {
-    await updateRepositoryScanStatus(repoId, {
-      scanStatus: "QUEUED",
-      scanProgress: 0,
-      filesDiscovered: 0,
-      filesProcessed: 0,
-      errorMessage: null,
-    })
+    const scanJob = await createScanJob(repoId, user.id)
+    scanJobId = scanJob.id
   } catch (error) {
+    if (error instanceof Error && error.message === "A scan is already queued or in progress for this repository.") {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
     if (isPrismaConnectivityError(error)) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
@@ -59,29 +73,33 @@ export async function POST(_req: Request, { params }: RouteParams) {
 
   const backendUrl = process.env.AI_BACKEND_URL
   if (!backendUrl) {
+    await failQueuedScanJob(scanJobId, repoId, "AI backend is not configured.").catch(() => {})
     return NextResponse.json({ error: "AI backend is not configured" }, { status: 503 })
   }
+
+  const origin = new URL(req.url).origin
 
   // Fire-and-forget — do not await. Python service updates status via callback.
   fetch(`${backendUrl}/scan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      scan_job_id: scanJobId,
       repository_id: repository.id,
       github_url: repository.githubUrl,
       default_branch: repository.defaultBranch ?? "main",
       github_token: githubToken,
-      callback_url: `${process.env.NEXT_PUBLIC_URL}/api/repo/${repoId}/scan/status`,
+      callback_url: `${process.env.NEXT_PUBLIC_URL ?? origin}/api/repo/${repoId}/scan/status`,
       callback_secret: process.env.AI_CALLBACK_SECRET,
     }),
     signal: AbortSignal.timeout(5000),
   }).catch(async () => {
-    // Python service unreachable — reset to IDLE so the user can try again.
-    await updateRepositoryScanStatus(repoId, {
-      scanStatus: "IDLE",
-      errorMessage: "AI backend is not reachable. Make sure the Python service is running.",
-    }).catch(() => {})
+    await failQueuedScanJob(
+      scanJobId,
+      repoId,
+      "AI backend is not reachable. Make sure the Python service is running."
+    ).catch(() => {})
   })
 
-  return NextResponse.json({ status: "queued" })
+  return NextResponse.json({ status: "queued", scanJobId })
 }

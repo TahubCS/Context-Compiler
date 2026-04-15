@@ -24,10 +24,18 @@ from config import (
     CURRENT_INDEX_FORMAT_VERSION,
     LANGUAGE_MAP,
     PROGRESS_EVERY,
+    SCAN_GIT_HISTORY_DEPTH,
     SCAN_HEARTBEAT_INTERVAL_SECONDS,
     SKIP_DIRS,
 )
-from vector_store import delete_stale_chunks, get_connection, upsert_chunk
+from vector_store import (
+    delete_chunks_for_file_except_indices,
+    delete_chunks_for_paths,
+    delete_stale_chunks,
+    get_connection,
+    get_existing_chunk_hashes_for_file,
+    upsert_chunk,
+)
 
 logger = logging.getLogger("context-compiler.scanner")
 
@@ -269,6 +277,16 @@ def _collect_files(repo_dir: Path) -> list[Path]:
     return files
 
 
+def _should_index_file(file_path: Path, repo_dir: Path) -> bool:
+    if not file_path.exists() or not file_path.is_file():
+        return False
+    if any(part in SKIP_DIRS for part in file_path.relative_to(repo_dir).parts):
+        return False
+    if file_path.suffix.lower() in BINARY_EXTENSIONS:
+        return False
+    return True
+
+
 def _infer_file_category(relative_path: str, language: str | None, suffix: str) -> str:
     normalized = relative_path.lower()
     if language in _DOC_LANGUAGES or suffix == ".md" or normalized.startswith("docs/") or "readme" in normalized:
@@ -293,11 +311,68 @@ def _infer_path_bucket(relative_path: str) -> str:
     return parts[0] if parts else ""
 
 
+def _has_commit(repo: Repo, commit_sha: str) -> bool:
+    try:
+        repo.commit(commit_sha)
+        return True
+    except Exception:
+        return False
+
+
+def _resolve_incremental_changes(
+    repo: Repo,
+    repo_dir: Path,
+    previous_indexed_commit_sha: str,
+    current_head_sha: str,
+) -> tuple[list[Path], list[str]]:
+    changed_paths: set[str] = set()
+    deleted_paths: set[str] = set()
+
+    diff_output = repo.git.diff(
+        "--name-status",
+        "--find-renames",
+        previous_indexed_commit_sha,
+        current_head_sha,
+    )
+
+    for line in diff_output.splitlines():
+        if not line.strip():
+            continue
+
+        parts = line.split("\t")
+        status = parts[0]
+        kind = status[0]
+
+        if kind == "D" and len(parts) >= 2:
+            deleted_paths.add(parts[1])
+            continue
+
+        if kind == "R" and len(parts) >= 3:
+            old_path, new_path = parts[1], parts[2]
+            deleted_paths.add(old_path)
+            new_file = repo_dir / new_path
+            if _should_index_file(new_file, repo_dir):
+                changed_paths.add(new_path)
+            continue
+
+        if len(parts) >= 2:
+            path = parts[1]
+            candidate = repo_dir / path
+            if _should_index_file(candidate, repo_dir):
+                changed_paths.add(path)
+            else:
+                deleted_paths.add(path)
+
+    return sorted(repo_dir / path for path in changed_paths), sorted(deleted_paths)
+
+
 def run_scan(
     scan_job_id: str,
     repository_id: str,
     github_url: str,
     default_branch: str,
+    previous_indexed_commit_sha: str | None,
+    repository_index_format_version: int | None,
     github_token: str,
     callback_url: str,
     callback_secret: str,
@@ -314,7 +389,12 @@ def run_scan(
             auth_url = github_url.replace("https://", f"https://x-access-token:{github_token}@")
             logger.info("Cloning %s (branch=%s) ...", github_url, default_branch)
             try:
-                Repo.clone_from(auth_url, tmp_dir, branch=default_branch, depth=1)
+                Repo.clone_from(
+                    auth_url,
+                    tmp_dir,
+                    branch=default_branch,
+                    depth=SCAN_GIT_HISTORY_DEPTH,
+                )
             except GitCommandError as exc:
                 if "Remote branch" in str(exc) and "not found" in str(exc):
                     logger.warning(
@@ -323,21 +403,58 @@ def run_scan(
                     )
                     shutil.rmtree(tmp_dir, ignore_errors=True)
                     os.makedirs(tmp_dir, exist_ok=True)
-                    Repo.clone_from(auth_url, tmp_dir, depth=1)
+                    Repo.clone_from(auth_url, tmp_dir, depth=SCAN_GIT_HISTORY_DEPTH)
                 else:
                     raise
 
             repo_dir = Path(tmp_dir)
             repo = Repo(repo_dir)
             indexed_commit_sha = repo.git.rev_parse("HEAD").strip()
-            files = _collect_files(repo_dir)
+            scan_mode = "full"
+            deleted_paths: list[str] = []
+
+            can_incremental_scan = (
+                (repository_index_format_version or 1) >= CURRENT_INDEX_FORMAT_VERSION
+                and bool(previous_indexed_commit_sha)
+                and _has_commit(repo, previous_indexed_commit_sha)
+            )
+
+            if can_incremental_scan:
+                try:
+                    files = []
+                    files, deleted_paths = _resolve_incremental_changes(
+                        repo,
+                        repo_dir,
+                        previous_indexed_commit_sha,
+                        indexed_commit_sha,
+                    )
+                    scan_mode = "incremental"
+                except Exception as exc:
+                    logger.warning(
+                        "Incremental diff failed for repo=%s, falling back to full scan: %s",
+                        repository_id,
+                        exc,
+                    )
+                    files = _collect_files(repo_dir)
+            else:
+                files = _collect_files(repo_dir)
+
             total_files = len(files)
+            logger.info(
+                "Scan mode for repo=%s resolved to %s (files=%d, deleted=%d, previous=%s, current=%s)",
+                repository_id,
+                scan_mode,
+                total_files,
+                len(deleted_paths),
+                previous_indexed_commit_sha,
+                indexed_commit_sha,
+            )
             progress.set_scan_context(
                 indexed_commit_sha=indexed_commit_sha,
                 files_discovered=total_files,
                 files_processed=0,
             )
-            progress.send_scanning(force=True, phase="cloned")
+            progress.send_scanning(force=True, phase=f"{scan_mode}-cloned")
 
             with get_connection() as conn:
                 files_processed = 0
@@ -357,10 +474,22 @@ def run_scan(
                     file_category = _infer_file_category(relative_path, language, suffix)
                     path_bucket = _infer_path_bucket(relative_path)
                     chunks = _chunk_file(content, language, suffix)
+                    existing_chunk_hashes = (
+                        get_existing_chunk_hashes_for_file(conn, repository_id, relative_path)
+                        if scan_mode == "incremental"
+                        else {}
+                    )
+                    keep_chunk_indices: list[int] = []
 
                     for chunk_index, (chunk_type, chunk_text) in enumerate(chunks):
                         content_hash = hashlib.sha256(chunk_text.encode()).hexdigest()
                         token_count = len(chunk_text.split())
+                        keep_chunk_indices.append(chunk_index)
+
+                        if existing_chunk_hashes.get(chunk_index) == content_hash:
+                            progress.send_scanning(phase="chunk-reused")
+                            continue
+
                         progress.send_scanning(phase="embedding")
 
                         try:
@@ -412,7 +541,16 @@ def run_scan(
                             logger.error(message)
                             raise RuntimeError(message) from exc
 
-                    conn.commit()
+                    if scan_mode == "incremental":
+                        delete_chunks_for_file_except_indices(
+                            conn,
+                            repository_id,
+                            relative_path,
+                            keep_chunk_indices,
+                        )
+                    else:
+                        conn.commit()
+
                     files_processed += 1
                     progress.set_scan_context(files_processed=files_processed)
 
@@ -422,8 +560,12 @@ def run_scan(
                         progress.send_scanning(phase="progress")
 
                 progress.send_scanning(force=True, phase="cleanup")
-                delete_stale_chunks(conn, repository_id, scan_job_id)
-                conn.commit()
+                if scan_mode == "incremental":
+                    delete_chunks_for_paths(conn, repository_id, deleted_paths)
+                    conn.commit()
+                else:
+                    delete_stale_chunks(conn, repository_id, scan_job_id)
+                    conn.commit()
 
         progress.send_completed()
 

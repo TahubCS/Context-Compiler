@@ -70,11 +70,6 @@ def upsert_chunk(
             embedding           = EXCLUDED.embedding,
             "tokenCount"        = EXCLUDED."tokenCount",
             "updatedAt"         = NOW()
-        WHERE "CodeDocument"."contentHash" != EXCLUDED."contentHash"
-           OR COALESCE("CodeDocument"."fileCategory", '') <> COALESCE(EXCLUDED."fileCategory", '')
-           OR COALESCE("CodeDocument"."chunkType", '') <> COALESCE(EXCLUDED."chunkType", '')
-           OR COALESCE("CodeDocument"."pathBucket", '') <> COALESCE(EXCLUDED."pathBucket", '')
-           OR COALESCE("CodeDocument".language, '') <> COALESCE(EXCLUDED.language, '')
         """,
         (
             repository_id,
@@ -95,6 +90,23 @@ def upsert_chunk(
     )
 
 
+def get_existing_chunk_hashes_for_file(
+    conn,
+    repository_id: str,
+    file_path: str,
+) -> dict[int, str]:
+    rows = conn.execute(
+        """
+        SELECT "chunkIndex", "contentHash"
+        FROM "CodeDocument"
+        WHERE "repositoryId" = %s
+          AND "filePath" = %s
+        """,
+        (repository_id, file_path),
+    ).fetchall()
+    return {int(row[0]): row[1] for row in rows}
+
+
 def delete_stale_chunks(conn, repository_id: str, scan_job_id: str) -> None:
     conn.execute(
         """
@@ -103,6 +115,48 @@ def delete_stale_chunks(conn, repository_id: str, scan_job_id: str) -> None:
           AND COALESCE("lastSeenScanJobId"::text, '') <> %s
         """,
         (repository_id, scan_job_id),
+    )
+
+
+def delete_chunks_for_paths(conn, repository_id: str, file_paths: list[str]) -> None:
+    if not file_paths:
+        return
+
+    conn.execute(
+        """
+        DELETE FROM "CodeDocument"
+        WHERE "repositoryId" = %s
+          AND "filePath" = ANY(%s)
+        """,
+        (repository_id, file_paths),
+    )
+
+
+def delete_chunks_for_file_except_indices(
+    conn,
+    repository_id: str,
+    file_path: str,
+    keep_chunk_indices: list[int],
+) -> None:
+    if keep_chunk_indices:
+        conn.execute(
+            """
+            DELETE FROM "CodeDocument"
+            WHERE "repositoryId" = %s
+              AND "filePath" = %s
+              AND NOT ("chunkIndex" = ANY(%s))
+            """,
+            (repository_id, file_path, keep_chunk_indices),
+        )
+        return
+
+    conn.execute(
+        """
+        DELETE FROM "CodeDocument"
+        WHERE "repositoryId" = %s
+          AND "filePath" = %s
+        """,
+        (repository_id, file_path),
     )
 
 

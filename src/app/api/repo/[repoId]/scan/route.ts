@@ -97,6 +97,8 @@ export async function POST(req: Request, { params }: RouteParams) {
         repository_id: repository.id,
         github_url: repository.githubUrl,
         default_branch: repository.defaultBranch ?? "main",
+        previous_indexed_commit_sha: repository.lastIndexedCommitSha,
+        repository_index_format_version: repository.indexFormatVersion,
         github_token: scanCredential.token,
         callback_url: `${appBaseUrl}/api/repo/${repoId}/scan/status`,
         callback_secret: process.env.AI_CALLBACK_SECRET,

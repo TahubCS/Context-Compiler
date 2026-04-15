@@ -194,3 +194,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Webhook scope in `V2.1` is repository inventory only. Do not trigger scans from push events in this release.
 * `V2.2` makes scans GitHub App-first. If `Workspace.githubInstallationId` exists, repository scans must try the workspace GitHub App installation token before any personal OAuth token. OAuth remains a fallback only for workspaces without a linked GitHub App.
 * Members are allowed to start scans with the workspace GitHub App token. Do not require personal OAuth reconnects for scans when the workspace GitHub App is already linked.
+* `V2.3.2` introduces incremental scanning to reduce embedding cost. The durable rule is: only repositories already on the current `indexFormatVersion` may attempt incremental scanning; outdated or unsafe repositories must automatically fall back to a full scan.
+* Incremental change detection must use local git diff inside the Python scanner. Do not use AI to infer changed files and do not make GitHub compare APIs the primary diff engine.
+* Unchanged files must be skipped entirely during incremental scans, and unchanged chunks inside changed files must not request fresh embeddings when their `contentHash` is unchanged.
+* Full scans remain the upgrade/compatibility path for older chunking strategies, missing prior commits, or any scan state where diffing cannot be trusted.

@@ -18,6 +18,8 @@ class ScanRequest(BaseModel):
     repository_id: str
     github_url: str
     default_branch: str
+    previous_indexed_commit_sha: str | None = None
+    repository_index_format_version: int | None = None
     github_token: str
     callback_url: str
     callback_secret: str
@@ -44,6 +46,8 @@ async def trigger_scan(body: ScanRequest, background_tasks: BackgroundTasks):
         repository_id=body.repository_id,
         github_url=body.github_url,
         default_branch=body.default_branch,
+        previous_indexed_commit_sha=body.previous_indexed_commit_sha,
+        repository_index_format_version=body.repository_index_format_version,
         github_token=body.github_token,
         callback_url=body.callback_url,
         callback_secret=body.callback_secret,

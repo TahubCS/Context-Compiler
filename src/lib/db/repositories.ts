@@ -64,6 +64,7 @@ const REPOSITORY_SCAN_SELECT = {
   name: true,
   fullName: true,
   defaultBranch: true,
+  lastIndexedCommitSha: true,
   isArchived: true,
   activeScanJobId: true,
 } as const

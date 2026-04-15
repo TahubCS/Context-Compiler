@@ -1,38 +1,120 @@
-# Context Compiler 🧠⚡
+# Context Compiler
 
-Context Compiler is a micro-SaaS developer tool designed to solve the "context window" problem in AI-assisted coding. By parsing and indexing full codebases using RAG (Retrieval-Augmented Generation), it allows developers to generate perfectly scoped architecture maps and context snippets. This ensures AI coding agents (like Claude, Cursor, or ChatGPT) understand the full project structure before writing code.
+Context Compiler indexes your GitHub repositories into a semantic vector store so you can search with natural language, ask questions about your code, and assemble precise context snippets — instead of guessing which files to paste into an AI assistant.
 
-### 🛠️ Tech Stack
-* **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
-* **Backend/Database:** Supabase (PostgreSQL), Prisma ORM
-* **AI Architecture:** Python microservice, Vector Database, LangChain/LlamaIndex
-* **Monetization & Real-time:** Stripe, Supabase Realtime (WebSockets)
+## Features
 
-## Getting Started
+- **Natural language search** — find functions, patterns, and concepts across your entire codebase without grep or regex
+- **Repository Q&A** — ask questions about your code and get AI-generated answers grounded in actual source files, with citations
+- **Context Cart** — curate search results into a clipboard-ready prompt block optimized for token budgets
+- **Incremental re-indexing** — only changed files are re-embedded on re-scan; unchanged chunks reuse cached vectors
+- **GitHub App sync** — webhook-driven repository inventory with automatic reconciliation, no manual polling
+- **Team workspaces** — share saved context carts and answer sessions across your team with owner/admin/member roles
+- **Stripe billing** — free tier, Pro ($12/mo), and Team ($49/mo) plans
 
-First, run the development server with Bun:
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS v4, shadcn/ui |
+| Database | Supabase (PostgreSQL), Prisma ORM v7, pgvector (HNSW) |
+| Auth | Supabase Auth (GitHub OAuth) + GitHub App |
+| AI / Indexing | Python FastAPI microservice, Google Gemini embeddings (`gemini-embedding-001`, 768-dim) |
+| Billing | Stripe Checkout + Customer Portal |
+| Deployment | Vercel (Next.js) |
+
+## Architecture
+
+```
+┌──────────────────────────────┐
+│     Next.js App (Vercel)     │
+│  Dashboard · Repo · Settings │
+│  API routes · DB helper layer│
+└──────────────┬───────────────┘
+               │ HTTP
+┌──────────────▼───────────────┐
+│   Python FastAPI Service     │
+│  git clone → chunk → embed   │
+│  writes CodeDocument rows    │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│  Supabase (PostgreSQL)       │
+│  pgvector HNSW index (768d)  │
+└──────────────────────────────┘
+```
+
+The Next.js app handles UI, auth, workspace management, and billing. Heavy work — git cloning, overlap-based chunking, and embedding generation — runs in the Python microservice, which writes `CodeDocument` rows directly to the database. Vector similarity search runs via `prisma.$queryRaw` using cosine distance.
+
+## Local Setup
+
+### Prerequisites
+
+- [Bun](https://bun.sh) >= 1.0
+- [Python](https://python.org) >= 3.11 (for the AI microservice)
+- A [Supabase](https://supabase.com) project with the `pgvector` extension enabled
+- A GitHub OAuth App (for auth) and a GitHub App (for repo sync)
+
+### 1. Install dependencies
+
+```bash
+bun install
+```
+
+### 2. Configure environment variables
+
+Copy `.env.example` to `.env.local` and fill in all required values:
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Prisma / direct DB connection (not pooler)
+DATABASE_URL=
+DIRECT_URL=
+
+# GitHub OAuth + App
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY=        # PEM key, newlines as \n
+GITHUB_APP_WEBHOOK_SECRET=
+GITHUB_TOKEN_ENCRYPTION_KEY=   # 32-byte base64 key for AES-256
+
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+
+# Services
+AI_BACKEND_URL=                # URL of the Python FastAPI service
+NEXT_PUBLIC_URL=               # Public URL of this Next.js app (used for scan callbacks)
+```
+
+### 3. Push the database schema
+
+```bash
+bun run prisma db push
+```
+
+### 4. Run the development server
 
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> The Python AI service must also be running for repository scans to work.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Database Notes
 
-## Learn More
+- `CodeDocument.embedding` is `vector(768)` with an HNSW index. Prisma cannot reference `Unsupported` fields in `where` or `select`, so all vector queries use `prisma.$queryRaw`.
+- The `Workspace` model is the ownership root for repositories, saved carts, and billing. Every user gets a personal workspace on first login.
+- `prisma db push` is the correct dev command for Supabase (no shadow database required). Do not use `prisma migrate dev`.
 
-To learn more about Next.js, take a look at the following resources:
+## License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT

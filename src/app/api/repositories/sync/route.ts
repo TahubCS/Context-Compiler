@@ -5,9 +5,9 @@ import {
   isPrismaConnectivityError,
   upsertGitHubRepositories,
   updateUserGithubToken,
-  upsertSupabaseUser,
 } from "@/lib/db"
 import type { GitHubRepoInput } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 import { NextResponse } from "next/server"
 
 const GITHUB_REPOS_PER_PAGE = 100
@@ -59,8 +59,9 @@ async function fetchGitHubRepositories(providerToken: string) {
 
 export async function POST() {
   const supabase = await createClient()
+  const { user, workspace } = await getAuthenticatedAppContext()
 
-  const [{ data: userData, error: userError }, { data: sessionData, error: sessionError }] =
+  const [{ error: userError }, { data: sessionData, error: sessionError }] =
     await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()])
 
   if (userError || sessionError) {
@@ -70,9 +71,7 @@ export async function POST() {
     )
   }
 
-  const user = userData.user
-
-  if (!user) {
+  if (!user || !workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -103,11 +102,10 @@ export async function POST() {
   try {
     const githubRepositories = await fetchGitHubRepositories(providerToken)
 
-    await upsertSupabaseUser(user)
     if (sessionProviderToken) {
       await updateUserGithubToken(user.id, sessionProviderToken)
     }
-    await upsertGitHubRepositories(user.id, githubRepositories)
+    await upsertGitHubRepositories(user.id, workspace.id, githubRepositories)
 
     return NextResponse.json({ syncedCount: githubRepositories.length })
   } catch (error) {

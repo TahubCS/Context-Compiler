@@ -1,25 +1,20 @@
 import { RepositoryList } from "@/components/features/repositories/repository-list"
 import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
-import { upsertSupabaseUser, getUserRepositories, isPrismaConnectivityError } from "@/lib/db"
-import { createClient } from "@/utils/supabase/server"
+import { getWorkspaceRepositories, isPrismaConnectivityError } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return null
+  const { user, workspace } = await getAuthenticatedAppContext()
+  if (!user || !workspace) return null
 
   const displayName =
     user.user_metadata.full_name ?? user.user_metadata.user_name ?? user.email
 
-  let repositories: Awaited<ReturnType<typeof getUserRepositories>> = []
+  let repositories: Awaited<ReturnType<typeof getWorkspaceRepositories>> = []
   let databaseError: string | null = null
 
   try {
-    await upsertSupabaseUser(user)
-    repositories = await getUserRepositories(user.id)
+    repositories = await getWorkspaceRepositories(workspace.id)
   } catch (dbError) {
     if (isPrismaConnectivityError(dbError)) {
       databaseError =
@@ -34,7 +29,7 @@ export default async function DashboardPage() {
       <section className="rounded-xl border border-border bg-card p-6">
         <h1 className="text-2xl font-bold text-foreground">Welcome, {displayName}!</h1>
         <p className="mt-2 text-muted-foreground">
-          Sync your repositories from GitHub to start scanning and indexing code.
+          You are currently working in <span className="font-medium text-foreground">{workspace.name}</span>. Sync repositories from GitHub to start scanning and indexing code.
         </p>
         <div className="mt-4 w-full md:w-fit">
           <SyncRepositoriesButton />

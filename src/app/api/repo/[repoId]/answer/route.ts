@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
 import { getRepository } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -12,13 +12,8 @@ type RetrievalFilters = {
 
 export async function POST(req: Request, { params }: RouteParams) {
   const { repoId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const { workspace } = await getAuthenticatedAppContext()
+  if (!workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -34,7 +29,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "question is required" }, { status: 400 })
   }
 
-  const repository = await getRepository(repoId, user.id)
+  const repository = await getRepository(repoId, workspace.id)
   if (!repository) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 })
   }

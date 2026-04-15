@@ -45,10 +45,10 @@ export type RepositoryDetail = Prisma.RepositoryGetPayload<{
 
 export async function getRepository(
   repoId: string,
-  userId: string
+  workspaceId: string
 ): Promise<RepositoryDetail | null> {
   return prisma.repository.findFirst({
-    where: { id: repoId, userId },
+    where: { id: repoId, workspaceId },
     select: REPOSITORY_DETAIL_SELECT,
   })
 }
@@ -72,10 +72,10 @@ export type RepositoryScanInfo = Prisma.RepositoryGetPayload<{
 /** Fetches only the fields needed to trigger a scan. */
 export async function getRepositoryForScan(
   repoId: string,
-  userId: string
+  workspaceId: string
 ): Promise<RepositoryScanInfo | null> {
   return prisma.repository.findFirst({
-    where: { id: repoId, userId },
+    where: { id: repoId, workspaceId },
     select: REPOSITORY_SCAN_SELECT,
   })
 }
@@ -104,17 +104,17 @@ export type RepositoryListItem = Prisma.RepositoryGetPayload<{
   select: typeof REPOSITORY_LIST_SELECT
 }>
 
-export async function hasUserRepositories(userId: string): Promise<boolean> {
+export async function hasWorkspaceRepositories(workspaceId: string): Promise<boolean> {
   const row = await prisma.repository.findFirst({
-    where: { userId },
+    where: { workspaceId },
     select: { id: true },
   })
   return row !== null
 }
 
-export async function getUserRepositories(userId: string): Promise<RepositoryListItem[]> {
+export async function getWorkspaceRepositories(workspaceId: string): Promise<RepositoryListItem[]> {
   return prisma.repository.findMany({
-    where: { userId },
+    where: { workspaceId },
     select: REPOSITORY_LIST_SELECT,
     orderBy: [{ updatedAt: "desc" }],
     take: 100,
@@ -139,12 +139,13 @@ export type GitHubRepoInput = {
  */
 export async function upsertGitHubRepositories(
   userId: string,
+  workspaceId: string,
   repos: GitHubRepoInput[]
 ): Promise<void> {
   if (repos.length === 0) return
 
   const existingRepositories = await prisma.repository.findMany({
-    where: { userId },
+    where: { workspaceId },
     select: {
       id: true,
       githubRepoId: true,
@@ -173,9 +174,10 @@ export async function upsertGitHubRepositories(
         if (existingRepositoryId) {
           return prisma.repository.update({
             where: { id: existingRepositoryId },
-            data: {
-              githubRepoId,
-              name: repo.name,
+          data: {
+            githubRepoId,
+            workspaceId,
+            name: repo.name,
               fullName: repo.full_name,
               owner: repo.owner.login,
               githubUrl: repo.html_url,
@@ -188,6 +190,7 @@ export async function upsertGitHubRepositories(
         return prisma.repository.create({
           data: {
             userId,
+            workspaceId,
             githubRepoId,
             name: repo.name,
             fullName: repo.full_name,

@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
-import { isPrismaConnectivityError, prisma } from "@/lib/db"
+import { canManageWorkspaceBilling, getWorkspaceBillingSummary, isPrismaConnectivityError } from "@/lib/db"
 import { getStripe, PRICE_IDS, type BillingTier } from "@/lib/stripe"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { user, workspace, isPlatformAdmin } = await getAuthenticatedAppContext()
+  if (!user || !workspace) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   let body: { tier?: string }
   try {
@@ -37,16 +34,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Stripe is not configured." }, { status: 503 })
   }
 
+  const canManage = await canManageWorkspaceBilling(user.id, workspace.id)
+  if (!canManage && !isPlatformAdmin) {
+    return NextResponse.json(
+      { error: "Only workspace owners can manage workspace billing." },
+      { status: 403 }
+    )
+  }
+
   let currentTier: string | null = null
   let stripeCustomerId: string | null = null
 
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { subscriptionTier: true, stripeCustomerId: true },
-    })
-    currentTier = dbUser?.subscriptionTier ?? "FREE"
-    stripeCustomerId = dbUser?.stripeCustomerId ?? null
+    const billingWorkspace = await getWorkspaceBillingSummary(workspace.id)
+    currentTier = billingWorkspace?.subscriptionTier ?? "FREE"
+    stripeCustomerId = billingWorkspace?.stripeCustomerId ?? null
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
@@ -67,8 +69,8 @@ export async function POST(req: Request) {
     customer_email: stripeCustomerId ? undefined : user.email ?? undefined,
     success_url: `${appUrl}/settings/billing?success=1`,
     cancel_url: `${appUrl}/settings/billing`,
-    metadata: { userId: user.id, tier },
-    subscription_data: { metadata: { userId: user.id, tier } },
+    metadata: { workspaceId: workspace.id, userId: user.id, tier },
+    subscription_data: { metadata: { workspaceId: workspace.id, userId: user.id, tier } },
   })
 
   return NextResponse.json({ url: session.url })

@@ -103,10 +103,10 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * **All Prisma interactions MUST go through `src/lib/db/`.** Do not import `prisma` directly in pages, layouts, or API routes — import helpers from `@/lib/db` instead.
 * **Never copy `isPrismaConnectivityError`** — it lives only in `src/lib/db/errors.ts`.
 * **Before writing any Prisma query**, check if a helper already exists in `src/lib/db/`:
-  * `getUserRepositories(userId)` — fetches the user's repositories with the standard select shape
-  * `upsertGitHubRepositories(userId, repos)` — bulk upserts repos in 50-item batches
+  * `getWorkspaceRepositories(workspaceId)` — fetches repositories for the active workspace
+  * `upsertGitHubRepositories(userId, workspaceId, repos)` — bulk upserts repos into the active workspace in 50-item batches
   * `upsertSupabaseUser(user)` — syncs a Supabase auth user into the Prisma User table
-  * `getUserSubscriptionTier(userId)` — returns the user's `SubscriptionTier` enum value
+  * `getActiveWorkspaceForUser(userId)` — returns the active workspace chosen via the workspace cookie
   * `searchCodeDocuments(repositoryId, queryVector, limit?)` — cosine similarity search; `queryVector` must be `number[]` of length 768
 * **If a helper doesn't exist**, add it to the appropriate `src/lib/db/*.ts` file and export it through `src/lib/db/index.ts`. New models get their own file (e.g., `src/lib/db/code-documents.ts`).
 * **Types for Prisma results** MUST use `Prisma.<Model>GetPayload<{ select: typeof SELECT_CONST }>` — never hand-write field shapes that duplicate the schema. The shared `RepositoryListItem` type is exported from `@/lib/db`.
@@ -146,8 +146,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Treat this as a standing command: after any major change, update `AGENTS.md` before ending the task.
 
 ### 14. Saved Artifacts & Answer Workflow (CRITICAL)
-* `V1.3` introduces two new first-class user-owned artifacts: `SavedCart` and `AnswerSession`.
-* Saved artifact ownership is `userId` + `repositoryId` for now. Do not introduce workspace ownership before `V2`.
+* `SavedCart` and `AnswerSession` are now workspace-owned artifacts with `userId` retained for authorship.
 * Saved carts and answer citations must store hybrid snapshots: keep `codeDocumentId` when available, but always persist `contentSnapshot` so exports survive rescans.
 * The left repo pane now supports three workflows: semantic search, repository QA, and saved answer recall. Search remains available; answer generation is additive, not a replacement.
 * Answer generation must run through the Python AI backend. Keep Next.js as orchestration/UI and do not move repo-answer synthesis into the app server.
@@ -160,3 +159,14 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Shared retrieval filters apply to both semantic search and answer generation. The first-class filter contract is: `language`, `fileCategory`, and `pathPrefix`.
 * The Python scanner is responsible for overlap-based chunking and heuristic file-type-aware chunking. Do not add full AST-heavy parsing or reranking in `V1.4`.
 * A fresh repository re-scan is the supported rollout path for retrieval upgrades. Do not add mixed old/new index compatibility logic unless explicitly requested later.
+
+### 16. Workspaces, Notifications, and Admin (CRITICAL)
+* `V2` moves ownership to `Workspace`. Every user must have a personal workspace, and the active workspace is selected through the `cc-active-workspace` cookie managed by `src/lib/workspace-session.ts`.
+* Use `getAuthenticatedAppContext()` when a page or route needs the authenticated user plus the active workspace and platform-admin state.
+* Repositories, saved carts, and answer sessions must be scoped to the active workspace in pages and API routes. Do not fall back to raw `userId` ownership checks for those models.
+* Team roles are `OWNER`, `ADMIN`, and `MEMBER`. Owners control billing and admin assignment. Admins can invite/remove members and manage shared artifacts. Members can use the workspace but cannot manage billing or roles.
+* Team collaboration features are enabled only when the active workspace is on a `TEAM` or `ENTERPRISE` subscription tier.
+* Workspace invites are modeled as `WorkspaceInvite` plus `Notification`. Pending invites should surface in `/notifications`, and accept/decline must go through the dedicated workspace invite routes.
+* Billing is now workspace-based. Stripe checkout, portal, and webhook handling must update `Workspace.subscriptionTier`, `Workspace.stripeCustomerId`, and `Workspace.stripeSubscriptionId` rather than treating the user record as the source of truth.
+* Platform admin access is stored in `User.isPlatformAdmin`. The seeded platform-admin email is `Khatrim23@students.ecu.edu`, but runtime authorization should always read the DB flag, not a hardcoded email check outside user sync/bootstrap.
+* The platform admin area at `/admin` is for global oversight only. Keep it server-rendered from current DB state unless explicit realtime requirements are added later.

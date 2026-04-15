@@ -32,13 +32,11 @@ const SCAN_JOB_WITH_REPOSITORY_SELECT = {
 } as const
 
 export async function getLatestScanJobForRepository(
-  repositoryId: string,
-  userId: string
+  repositoryId: string
 ): Promise<ScanJobSummary | null> {
   return prisma.scanJob.findFirst({
     where: {
       repositoryId,
-      repository: { userId },
     },
     select: SCAN_JOB_SELECT,
     orderBy: [{ createdAt: "desc" }],

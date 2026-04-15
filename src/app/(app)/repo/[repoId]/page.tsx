@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation"
-import { createClient } from "@/utils/supabase/server"
 import { failStaleScanJobForRepository, getLatestScanJobForRepository, getRepository } from "@/lib/db"
 import { Search, ShoppingCart, GitBranch, AlertCircle, History } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
@@ -10,6 +9,7 @@ import { ScanPoller } from "@/components/features/repo/scan-poller"
 import { SearchPane } from "@/components/features/repo/search-pane"
 import { ContextCartPane } from "@/components/features/repo/context-cart-pane"
 import { CURRENT_INDEX_FORMAT_VERSION, isRepositoryIndexOutdated } from "@/lib/index-format"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RepoPageProps = {
   params: Promise<{ repoId: string }>
@@ -17,19 +17,14 @@ type RepoPageProps = {
 
 export default async function RepoPage({ params }: RepoPageProps) {
   const { repoId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return null
+  const { user, workspace } = await getAuthenticatedAppContext()
+  if (!user || !workspace) return null
 
   await failStaleScanJobForRepository(repoId)
 
-  const repository = await getRepository(repoId, user.id)
+  const repository = await getRepository(repoId, workspace.id)
   if (!repository) notFound()
-  const latestScanJob = await getLatestScanJobForRepository(repoId, user.id)
+  const latestScanJob = await getLatestScanJobForRepository(repoId)
 
   const isScanning = repository.scanStatus === "SCANNING"
   const isBusy = repository.scanStatus === "QUEUED" || isScanning

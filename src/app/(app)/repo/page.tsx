@@ -1,19 +1,15 @@
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/utils/supabase/server"
-import { getUserRepositories } from "@/lib/db"
+import { getWorkspaceRepositories } from "@/lib/db"
 import { ScanStatusBadge } from "@/components/features/repositories/scan-status-badge"
 import { GitBranch } from "lucide-react"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 export default async function RepoIndexPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { workspace } = await getAuthenticatedAppContext()
+  if (!workspace) return null
 
-  if (!user) return null
-
-  const repositories = await getUserRepositories(user.id)
+  const repositories = await getWorkspaceRepositories(workspace.id)
 
   if (repositories.length === 1) {
     redirect(`/repo/${repositories[0].id}`)
@@ -27,7 +23,7 @@ export default async function RepoIndexPage() {
     <div className="mx-auto w-full max-w-3xl">
       <h1 className="text-2xl font-bold text-foreground">Repositories</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Select a repository to open the workspace.
+        Select a repository to open from {workspace.name}.
       </p>
 
       <ul className="mt-6 space-y-3">

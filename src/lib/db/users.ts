@@ -2,6 +2,10 @@ import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { Prisma } from "@prisma/client"
 import { decryptGithubToken, encryptGithubToken } from "@/lib/crypto"
 import { prisma } from "./client"
+import { ensurePersonalWorkspaceForUser } from "./workspaces"
+import { syncPendingInviteNotificationsForUser } from "./notifications"
+
+const PLATFORM_ADMIN_EMAIL = "Khatrim23@students.ecu.edu"
 
 export type UserSubscriptionTier =
   Prisma.UserGetPayload<{ select: { subscriptionTier: true } }>["subscriptionTier"]
@@ -18,6 +22,7 @@ export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
       githubId: user.user_metadata.provider_id?.toString() ?? null,
       name: user.user_metadata.full_name ?? user.user_metadata.user_name ?? null,
       avatarUrl: user.user_metadata.avatar_url ?? null,
+      isPlatformAdmin: user.email.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase(),
     },
     create: {
       id: user.id,
@@ -25,8 +30,17 @@ export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
       githubId: user.user_metadata.provider_id?.toString() ?? null,
       name: user.user_metadata.full_name ?? user.user_metadata.user_name ?? null,
       avatarUrl: user.user_metadata.avatar_url ?? null,
+      isPlatformAdmin: user.email.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase(),
     },
   })
+
+  await ensurePersonalWorkspaceForUser(
+    user.id,
+    user.email,
+    user.user_metadata.full_name ?? user.user_metadata.user_name ?? null
+  )
+
+  await syncPendingInviteNotificationsForUser(user.id, user.email)
 }
 
 export async function updateUserGithubToken(userId: string, token: string): Promise<void> {
@@ -90,4 +104,13 @@ export async function getUserSubscriptionTier(
   })
 
   return dbUser?.subscriptionTier ?? null
+}
+
+export async function isPlatformAdmin(userId: string): Promise<boolean> {
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isPlatformAdmin: true },
+  })
+
+  return dbUser?.isPlatformAdmin ?? false
 }

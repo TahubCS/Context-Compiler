@@ -1,14 +1,17 @@
-import { createClient } from "@/utils/supabase/server"
-import { getUserSubscriptionTier, isPrismaConnectivityError } from "@/lib/db"
+import { getWorkspaceBillingSummary } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 import { CreditCard, Check } from "lucide-react"
 import { UpgradeButton } from "@/components/features/billing/upgrade-button"
 import { ManageBillingButton } from "@/components/features/billing/manage-billing-button"
 
 const TIER_DETAILS: Record<string, { label: string; description: string }> = {
-  FREE:       { label: "Free",       description: "1 repository, 100 searches / month." },
-  PRO:        { label: "Pro",        description: "Unlimited repositories and searches." },
-  TEAM:       { label: "Team",       description: "Everything in Pro plus up to 10 seats." },
-  ENTERPRISE: { label: "Enterprise", description: "Custom limits and dedicated support." },
+  FREE: { label: "Free", description: "Solo workspace with core repository tooling." },
+  PRO: { label: "Pro", description: "Premium personal workspace features." },
+  TEAM: { label: "Team", description: "Shared collaboration with up to 10 seats." },
+  ENTERPRISE: {
+    label: "Enterprise",
+    description: "Expanded seat limits and enterprise-ready collaboration.",
+  },
 }
 
 const UPGRADE_TIERS = [
@@ -22,40 +25,29 @@ const UPGRADE_TIERS = [
     key: "TEAM",
     label: "Team",
     price: "$49 / mo",
-    features: ["Everything in Pro", "Up to 10 seats", "Shared context carts"],
+    features: ["Shared workspaces", "Up to 10 seats", "Shared carts and answers"],
   },
   {
     key: "ENTERPRISE",
     label: "Enterprise",
     price: "Custom",
-    features: ["Custom limits", "Dedicated support", "Audit logs"],
+    features: ["Custom limits", "Dedicated support", "Audit oversight"],
   },
 ]
 
 export default async function BillingPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { workspace } = await getAuthenticatedAppContext()
+  if (!workspace) return null
 
-  if (!user) return null
-
-  let subscriptionTier: string = "FREE"
-
-  try {
-    subscriptionTier = (await getUserSubscriptionTier(user.id)) ?? "FREE"
-  } catch (err) {
-    if (!isPrismaConnectivityError(err)) throw err
-  }
-
+  const billingWorkspace = await getWorkspaceBillingSummary(workspace.id)
+  const subscriptionTier = billingWorkspace?.subscriptionTier ?? "FREE"
   const currentTier = TIER_DETAILS[subscriptionTier] ?? TIER_DETAILS.FREE
   const isPaid = subscriptionTier !== "FREE"
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-      <h1 className="text-2xl font-bold text-foreground">Billing</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <h1 className="text-2xl font-bold text-foreground">Workspace Billing</h1>
 
-      {/* Current plan */}
       <section className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -66,15 +58,33 @@ export default async function BillingPage() {
         </div>
         <p className="mt-4 text-2xl font-bold text-foreground">{currentTier.label}</p>
         <p className="mt-1 text-sm text-muted-foreground">{currentTier.description}</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Workspace</p>
+            <p className="mt-0.5 text-sm text-foreground">{workspace.name}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Members</p>
+            <p className="mt-0.5 text-sm text-foreground">
+              {billingWorkspace?._count.members ?? 0}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Seat Limit</p>
+            <p className="mt-0.5 text-sm text-foreground">
+              {billingWorkspace?.seatLimit ?? "Unlimited / n/a"}
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* Upgrade options */}
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 font-semibold text-foreground">Upgrade Plan</h2>
         <div className="flex flex-col gap-4">
           {UPGRADE_TIERS.map((tier) => {
             const isCurrent = subscriptionTier === tier.key
             const isEnterprise = tier.key === "ENTERPRISE"
+
             return (
               <div
                 key={tier.key}
@@ -86,17 +96,26 @@ export default async function BillingPage() {
                     <span className="text-sm text-muted-foreground">{tier.price}</span>
                   </div>
                   <ul className="mt-2 flex flex-col gap-1">
-                    {tier.features.map((f) => (
-                      <li key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {tier.features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                      >
                         <Check className="size-3 shrink-0 text-primary" />
-                        {f}
+                        {feature}
                       </li>
                     ))}
                   </ul>
                 </div>
                 <UpgradeButton
                   tier={tier.key}
-                  label={isCurrent ? "Current Plan" : isEnterprise ? "Contact Us" : `Upgrade to ${tier.label}`}
+                  label={
+                    isCurrent
+                      ? "Current Plan"
+                      : isEnterprise
+                        ? "Contact Us"
+                        : `Upgrade to ${tier.label}`
+                  }
                   disabled={isCurrent || isEnterprise}
                 />
               </div>

@@ -65,10 +65,10 @@ export type SavedCartInputItem = {
 
 export async function listSavedCarts(
   repositoryId: string,
-  userId: string
+  workspaceId: string
 ): Promise<SavedCartListItem[]> {
   return prisma.savedCart.findMany({
-    where: { repositoryId, userId },
+    where: { repositoryId, workspaceId },
     select: SAVED_CART_LIST_SELECT,
     orderBy: [{ updatedAt: "desc" }],
   })
@@ -77,10 +77,10 @@ export async function listSavedCarts(
 export async function getSavedCart(
   cartId: string,
   repositoryId: string,
-  userId: string
+  workspaceId: string
 ): Promise<SavedCartDetail | null> {
   return prisma.savedCart.findFirst({
-    where: { id: cartId, repositoryId, userId },
+    where: { id: cartId, repositoryId, workspaceId },
     select: SAVED_CART_DETAIL_SELECT,
   })
 }
@@ -88,6 +88,7 @@ export async function getSavedCart(
 export async function createSavedCart(
   repositoryId: string,
   userId: string,
+  workspaceId: string,
   input: {
     title: string
     description?: string | null
@@ -98,6 +99,7 @@ export async function createSavedCart(
     data: {
       repositoryId,
       userId,
+      workspaceId,
       title: input.title,
       description: input.description ?? null,
       items: {
@@ -119,7 +121,7 @@ export async function createSavedCart(
 export async function updateSavedCart(
   cartId: string,
   repositoryId: string,
-  userId: string,
+  workspaceId: string,
   input: {
     title: string
     description?: string | null
@@ -127,7 +129,7 @@ export async function updateSavedCart(
   }
 ): Promise<SavedCartDetail | null> {
   const existing = await prisma.savedCart.findFirst({
-    where: { id: cartId, repositoryId, userId },
+    where: { id: cartId, repositoryId, workspaceId },
     select: { id: true },
   })
 
@@ -167,10 +169,10 @@ export async function updateSavedCart(
 export async function deleteSavedCart(
   cartId: string,
   repositoryId: string,
-  userId: string
+  workspaceId: string
 ): Promise<boolean> {
   const result = await prisma.savedCart.deleteMany({
-    where: { id: cartId, repositoryId, userId },
+    where: { id: cartId, repositoryId, workspaceId },
   })
 
   return result.count > 0

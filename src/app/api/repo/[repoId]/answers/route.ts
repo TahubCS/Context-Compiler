@@ -1,43 +1,33 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
 import { createAnswerSession, getRepository, listAnswerSessions } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
 export async function GET(_req: Request, { params }: RouteParams) {
   const { repoId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const { user, workspace } = await getAuthenticatedAppContext()
+  if (!user || !workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const repository = await getRepository(repoId, user.id)
+  const repository = await getRepository(repoId, workspace.id)
   if (!repository) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 })
   }
 
-  const answers = await listAnswerSessions(repoId, user.id)
+  const answers = await listAnswerSessions(repoId, workspace.id)
   return NextResponse.json({ answers })
 }
 
 export async function POST(req: Request, { params }: RouteParams) {
   const { repoId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const { user, workspace } = await getAuthenticatedAppContext()
+  if (!user || !workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const repository = await getRepository(repoId, user.id)
+  const repository = await getRepository(repoId, workspace.id)
   if (!repository) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 })
   }
@@ -76,7 +66,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     score: citation.score ?? null,
   }))
 
-  const answerSession = await createAnswerSession(repoId, user.id, {
+  const answerSession = await createAnswerSession(repoId, user.id, workspace.id, {
     question,
     answer,
     citations,

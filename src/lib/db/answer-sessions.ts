@@ -65,12 +65,12 @@ export type AnswerCitationInput = {
 
 export async function listAnswerSessions(
   repositoryId: string,
-  userId: string
+  workspaceId: string
 ): Promise<AnswerSessionListItem[]> {
   return prisma.answerSession.findMany({
     where: {
       repositoryId,
-      userId,
+      workspaceId,
       status: "SAVED",
     },
     select: ANSWER_SESSION_LIST_SELECT,
@@ -81,13 +81,13 @@ export async function listAnswerSessions(
 export async function getAnswerSession(
   answerSessionId: string,
   repositoryId: string,
-  userId: string
+  workspaceId: string
 ): Promise<AnswerSessionDetail | null> {
   return prisma.answerSession.findFirst({
     where: {
       id: answerSessionId,
       repositoryId,
-      userId,
+      workspaceId,
     },
     select: ANSWER_SESSION_DETAIL_SELECT,
   })
@@ -96,6 +96,7 @@ export async function getAnswerSession(
 export async function createAnswerSession(
   repositoryId: string,
   userId: string,
+  workspaceId: string,
   input: {
     question: string
     answer: string
@@ -106,6 +107,7 @@ export async function createAnswerSession(
     data: {
       repositoryId,
       userId,
+      workspaceId,
       question: input.question,
       answer: input.answer,
       status: "SAVED",
@@ -128,13 +130,13 @@ export async function createAnswerSession(
 export async function deleteAnswerSession(
   answerSessionId: string,
   repositoryId: string,
-  userId: string
+  workspaceId: string
 ): Promise<boolean> {
   const result = await prisma.answerSession.deleteMany({
     where: {
       id: answerSessionId,
       repositoryId,
-      userId,
+      workspaceId,
     },
   })
 

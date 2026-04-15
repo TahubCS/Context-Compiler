@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { getStripe } from "@/lib/stripe"
-import { prisma } from "@/lib/db"
+import { resetWorkspaceSubscription, updateWorkspaceSubscription } from "@/lib/db"
 import { SubscriptionTier } from "@prisma/client"
 
 const TIER_MAP: Record<string, SubscriptionTier> = {
@@ -11,13 +11,15 @@ const TIER_MAP: Record<string, SubscriptionTier> = {
 }
 
 async function syncSubscription(
-  userId: string,
+  workspaceId: string,
   stripeCustomerId: string,
+  stripeSubscriptionId: string | null,
   tier: SubscriptionTier
 ) {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { stripeCustomerId, subscriptionTier: tier },
+  await updateWorkspaceSubscription(workspaceId, {
+    stripeCustomerId,
+    stripeSubscriptionId,
+    subscriptionTier: tier,
   })
 }
 
@@ -49,15 +51,16 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const userId = session.metadata?.userId
+        const workspaceId = session.metadata?.workspaceId
         const tier = session.metadata?.tier
 
-        if (!userId || !tier || !TIER_MAP[tier]) break
+        if (!workspaceId || !tier || !TIER_MAP[tier]) break
         if (!session.customer) break
 
         await syncSubscription(
-          userId,
+          workspaceId,
           session.customer as string,
+          typeof session.subscription === "string" ? session.subscription : null,
           TIER_MAP[tier]
         )
         break
@@ -65,25 +68,27 @@ export async function POST(request: Request) {
 
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
-        const userId = sub.metadata?.userId
+        const workspaceId = sub.metadata?.workspaceId
         const tier = sub.metadata?.tier
 
-        if (!userId || !tier || !TIER_MAP[tier]) break
+        if (!workspaceId || !tier || !TIER_MAP[tier]) break
 
-        await syncSubscription(userId, sub.customer as string, TIER_MAP[tier])
+        await syncSubscription(
+          workspaceId,
+          sub.customer as string,
+          sub.id,
+          TIER_MAP[tier]
+        )
         break
       }
 
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription
-        const userId = sub.metadata?.userId
+        const workspaceId = sub.metadata?.workspaceId
 
-        if (!userId) break
+        if (!workspaceId) break
 
-        await prisma.user.update({
-          where: { id: userId },
-          data: { subscriptionTier: SubscriptionTier.FREE },
-        })
+        await resetWorkspaceSubscription(workspaceId)
         break
       }
     }

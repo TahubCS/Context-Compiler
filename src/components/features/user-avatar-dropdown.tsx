@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, User, CreditCard } from "lucide-react"
+import { Bell, LogOut, User, CreditCard } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 
 type UserAvatarDropdownProps = {
@@ -54,6 +54,12 @@ export function UserAvatarDropdown({ displayName, avatarUrl }: UserAvatarDropdow
           <a href="/settings/billing" className="flex items-center gap-2">
             <CreditCard className="size-4" />
             Billing
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href="/notifications" className="flex items-center gap-2">
+            <Bell className="size-4" />
+            Notifications
           </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -2,21 +2,23 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Code2, LayoutDashboard, GitBranch, Settings } from "lucide-react"
+import { Bell, Code2, GitBranch, LayoutDashboard, Settings, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, requiresRepos: false },
   { href: "/repo", label: "Repos", icon: GitBranch, requiresRepos: true },
+  { href: "/notifications", label: "Notifications", icon: Bell, requiresRepos: false },
   { href: "/settings", label: "Settings", icon: Settings, requiresRepos: false },
 ]
 
 type AppSidebarProps = {
   hasRepos: boolean
+  isPlatformAdmin?: boolean
 }
 
-export function AppSidebar({ hasRepos }: AppSidebarProps) {
+export function AppSidebar({ hasRepos, isPlatformAdmin = false }: AppSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -68,6 +70,20 @@ export function AppSidebar({ hasRepos }: AppSidebarProps) {
             </Link>
           )
         })}
+        {isPlatformAdmin ? (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/admin")
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <Shield className="size-4 shrink-0" />
+            <span className="hidden md:block">Admin</span>
+          </Link>
+        ) : null}
       </nav>
     </aside>
   )

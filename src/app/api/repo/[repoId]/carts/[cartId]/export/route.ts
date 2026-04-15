@@ -1,22 +1,17 @@
-import { createClient } from "@/utils/supabase/server"
 import { getSavedCart } from "@/lib/db"
 import { formatContextPack } from "@/lib/prompt-packs"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RouteParams = { params: Promise<{ repoId: string; cartId: string }> }
 
 export async function GET(_req: Request, { params }: RouteParams) {
   const { repoId, cartId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const { workspace } = await getAuthenticatedAppContext()
+  if (!workspace) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  const cart = await getSavedCart(cartId, repoId, user.id)
+  const cart = await getSavedCart(cartId, repoId, workspace.id)
   if (!cart) {
     return new Response("Saved cart not found", { status: 404 })
   }

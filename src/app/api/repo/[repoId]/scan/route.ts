@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
 import {
   createScanJob,
   failStaleScanJobForRepository,
@@ -8,17 +7,15 @@ import {
   getUserGithubToken,
   isPrismaConnectivityError,
 } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
 export async function POST(req: Request, { params }: RouteParams) {
   const { repoId } = await params
 
-  const supabase = await createClient()
-  const { data: userData } = await supabase.auth.getUser()
-
-  const user = userData.user
-  if (!user) {
+  const { user, workspace } = await getAuthenticatedAppContext()
+  if (!user || !workspace) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -36,7 +33,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   try {
     ;[repository, githubToken] = await Promise.all([
-      getRepositoryForScan(repoId, user.id),
+      getRepositoryForScan(repoId, workspace.id),
       getUserGithubToken(user.id),
     ])
   } catch (error) {

@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
-import { isPrismaConnectivityError, prisma } from "@/lib/db"
+import {
+  canManageWorkspaceBilling,
+  getWorkspaceBillingSummary,
+  isPrismaConnectivityError,
+} from "@/lib/db"
 import { getStripe } from "@/lib/stripe"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 export async function POST() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { user, workspace, isPlatformAdmin } = await getAuthenticatedAppContext()
+  if (!user || !workspace) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   let stripe
   try {
@@ -17,13 +18,18 @@ export async function POST() {
     return NextResponse.json({ error: "Stripe is not configured." }, { status: 503 })
   }
 
+  const canManage = await canManageWorkspaceBilling(user.id, workspace.id)
+  if (!canManage && !isPlatformAdmin) {
+    return NextResponse.json(
+      { error: "Only workspace owners can manage workspace billing." },
+      { status: 403 }
+    )
+  }
+
   let stripeCustomerId: string | null = null
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { stripeCustomerId: true },
-    })
-    stripeCustomerId = dbUser?.stripeCustomerId ?? null
+    const billingWorkspace = await getWorkspaceBillingSummary(workspace.id)
+    stripeCustomerId = billingWorkspace?.stripeCustomerId ?? null
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })

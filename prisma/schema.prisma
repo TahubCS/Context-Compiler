@@ -13,6 +13,29 @@ enum SubscriptionTier {
   ENTERPRISE
 }
 
+enum WorkspaceType {
+  PERSONAL
+  TEAM
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum WorkspaceInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum NotificationType {
+  WORKSPACE_INVITE
+}
+
 enum RepositoryScanStatus {
   IDLE
   QUEUED
@@ -41,18 +64,115 @@ model User {
   githubId             String?          @unique
   githubTokenEncrypted String?
   githubTokenUpdatedAt DateTime?
+  isPlatformAdmin      Boolean          @default(false)
   stripeCustomerId     String?          @unique
   subscriptionTier     SubscriptionTier @default(FREE)
   repositories         Repository[]
   savedCarts           SavedCart[]
   answerSessions       AnswerSession[]
+  ownedWorkspaces      Workspace[]      @relation("WorkspaceOwner")
+  workspaceMemberships WorkspaceMember[]
+  sentWorkspaceInvites WorkspaceInvite[] @relation("WorkspaceInviteSender")
+  notifications        Notification[]
+  auditLogs            AuditLog[]
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
+}
+
+model Workspace {
+  id                   String             @id @default(uuid()) @db.Uuid
+  name                 String
+  slug                 String             @unique
+  type                 WorkspaceType
+  subscriptionTier     SubscriptionTier   @default(FREE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  seatLimit            Int?
+  ownerUserId          String             @db.Uuid
+  owner                User               @relation("WorkspaceOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members              WorkspaceMember[]
+  invites              WorkspaceInvite[]
+  notifications        Notification[]
+  repositories         Repository[]
+  savedCarts           SavedCart[]
+  answerSessions       AnswerSession[]
+  auditLogs            AuditLog[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([ownerUserId])
+  @@index([subscriptionTier])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
+  role        WorkspaceRole
+  joinedAt    DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId, role])
+}
+
+model WorkspaceInvite {
+  id              String                @id @default(uuid()) @db.Uuid
+  workspaceId     String                @db.Uuid
+  email           String
+  role            WorkspaceRole
+  status          WorkspaceInviteStatus @default(PENDING)
+  invitedByUserId String                @db.Uuid
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy       User                  @relation("WorkspaceInviteSender", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  notifications   Notification[]
+  createdAt       DateTime              @default(now())
+  respondedAt     DateTime?
+
+  @@index([email, status])
+  @@index([workspaceId, status])
+}
+
+model Notification {
+  id                String            @id @default(uuid()) @db.Uuid
+  userId            String            @db.Uuid
+  workspaceId       String?           @db.Uuid
+  type              NotificationType
+  title             String
+  body              String            @db.Text
+  readAt            DateTime?
+  workspaceInviteId String?           @db.Uuid
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace         Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  workspaceInvite   WorkspaceInvite?  @relation(fields: [workspaceInviteId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([workspaceInviteId])
+}
+
+model AuditLog {
+  id          String     @id @default(uuid()) @db.Uuid
+  workspaceId String?    @db.Uuid
+  actorUserId String?    @db.Uuid
+  eventType   String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor       User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model Repository {
   id                   String               @id @default(uuid()) @db.Uuid
   userId               String               @db.Uuid
+  workspaceId          String?              @db.Uuid
   githubRepoId         String?
   indexFormatVersion   Int                  @default(1)
   name                 String
@@ -74,14 +194,16 @@ model Repository {
   savedCarts           SavedCart[]
   answerSessions       AnswerSession[]
   user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace            Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
-  @@unique([userId, githubUrl])
-  @@unique([userId, githubRepoId])
+  @@unique([workspaceId, githubUrl])
+  @@unique([workspaceId, githubRepoId])
   @@index([userId])
-  @@index([userId, scanStatus])
-  @@index([userId, githubRepoId])
+  @@index([workspaceId])
+  @@index([workspaceId, scanStatus])
+  @@index([workspaceId, githubRepoId])
   @@index([lastScannedAt])
 }
 
@@ -141,16 +263,19 @@ model ScanJob {
 model SavedCart {
   id           String          @id @default(uuid()) @db.Uuid
   userId       String          @db.Uuid
+  workspaceId  String?         @db.Uuid
   repositoryId String          @db.Uuid
   title        String
   description  String?
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   repository   Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   items        SavedCartItem[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
   @@index([userId, repositoryId, updatedAt])
+  @@index([workspaceId, repositoryId, updatedAt])
   @@index([repositoryId, updatedAt])
 }
 
@@ -174,17 +299,20 @@ model SavedCartItem {
 model AnswerSession {
   id           String              @id @default(uuid()) @db.Uuid
   userId       String              @db.Uuid
+  workspaceId  String?             @db.Uuid
   repositoryId String              @db.Uuid
   question     String              @db.Text
   answer       String              @db.Text
   status       AnswerSessionStatus @default(SAVED)
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   repository   Repository          @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   citations    AnswerCitation[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
   @@index([userId, repositoryId, updatedAt])
+  @@index([workspaceId, repositoryId, updatedAt])
   @@index([repositoryId, updatedAt])
 }
 

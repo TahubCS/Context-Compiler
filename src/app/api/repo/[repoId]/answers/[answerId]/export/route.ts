@@ -1,27 +1,22 @@
-import { createClient } from "@/utils/supabase/server"
 import { getAnswerSession, getRepository } from "@/lib/db"
 import { formatAnswerPack } from "@/lib/prompt-packs"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RouteParams = { params: Promise<{ repoId: string; answerId: string }> }
 
 export async function GET(_req: Request, { params }: RouteParams) {
   const { repoId, answerId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const { workspace } = await getAuthenticatedAppContext()
+  if (!workspace) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  const repository = await getRepository(repoId, user.id)
+  const repository = await getRepository(repoId, workspace.id)
   if (!repository) {
     return new Response("Repository not found", { status: 404 })
   }
 
-  const answerSession = await getAnswerSession(answerId, repoId, user.id)
+  const answerSession = await getAnswerSession(answerId, repoId, workspace.id)
   if (!answerSession) {
     return new Response("Answer session not found", { status: 404 })
   }

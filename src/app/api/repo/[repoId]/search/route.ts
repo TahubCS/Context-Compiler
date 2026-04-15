@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
 import { getRepository, searchCodeDocuments, isPrismaConnectivityError } from "@/lib/db"
+import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -12,12 +12,8 @@ type RetrievalFilters = {
 
 export async function POST(req: Request, { params }: RouteParams) {
   const { repoId } = await params
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { workspace } = await getAuthenticatedAppContext()
+  if (!workspace) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   let body: { query?: string } & RetrievalFilters
   try {
@@ -29,7 +25,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const query = body.query?.trim()
   if (!query) return NextResponse.json({ error: "query is required" }, { status: 400 })
 
-  const repo = await getRepository(repoId, user.id)
+  const repo = await getRepository(repoId, workspace.id)
   if (!repo) return NextResponse.json({ error: "Repository not found" }, { status: 404 })
 
   const backendUrl = process.env.AI_BACKEND_URL

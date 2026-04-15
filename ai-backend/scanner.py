@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
@@ -23,6 +24,7 @@ from config import (
     CURRENT_INDEX_FORMAT_VERSION,
     LANGUAGE_MAP,
     PROGRESS_EVERY,
+    SCAN_HEARTBEAT_INTERVAL_SECONDS,
     SKIP_DIRS,
 )
 from vector_store import delete_stale_chunks, get_connection, upsert_chunk
@@ -61,6 +63,83 @@ def _callback(url: str, secret: str, payload: dict) -> None:
             logger.warning("Callback returned %s: %s", resp.status_code, resp.text)
     except Exception as exc:
         logger.warning("Callback failed: %s", exc)
+
+
+class _ScanProgressReporter:
+    def __init__(
+        self,
+        callback_url: str,
+        callback_secret: str,
+        scan_job_id: str,
+        heartbeat_interval_s: int = SCAN_HEARTBEAT_INTERVAL_SECONDS,
+    ) -> None:
+        self.callback_url = callback_url
+        self.callback_secret = callback_secret
+        self.scan_job_id = scan_job_id
+        self.heartbeat_interval_s = heartbeat_interval_s
+        self.indexed_commit_sha: str | None = None
+        self.files_discovered: int | None = None
+        self.files_processed = 0
+        self._last_sent_at = 0.0
+
+    def set_scan_context(
+        self,
+        *,
+        indexed_commit_sha: str | None = None,
+        files_discovered: int | None = None,
+        files_processed: int | None = None,
+    ) -> None:
+        if indexed_commit_sha is not None:
+            self.indexed_commit_sha = indexed_commit_sha
+        if files_discovered is not None:
+            self.files_discovered = files_discovered
+        if files_processed is not None:
+            self.files_processed = files_processed
+
+    def send_scanning(self, *, force: bool = False, phase: str | None = None) -> None:
+        now = time.monotonic()
+        if not force and now - self._last_sent_at < self.heartbeat_interval_s:
+            return
+
+        payload: dict[str, object] = {
+            "scanJobId": self.scan_job_id,
+            "scanStatus": "SCANNING",
+        }
+        if self.indexed_commit_sha is not None:
+            payload["indexedCommitSha"] = self.indexed_commit_sha
+            payload["indexFormatVersion"] = CURRENT_INDEX_FORMAT_VERSION
+        if self.files_discovered is not None:
+            payload["filesDiscovered"] = self.files_discovered
+        payload["filesProcessed"] = self.files_processed
+        if phase:
+            payload["phase"] = phase
+
+        _callback(self.callback_url, self.callback_secret, payload)
+        self._last_sent_at = now
+
+    def send_completed(self) -> None:
+        payload: dict[str, object] = {
+            "scanJobId": self.scan_job_id,
+            "scanStatus": "COMPLETED",
+            "indexFormatVersion": CURRENT_INDEX_FORMAT_VERSION,
+            "filesProcessed": self.files_processed,
+        }
+        if self.indexed_commit_sha is not None:
+            payload["indexedCommitSha"] = self.indexed_commit_sha
+        if self.files_discovered is not None:
+            payload["filesDiscovered"] = self.files_discovered
+        _callback(self.callback_url, self.callback_secret, payload)
+
+    def send_failed(self, error_message: str) -> None:
+        _callback(
+            self.callback_url,
+            self.callback_secret,
+            {
+                "scanJobId": self.scan_job_id,
+                "scanStatus": "FAILED",
+                "errorMessage": error_message,
+            },
+        )
 
 
 def _fixed_line_chunks(lines: list[str], overlap_lines: int = CHUNK_OVERLAP_LINES) -> list[str]:
@@ -227,11 +306,8 @@ def run_scan(
         "Starting scan job=%s for repo=%s url=%s branch=%s",
         scan_job_id, repository_id, github_url, default_branch,
     )
-    _callback(
-        callback_url,
-        callback_secret,
-        {"scanJobId": scan_job_id, "scanStatus": "SCANNING"},
-    )
+    progress = _ScanProgressReporter(callback_url, callback_secret, scan_job_id)
+    progress.send_scanning(force=True, phase="starting")
 
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -252,26 +328,23 @@ def run_scan(
                     raise
 
             repo_dir = Path(tmp_dir)
-            indexed_commit_sha = Repo(repo_dir).head.commit.hexsha
+            repo = Repo(repo_dir)
+            indexed_commit_sha = repo.git.rev_parse("HEAD").strip()
             files = _collect_files(repo_dir)
             total_files = len(files)
-
-            _callback(
-                callback_url,
-                callback_secret,
-                {
-                    "scanJobId": scan_job_id,
-                    "scanStatus": "SCANNING",
-                    "indexedCommitSha": indexed_commit_sha,
-                    "indexFormatVersion": CURRENT_INDEX_FORMAT_VERSION,
-                    "filesDiscovered": total_files,
-                },
+            progress.set_scan_context(
+                indexed_commit_sha=indexed_commit_sha,
+                files_discovered=total_files,
+                files_processed=0,
             )
+            progress.send_scanning(force=True, phase="cloned")
 
             with get_connection() as conn:
                 files_processed = 0
 
                 for file_path in files:
+                    progress.set_scan_context(files_processed=files_processed)
+                    progress.send_scanning(phase="reading")
                     try:
                         content = file_path.read_text(encoding="utf-8", errors="ignore")
                     except Exception as exc:
@@ -288,19 +361,25 @@ def run_scan(
                     for chunk_index, (chunk_type, chunk_text) in enumerate(chunks):
                         content_hash = hashlib.sha256(chunk_text.encode()).hexdigest()
                         token_count = len(chunk_text.split())
+                        progress.send_scanning(phase="embedding")
 
                         try:
-                            embedding = embed_text(chunk_text)
-                        except Exception as exc:
-                            logger.error(
-                                "Embedding failed for %s chunk %d: %s",
-                                relative_path,
-                                chunk_index,
-                                exc,
+                            embedding = embed_text(
+                                chunk_text,
+                                on_retry_wait=lambda _wait, _attempt, _max: progress.send_scanning(
+                                    force=True, phase="embedding-retry"
+                                ),
                             )
-                            continue
+                        except Exception as exc:
+                            message = (
+                                "Embedding failed while indexing "
+                                f"{relative_path} chunk {chunk_index}: {exc}"
+                            )
+                            logger.error(message)
+                            raise RuntimeError(message) from exc
 
                         try:
+                            progress.send_scanning(phase="writing")
                             upsert_chunk(
                                 conn,
                                 scan_job_id=scan_job_id,
@@ -325,56 +404,29 @@ def run_scan(
                             )
                             raise
                         except Exception as exc:
-                            logger.error(
-                                "DB upsert failed for %s chunk %d: %s",
-                                relative_path,
-                                chunk_index,
-                                exc,
-                            )
                             conn.rollback()
-                            continue
+                            message = (
+                                "Database upsert failed while indexing "
+                                f"{relative_path} chunk {chunk_index}: {exc}"
+                            )
+                            logger.error(message)
+                            raise RuntimeError(message) from exc
 
                     conn.commit()
                     files_processed += 1
+                    progress.set_scan_context(files_processed=files_processed)
 
                     if files_processed % PROGRESS_EVERY == 0:
-                        _callback(
-                            callback_url,
-                            callback_secret,
-                            {
-                                "scanJobId": scan_job_id,
-                                "scanStatus": "SCANNING",
-                                "indexedCommitSha": indexed_commit_sha,
-                                "indexFormatVersion": CURRENT_INDEX_FORMAT_VERSION,
-                                "filesDiscovered": total_files,
-                                "filesProcessed": files_processed,
-                            },
-                        )
+                        progress.send_scanning(force=True, phase="progress")
+                    else:
+                        progress.send_scanning(phase="progress")
 
+                progress.send_scanning(force=True, phase="cleanup")
                 delete_stale_chunks(conn, repository_id, scan_job_id)
                 conn.commit()
 
-        _callback(
-            callback_url,
-            callback_secret,
-            {
-                "scanJobId": scan_job_id,
-                "scanStatus": "COMPLETED",
-                "indexedCommitSha": indexed_commit_sha,
-                "indexFormatVersion": CURRENT_INDEX_FORMAT_VERSION,
-                "filesDiscovered": total_files,
-                "filesProcessed": files_processed,
-            },
-        )
+        progress.send_completed()
 
     except Exception as exc:
         logger.exception("Scan FAILED for repo=%s: %s", repository_id, exc)
-        _callback(
-            callback_url,
-            callback_secret,
-            {
-                "scanJobId": scan_job_id,
-                "scanStatus": "FAILED",
-                "errorMessage": str(exc),
-            },
-        )
+        progress.send_failed(str(exc))

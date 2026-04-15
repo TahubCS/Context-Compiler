@@ -128,9 +128,13 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * When dispatching scans from Next.js to the Python service, await the handoff request and fail the queued job immediately if the backend is unreachable or rejects the request. Do not rely on unawaited fire-and-forget fetches in serverless environments like Vercel.
 * All Next.js -> Python service calls must resolve through `AI_BACKEND_URL` via a shared helper, and the Python scan callback must resolve through the app base URL (`NEXT_PUBLIC_URL` / site URL), not hardcoded hosts or ad hoc string building.
 * The Python scanner sends `SCANNING` callbacks periodically. `ScanJob.lastHeartbeatAt` is updated on every `SCANNING` status update and is used to detect abandoned scans.
+* The scanner heartbeat contract is time-based, not only file-count based. Long embedding, retry, or database phases must still emit `SCANNING` callbacks frequently enough that slow scans are not mistaken for dead scans.
 * Stale scan recovery is lazy: before queueing a new scan, and when loading `/repo/[repoId]`, the app should mark stale `SCANNING` jobs as `FAILED` if their heartbeat is too old.
+* The stale scan timeout is intentionally generous for production workloads. Do not tighten it back to a few minutes unless the Python scanner is also emitting correspondingly tighter heartbeats.
 * Stale code chunks must only be deleted after a scan completes successfully. Never delete old `CodeDocument` rows during a failed or abandoned scan.
 * Existing repositories may have `githubRepoId = NULL` until the next GitHub sync. If code depends on immutable GitHub repo identity, instruct the user to run repo sync after applying schema SQL.
+* Python scan persistence must be pooler-safe. Prefer a direct Postgres `DATABASE_URL` for the Python service when possible; if Supabase pooler/PgBouncer is used, psycopg prepared statements must be disabled rather than assumed to work.
+* If a requested scan branch does not exist, Python may fall back to cloning the remote default HEAD. After that fallback, treat the checked-out repo HEAD as the source of truth for `indexedCommitSha` instead of re-reading the originally requested branch ref.
 
 ### 12. Auth & Token Storage (CRITICAL)
 * GitHub OAuth tokens must never be stored or updated in plaintext route-handler code.

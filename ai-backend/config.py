@@ -28,6 +28,7 @@ DATABASE_URL: str = os.environ["DATABASE_URL"]
 CHUNK_MAX_LINES = 100  # Max lines per chunk
 CHUNK_OVERLAP_LINES = 20
 PROGRESS_EVERY = 10    # Call back every N files processed
+SCAN_HEARTBEAT_INTERVAL_SECONDS = int(os.getenv("SCAN_HEARTBEAT_INTERVAL_SECONDS", "25"))
 CURRENT_INDEX_FORMAT_VERSION = 2
 
 SKIP_DIRS: set[str] = {

@@ -25,7 +25,7 @@ _DB_URL = _sanitize_db_url(DATABASE_URL)
 
 
 def get_connection():
-    return psycopg.connect(_DB_URL, autocommit=False)
+    return psycopg.connect(_DB_URL, autocommit=False, prepare_threshold=None)
 
 
 def upsert_chunk(

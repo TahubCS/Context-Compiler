@@ -1,7 +1,9 @@
 import { Prisma, RepositoryScanStatus, ScanJobStatus } from "@prisma/client"
 import { prisma } from "./client"
 
-const STALE_SCAN_TIMEOUT_MS = 3 * 60 * 1000
+const STALE_SCAN_TIMEOUT_MS = 10 * 60 * 1000
+const STALE_SCAN_ERROR_MESSAGE =
+  "Scan stopped sending progress updates and was marked as failed. Retry the scan if it does not resume."
 
 const SCAN_JOB_SELECT = {
   id: true,
@@ -213,8 +215,7 @@ export async function failStaleScanJobForRepository(
       where: { id: staleScanJob.id },
       data: {
         status: ScanJobStatus.FAILED,
-        errorMessage:
-          "Scan stopped unexpectedly. The Python scanner may have restarted or crashed. Please retry.",
+        errorMessage: STALE_SCAN_ERROR_MESSAGE,
         completedAt: new Date(),
       },
     })
@@ -224,8 +225,7 @@ export async function failStaleScanJobForRepository(
         where: { id: repositoryId },
         data: {
           scanStatus: RepositoryScanStatus.FAILED,
-          errorMessage:
-            "Scan stopped unexpectedly. The Python scanner may have restarted or crashed. Please retry.",
+          errorMessage: STALE_SCAN_ERROR_MESSAGE,
           activeScanJobId: null,
         },
       })

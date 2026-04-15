@@ -5,6 +5,7 @@ Gemini client helpers for embeddings and grounded answer generation.
 import logging
 import random
 import time
+from collections.abc import Callable
 
 from google import genai
 from google.genai.errors import APIError, ClientError
@@ -20,7 +21,10 @@ _BASE_DELAY_S = 5.0
 _MAX_DELAY_S = 120.0
 
 
-def embed_text(text: str) -> list[float]:
+def embed_text(
+    text: str,
+    on_retry_wait: Callable[[float, int, int], None] | None = None,
+) -> list[float]:
     """
     Generate a 768-dim embedding vector for the given text.
     """
@@ -50,6 +54,8 @@ def embed_text(text: str) -> list[float]:
                     _MAX_RETRIES,
                     wait,
                 )
+                if on_retry_wait:
+                    on_retry_wait(wait, attempt + 1, _MAX_RETRIES)
                 time.sleep(wait)
                 delay = min(delay * 2, _MAX_DELAY_S)
             else:

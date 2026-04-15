@@ -1,4 +1,5 @@
 import { getAnswerSession, getRepository } from "@/lib/db"
+import type { AnswerSessionDetail } from "@/lib/db"
 import { formatAnswerPack } from "@/lib/prompt-packs"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 
@@ -25,7 +26,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     answerSession.repository.fullName,
     answerSession.question,
     answerSession.answer,
-    answerSession.citations.map((citation) => ({
+    answerSession.citations.map((citation: AnswerSessionDetail["citations"][number]) => ({
       filePath: citation.filePath,
       chunkIndex: citation.chunkIndex,
       language: citation.language,

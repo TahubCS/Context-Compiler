@@ -38,6 +38,10 @@ const WORKSPACE_SWITCHER_SELECT = {
   type: true,
   subscriptionTier: true,
   seatLimit: true,
+  githubInstallationId: true,
+  githubInstallationAccountLogin: true,
+  githubAppConnectedAt: true,
+  lastRepoSyncAt: true,
   _count: {
     select: {
       members: true,
@@ -52,6 +56,12 @@ const ACTIVE_WORKSPACE_SELECT = {
   type: true,
   subscriptionTier: true,
   seatLimit: true,
+  githubInstallationId: true,
+  githubInstallationAccountLogin: true,
+  githubInstallationAccountType: true,
+  githubAppConnectedAt: true,
+  lastRepoSyncAt: true,
+  lastWebhookEventAt: true,
   ownerUserId: true,
   _count: {
     select: {
@@ -116,6 +126,10 @@ const WORKSPACE_BILLING_SELECT = {
   seatLimit: true,
   stripeCustomerId: true,
   stripeSubscriptionId: true,
+  githubInstallationId: true,
+  githubInstallationAccountLogin: true,
+  githubAppConnectedAt: true,
+  lastRepoSyncAt: true,
   ownerUserId: true,
   _count: {
     select: {
@@ -135,6 +149,11 @@ const ADMIN_WORKSPACE_SELECT = {
   type: true,
   subscriptionTier: true,
   seatLimit: true,
+  githubInstallationId: true,
+  githubInstallationAccountLogin: true,
+  githubAppConnectedAt: true,
+  lastRepoSyncAt: true,
+  lastWebhookEventAt: true,
   ownerUserId: true,
   createdAt: true,
   updatedAt: true,
@@ -236,6 +255,22 @@ export type AdminUserSummary = Prisma.UserGetPayload<{
 
 export type AdminAuditLogItem = Prisma.AuditLogGetPayload<{
   select: typeof AUDIT_LOG_SELECT
+}>
+
+const GITHUB_WEBHOOK_DELIVERY_SELECT = {
+  id: true,
+  deliveryId: true,
+  eventName: true,
+  installationId: true,
+  workspaceId: true,
+  processed: true,
+  errorMessage: true,
+  receivedAt: true,
+  processedAt: true,
+} as const
+
+export type GitHubWebhookDeliveryItem = Prisma.GitHubWebhookDeliveryGetPayload<{
+  select: typeof GITHUB_WEBHOOK_DELIVERY_SELECT
 }>
 
 function canManageWorkspace(role: WorkspaceRole | null, isPlatformAdmin = false) {
@@ -682,6 +717,143 @@ export async function getWorkspaceBillingSummary(
   return prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: WORKSPACE_BILLING_SELECT,
+  })
+}
+
+export async function getWorkspaceGitHubConnection(workspaceId: string) {
+  return prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      type: true,
+      subscriptionTier: true,
+      githubInstallationId: true,
+      githubInstallationAccountLogin: true,
+      githubInstallationAccountType: true,
+      githubAppConnectedAt: true,
+      lastRepoSyncAt: true,
+      lastWebhookEventAt: true,
+    },
+  })
+}
+
+export async function updateWorkspaceGitHubInstallation(input: {
+  workspaceId: string
+  installationId: string
+  accountLogin: string | null
+  accountType: string | null
+}) {
+  return prisma.workspace.update({
+    where: { id: input.workspaceId },
+    data: {
+      githubInstallationId: input.installationId,
+      githubInstallationAccountLogin: input.accountLogin,
+      githubInstallationAccountType: input.accountType,
+      githubAppConnectedAt: new Date(),
+      lastRepoSyncAt: null,
+      lastWebhookEventAt: null,
+      auditLogs: {
+        create: {
+          eventType: "workspace.github_app.connected",
+          entityType: "workspace",
+          metadata: {
+            installationId: input.installationId,
+            accountLogin: input.accountLogin,
+            accountType: input.accountType,
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      githubInstallationId: true,
+    },
+  })
+}
+
+export async function clearWorkspaceGitHubInstallationByInstallationId(
+  installationId: string
+) {
+  return prisma.workspace.updateMany({
+    where: {
+      githubInstallationId: installationId,
+    },
+    data: {
+      githubInstallationId: null,
+      githubInstallationAccountLogin: null,
+      githubInstallationAccountType: null,
+      lastWebhookEventAt: new Date(),
+    },
+  })
+}
+
+export async function markWorkspaceRepoSyncSuccess(workspaceId: string) {
+  await prisma.workspace.update({
+    where: { id: workspaceId },
+    data: {
+      lastRepoSyncAt: new Date(),
+    },
+  })
+}
+
+export async function markWorkspaceWebhookReceived(
+  workspaceId: string
+) {
+  await prisma.workspace.update({
+    where: { id: workspaceId },
+    data: {
+      lastWebhookEventAt: new Date(),
+    },
+  })
+}
+
+export async function getWorkspaceByInstallationId(installationId: string) {
+  return prisma.workspace.findUnique({
+    where: {
+      githubInstallationId: installationId,
+    },
+    select: ACTIVE_WORKSPACE_SELECT,
+  })
+}
+
+export async function createGitHubWebhookDelivery(input: {
+  deliveryId: string
+  eventName: string
+  installationId?: string | null
+  workspaceId?: string | null
+}) {
+  return prisma.gitHubWebhookDelivery.create({
+    data: {
+      deliveryId: input.deliveryId,
+      eventName: input.eventName,
+      installationId: input.installationId ?? null,
+      workspaceId: input.workspaceId ?? null,
+    },
+    select: GITHUB_WEBHOOK_DELIVERY_SELECT,
+  })
+}
+
+export async function getGitHubWebhookDelivery(deliveryId: string) {
+  return prisma.gitHubWebhookDelivery.findUnique({
+    where: { deliveryId },
+    select: GITHUB_WEBHOOK_DELIVERY_SELECT,
+  })
+}
+
+export async function markGitHubWebhookDeliveryProcessed(
+  deliveryId: string,
+  errorMessage?: string | null
+) {
+  return prisma.gitHubWebhookDelivery.update({
+    where: { deliveryId },
+    data: {
+      processed: errorMessage ? false : true,
+      errorMessage: errorMessage ?? null,
+      processedAt: new Date(),
+    },
+    select: GITHUB_WEBHOOK_DELIVERY_SELECT,
   })
 }
 

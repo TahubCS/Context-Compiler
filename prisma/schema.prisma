@@ -88,6 +88,12 @@ model Workspace {
   stripeCustomerId     String?            @unique
   stripeSubscriptionId String?            @unique
   seatLimit            Int?
+  githubInstallationId String?            @unique
+  githubInstallationAccountLogin String?
+  githubInstallationAccountType  String?
+  githubAppConnectedAt DateTime?
+  lastRepoSyncAt       DateTime?
+  lastWebhookEventAt   DateTime?
   ownerUserId          String             @db.Uuid
   owner                User               @relation("WorkspaceOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   members              WorkspaceMember[]
@@ -97,11 +103,13 @@ model Workspace {
   savedCarts           SavedCart[]
   answerSessions       AnswerSession[]
   auditLogs            AuditLog[]
+  githubWebhookDeliveries GitHubWebhookDelivery[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
   @@index([ownerUserId])
   @@index([subscriptionTier])
+  @@index([lastRepoSyncAt])
 }
 
 model WorkspaceMember {
@@ -181,6 +189,7 @@ model Repository {
   githubUrl            String
   defaultBranch        String?
   isPrivate            Boolean              @default(true)
+  isArchived           Boolean              @default(false)
   lastScannedAt        DateTime?
   lastIndexedCommitSha String?
   scanStatus           RepositoryScanStatus @default(IDLE)
@@ -204,7 +213,24 @@ model Repository {
   @@index([workspaceId])
   @@index([workspaceId, scanStatus])
   @@index([workspaceId, githubRepoId])
+  @@index([workspaceId, isArchived])
   @@index([lastScannedAt])
+}
+
+model GitHubWebhookDelivery {
+  id             String   @id @default(uuid()) @db.Uuid
+  deliveryId     String   @unique
+  eventName      String
+  installationId String?
+  workspaceId    String?  @db.Uuid
+  processed      Boolean  @default(false)
+  errorMessage   String?
+  receivedAt     DateTime @default(now())
+  processedAt    DateTime?
+  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, receivedAt])
+  @@index([installationId, receivedAt])
 }
 
 model CodeDocument {

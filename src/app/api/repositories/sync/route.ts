@@ -2,12 +2,14 @@ import { createClient } from "@/utils/supabase/server"
 import {
   clearUserGithubToken,
   getUserGithubToken,
+  getWorkspaceGitHubConnection,
   isPrismaConnectivityError,
   upsertGitHubRepositories,
   updateUserGithubToken,
 } from "@/lib/db"
 import type { GitHubRepoInput } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
+import { reconcileWorkspaceRepositoriesFromInstallation } from "@/lib/github-repo-sync"
 import { NextResponse } from "next/server"
 
 const GITHUB_REPOS_PER_PAGE = 100
@@ -78,6 +80,34 @@ export async function POST() {
   const sessionProviderToken = sessionData.session?.provider_token
   let providerToken = sessionProviderToken
 
+  let githubConnection: Awaited<ReturnType<typeof getWorkspaceGitHubConnection>> | null = null
+  try {
+    githubConnection = await getWorkspaceGitHubConnection(workspace.id)
+  } catch (error) {
+    if (isPrismaConnectivityError(error)) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
+    throw error
+  }
+
+  if (githubConnection?.githubInstallationId) {
+    try {
+      const syncedCount = await reconcileWorkspaceRepositoriesFromInstallation(
+        user.id,
+        workspace.id,
+        githubConnection.githubInstallationId
+      )
+      return NextResponse.json({
+        syncedCount,
+        source: "github-app",
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reconcile repositories from GitHub App."
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
+  }
+
   if (!providerToken) {
     try {
       providerToken = await getUserGithubToken(user.id)
@@ -107,7 +137,7 @@ export async function POST() {
     }
     await upsertGitHubRepositories(user.id, workspace.id, githubRepositories)
 
-    return NextResponse.json({ syncedCount: githubRepositories.length })
+    return NextResponse.json({ syncedCount: githubRepositories.length, source: "oauth" })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to sync repositories."
 

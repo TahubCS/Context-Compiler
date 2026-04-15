@@ -7,10 +7,17 @@ import { Button } from "@/components/ui/button"
 
 type SyncRepositoriesResponse = {
   syncedCount?: number
+  source?: "github-app" | "oauth"
   error?: string
 }
 
-export function SyncRepositoriesButton() {
+type SyncRepositoriesButtonProps = {
+  label?: string
+}
+
+export function SyncRepositoriesButton({
+  label = "Sync GitHub Repositories",
+}: SyncRepositoriesButtonProps) {
   const router = useRouter()
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
@@ -33,7 +40,11 @@ export function SyncRepositoriesButton() {
       }
 
       const syncedCount = payload?.syncedCount ?? 0
-      setSyncMessage(`Synced ${syncedCount} repositories from GitHub.`)
+      setSyncMessage(
+        payload?.source === "github-app"
+          ? `Reconciled ${syncedCount} repositories from the GitHub App installation.`
+          : `Synced ${syncedCount} repositories from GitHub.`
+      )
 
       router.refresh()
     } catch (error) {
@@ -48,7 +59,7 @@ export function SyncRepositoriesButton() {
   return (
     <div className="flex w-full flex-col gap-2">
       <Button onClick={handleSync} disabled={isSyncing}>
-        {isSyncing ? "Syncing Repositories..." : "Sync GitHub Repositories"}
+        {isSyncing ? "Syncing Repositories..." : label}
       </Button>
       {syncMessage ? <p className="text-sm text-muted-foreground">{syncMessage}</p> : null}
       {syncError ? <p className="text-sm text-destructive">{syncError}</p> : null}

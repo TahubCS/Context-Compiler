@@ -144,6 +144,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 ### 13. Agent Handoff Rule
 * If you make a major architectural, workflow, schema, background-job, auth, billing, or deployment change, you must update `AGENTS.md` in the same turn so the next agent inherits the new rules.
 * Treat this as a standing command: after any major change, update `AGENTS.md` before ending the task.
+* Product principle: when we commit to a major feature, prefer the durable, production-oriented version of that feature instead of a throwaway intermediate version that will need a redesign shortly after. Document the durable architecture in `AGENTS.md` when you implement it.
 
 ### 14. Saved Artifacts & Answer Workflow (CRITICAL)
 * `SavedCart` and `AnswerSession` are now workspace-owned artifacts with `userId` retained for authorship.
@@ -170,3 +171,15 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Billing is now workspace-based. Stripe checkout, portal, and webhook handling must update `Workspace.subscriptionTier`, `Workspace.stripeCustomerId`, and `Workspace.stripeSubscriptionId` rather than treating the user record as the source of truth.
 * Platform admin access is stored in `User.isPlatformAdmin`. The seeded platform-admin email is `Khatrim23@students.ecu.edu`, but runtime authorization should always read the DB flag, not a hardcoded email check outside user sync/bootstrap.
 * The platform admin area at `/admin` is for global oversight only. Keep it server-rendered from current DB state unless explicit realtime requirements are added later.
+
+### 17. GitHub App Sync Architecture (CRITICAL)
+* `V2.1` introduces a workspace-owned GitHub App connection. The source of truth for repository inventory should move toward `Workspace.githubInstallationId`, not permanent OAuth repo polling.
+* Keep Supabase GitHub OAuth for user login during transition, but prefer the GitHub App path for repository sync whenever a workspace has an installation connected.
+* The GitHub App setup URL must point at `/api/github-app/callback`, and the webhook URL must point at `/api/github-app/webhook`.
+* Repository inventory sync is now webhook-first with reconciliation backup:
+  * webhooks handle installation and repository lifecycle events
+  * reconciliation is a safety net and manual `Sync now` fallback
+  * do not treat polling-only sync as the target architecture
+* `Workspace.lastRepoSyncAt` and `Workspace.lastWebhookEventAt` are the freshness signals for repo inventory. Use them instead of keeping a permanent primary “Sync GitHub Repositories” CTA in the UI once the GitHub App is connected.
+* `GitHubWebhookDelivery` is the dedupe/debug log for webhook deliveries. Process GitHub deliveries idempotently by `deliveryId`.
+* Webhook scope in `V2.1` is repository inventory only. Do not trigger scans from push events in this release.

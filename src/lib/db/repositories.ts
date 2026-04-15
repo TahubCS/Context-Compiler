@@ -13,6 +13,7 @@ export const REPOSITORY_LIST_SELECT = {
   githubUrl: true,
   defaultBranch: true,
   isPrivate: true,
+  isArchived: true,
   scanStatus: true,
   scanProgress: true,
   filesDiscovered: true,
@@ -30,6 +31,7 @@ const REPOSITORY_DETAIL_SELECT = {
   owner: true,
   githubUrl: true,
   defaultBranch: true,
+  isArchived: true,
   scanStatus: true,
   scanProgress: true,
   filesDiscovered: true,
@@ -62,6 +64,7 @@ const REPOSITORY_SCAN_SELECT = {
   name: true,
   fullName: true,
   defaultBranch: true,
+  isArchived: true,
   activeScanJobId: true,
 } as const
 
@@ -114,7 +117,7 @@ export async function hasWorkspaceRepositories(workspaceId: string): Promise<boo
 
 export async function getWorkspaceRepositories(workspaceId: string): Promise<RepositoryListItem[]> {
   return prisma.repository.findMany({
-    where: { workspaceId },
+    where: { workspaceId, isArchived: false },
     select: REPOSITORY_LIST_SELECT,
     orderBy: [{ updatedAt: "desc" }],
     take: 100,
@@ -128,6 +131,7 @@ export type GitHubRepoInput = {
   html_url: string
   default_branch: string | null
   private: boolean
+  archived?: boolean
   owner: {
     login: string
   }
@@ -183,6 +187,7 @@ export async function upsertGitHubRepositories(
               githubUrl: repo.html_url,
               defaultBranch: repo.default_branch,
               isPrivate: repo.private,
+              isArchived: repo.archived ?? false,
             },
           })
         }
@@ -198,9 +203,60 @@ export async function upsertGitHubRepositories(
             githubUrl: repo.html_url,
             defaultBranch: repo.default_branch,
             isPrivate: repo.private,
+            isArchived: repo.archived ?? false,
           },
         })
       })
     )
   }
+}
+
+export async function deleteRepositoriesMissingFromGitHubIds(
+  workspaceId: string,
+  githubRepoIds: string[]
+): Promise<void> {
+  await prisma.repository.deleteMany({
+    where: {
+      workspaceId,
+      githubRepoId: {
+        notIn: githubRepoIds.length > 0 ? githubRepoIds : [""],
+      },
+    },
+  })
+}
+
+export async function deleteRepositoryByGitHubRepoId(
+  workspaceId: string,
+  githubRepoId: string
+): Promise<void> {
+  await prisma.repository.deleteMany({
+    where: {
+      workspaceId,
+      githubRepoId,
+    },
+  })
+}
+
+export async function setRepositoryArchivedState(
+  workspaceId: string,
+  githubRepoId: string,
+  isArchived: boolean
+): Promise<void> {
+  await prisma.repository.updateMany({
+    where: {
+      workspaceId,
+      githubRepoId,
+    },
+    data: {
+      isArchived,
+    },
+  })
+}
+
+export async function clearWorkspaceRepositories(workspaceId: string): Promise<void> {
+  await prisma.repository.deleteMany({
+    where: {
+      workspaceId,
+    },
+  })
 }

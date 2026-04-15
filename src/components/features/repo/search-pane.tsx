@@ -20,6 +20,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import { useContextCart, type CartItem } from "@/store/context-cart"
 import { formatAnswerPack } from "@/lib/prompt-packs"
@@ -29,6 +36,9 @@ type SearchResult = {
   filePath: string
   chunkIndex: number
   language: string | null
+  fileCategory?: string | null
+  chunkType?: string | null
+  pathBucket?: string | null
   content: string
   score: number
 }
@@ -49,9 +59,25 @@ type SavedAnswerSummary = {
   }
 }
 
-type SearchPaneProps = { repoId: string; repositoryName: string }
+type SearchPaneProps = {
+  repoId: string
+  repositoryName: string
+  indexOutdated: boolean
+}
 
-export function SearchPane({ repoId, repositoryName }: SearchPaneProps) {
+type RetrievalFilters = {
+  language: string
+  fileCategory: string
+  pathPrefix: string
+}
+
+const DEFAULT_FILTERS: RetrievalFilters = {
+  language: "all",
+  fileCategory: "all",
+  pathPrefix: "",
+}
+
+export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPaneProps) {
   const [activeTab, setActiveTab] = useState("search")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
@@ -64,6 +90,7 @@ export function SearchPane({ repoId, repositoryName }: SearchPaneProps) {
   const [savedAnswers, setSavedAnswers] = useState<SavedAnswerSummary[]>([])
   const [isLoadingSavedAnswers, setIsLoadingSavedAnswers] = useState(true)
   const [activeSavedAnswerId, setActiveSavedAnswerId] = useState<string | null>(null)
+  const [filters, setFilters] = useState<RetrievalFilters>(DEFAULT_FILTERS)
   const { add, has } = useContextCart()
 
   const loadSavedAnswers = useCallback(async () => {
@@ -97,7 +124,12 @@ export function SearchPane({ repoId, repositoryName }: SearchPaneProps) {
       const res = await fetch(`/api/repo/${repoId}/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmedQuery }),
+        body: JSON.stringify({
+          query: trimmedQuery,
+          language: filters.language === "all" ? null : filters.language,
+          fileCategory: filters.fileCategory === "all" ? null : filters.fileCategory,
+          pathPrefix: filters.pathPrefix.trim() || null,
+        }),
       })
       const data = (await res.json()) as { results?: SearchResult[]; error?: string }
       if (!res.ok) {
@@ -124,7 +156,12 @@ export function SearchPane({ repoId, repositoryName }: SearchPaneProps) {
       const res = await fetch(`/api/repo/${repoId}/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: trimmedQuestion }),
+        body: JSON.stringify({
+          question: trimmedQuestion,
+          language: filters.language === "all" ? null : filters.language,
+          fileCategory: filters.fileCategory === "all" ? null : filters.fileCategory,
+          pathPrefix: filters.pathPrefix.trim() || null,
+        }),
       })
       const data = (await res.json()) as {
         answer?: string
@@ -301,6 +338,63 @@ export function SearchPane({ repoId, repositoryName }: SearchPaneProps) {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
+      {indexOutdated ? (
+        <Alert>
+          <AlertDescription>
+            This repository was indexed before the `V1.4` retrieval upgrade. Re-scan it to unlock
+            overlap-based chunking and shared retrieval filters.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        <Select
+          value={filters.language}
+          onValueChange={(value) => setFilters((current) => ({ ...current, language: value }))}
+        >
+          <SelectTrigger size="sm" className="w-[150px]">
+            <SelectValue placeholder="Language" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All languages</SelectItem>
+            <SelectItem value="typescript">TypeScript</SelectItem>
+            <SelectItem value="javascript">JavaScript</SelectItem>
+            <SelectItem value="python">Python</SelectItem>
+            <SelectItem value="go">Go</SelectItem>
+            <SelectItem value="rust">Rust</SelectItem>
+            <SelectItem value="markdown">Markdown</SelectItem>
+            <SelectItem value="json">JSON</SelectItem>
+            <SelectItem value="sql">SQL</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.fileCategory}
+          onValueChange={(value) => setFilters((current) => ({ ...current, fileCategory: value }))}
+        >
+          <SelectTrigger size="sm" className="w-[150px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem value="source">Source</SelectItem>
+            <SelectItem value="tests">Tests</SelectItem>
+            <SelectItem value="docs">Docs</SelectItem>
+            <SelectItem value="config">Config</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Input
+          value={filters.pathPrefix}
+          onChange={(event) =>
+            setFilters((current) => ({ ...current, pathPrefix: event.target.value }))
+          }
+          placeholder="Path prefix like src/ or docs/"
+          className="h-8 max-w-56"
+        />
+      </div>
+
       <TabsList className="self-start">
         <TabsTrigger value="search">
           <Search className="size-4" />

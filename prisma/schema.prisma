@@ -54,6 +54,7 @@ model Repository {
   id                   String               @id @default(uuid()) @db.Uuid
   userId               String               @db.Uuid
   githubRepoId         String?
+  indexFormatVersion   Int                  @default(1)
   name                 String
   fullName             String
   owner                String?
@@ -91,6 +92,9 @@ model CodeDocument {
   filePath            String
   chunkIndex          Int        @default(0)
   language            String?
+  fileCategory        String?
+  chunkType           String?
+  pathBucket          String?
   content             String     @db.Text
   contentHash         String
   tokenCount          Int        @default(0)
@@ -106,6 +110,8 @@ model CodeDocument {
   @@index([repositoryId, filePath])
   @@index([repositoryId, contentHash])
   @@index([repositoryId, language])
+  @@index([repositoryId, fileCategory])
+  @@index([repositoryId, pathBucket])
   @@index([repositoryId, lastSeenScanJobId])
   @@index([embedding], map: "idx_code_documents_embedding")
 }

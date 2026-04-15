@@ -26,7 +26,9 @@ DATABASE_URL: str = os.environ["DATABASE_URL"]
 # ── Scanner constants ─────────────────────────────────────────────────────────
 
 CHUNK_MAX_LINES = 100  # Max lines per chunk
+CHUNK_OVERLAP_LINES = 20
 PROGRESS_EVERY = 10    # Call back every N files processed
+CURRENT_INDEX_FORMAT_VERSION = 2
 
 SKIP_DIRS: set[str] = {
     ".git", "node_modules", "vendor", "__pycache__", ".venv", "venv",

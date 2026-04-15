@@ -8,6 +8,7 @@ type StatusCallbackBody = {
   scanJobId?: string
   scanStatus: ScanJobStatus
   indexedCommitSha?: string
+  indexFormatVersion?: number
   filesDiscovered?: number
   filesProcessed?: number
   errorMessage?: string
@@ -42,6 +43,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       filesProcessed,
       errorMessage: errorMessage ?? null,
       indexedCommitSha: body.indexedCommitSha ?? null,
+      indexFormatVersion: body.indexFormatVersion,
     })
   } catch (error) {
     if (isPrismaConnectivityError(error)) {

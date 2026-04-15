@@ -6,6 +6,7 @@ const UPSERT_CHUNK_SIZE = 50
 export const REPOSITORY_LIST_SELECT = {
   id: true,
   githubRepoId: true,
+  indexFormatVersion: true,
   name: true,
   fullName: true,
   owner: true,
@@ -23,6 +24,7 @@ export const REPOSITORY_LIST_SELECT = {
 const REPOSITORY_DETAIL_SELECT = {
   id: true,
   githubRepoId: true,
+  indexFormatVersion: true,
   name: true,
   fullName: true,
   owner: true,
@@ -54,6 +56,7 @@ export async function getRepository(
 const REPOSITORY_SCAN_SELECT = {
   id: true,
   githubRepoId: true,
+  indexFormatVersion: true,
   githubUrl: true,
   owner: true,
   name: true,
@@ -88,6 +91,7 @@ export async function updateRepositoryScanStatus(
     errorMessage?: string | null
     lastIndexedCommitSha?: string | null
     activeScanJobId?: string | null
+    indexFormatVersion?: number
   }
 ): Promise<void> {
   await prisma.repository.update({

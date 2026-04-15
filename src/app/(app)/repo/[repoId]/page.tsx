@@ -9,6 +9,7 @@ import { ScanTriggerButton } from "@/components/features/repo/scan-trigger-butto
 import { ScanPoller } from "@/components/features/repo/scan-poller"
 import { SearchPane } from "@/components/features/repo/search-pane"
 import { ContextCartPane } from "@/components/features/repo/context-cart-pane"
+import { CURRENT_INDEX_FORMAT_VERSION, isRepositoryIndexOutdated } from "@/lib/index-format"
 
 type RepoPageProps = {
   params: Promise<{ repoId: string }>
@@ -34,6 +35,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
   const isBusy = repository.scanStatus === "QUEUED" || isScanning
   const commitSha = repository.lastIndexedCommitSha
   const shortCommitSha = commitSha ? commitSha.slice(0, 7) : null
+  const indexOutdated = isRepositoryIndexOutdated(repository.indexFormatVersion)
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -50,7 +52,10 @@ export default async function RepoPage({ params }: RepoPageProps) {
         {shortCommitSha ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <History className="size-4" />
-            <span>Indexed at {shortCommitSha}</span>
+            <span>
+              Indexed at {shortCommitSha} · format v{repository.indexFormatVersion ?? 1}/
+              {CURRENT_INDEX_FORMAT_VERSION}
+            </span>
           </div>
         ) : null}
         <ScanStatusBadge status={repository.scanStatus} />
@@ -68,6 +73,16 @@ export default async function RepoPage({ params }: RepoPageProps) {
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription>{repository.errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {indexOutdated ? (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            This repository uses an older retrieval index. Re-scan it to enable smarter chunking,
+            path/category filters, and better answer grounding.
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -99,7 +114,11 @@ export default async function RepoPage({ params }: RepoPageProps) {
             <Search className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Search</h2>
           </div>
-          <SearchPane repoId={repoId} repositoryName={repository.fullName} />
+          <SearchPane
+            repoId={repoId}
+            repositoryName={repository.fullName}
+            indexOutdated={indexOutdated}
+          />
         </section>
 
         {/* Right pane — Context Cart (40%) */}

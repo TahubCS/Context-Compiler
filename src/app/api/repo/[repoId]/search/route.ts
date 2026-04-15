@@ -4,6 +4,12 @@ import { getRepository, searchCodeDocuments, isPrismaConnectivityError } from "@
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
+type RetrievalFilters = {
+  language?: string
+  fileCategory?: string
+  pathPrefix?: string
+}
+
 export async function POST(req: Request, { params }: RouteParams) {
   const { repoId } = await params
 
@@ -13,7 +19,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  let body: { query?: string }
+  let body: { query?: string } & RetrievalFilters
   try {
     body = (await req.json()) as { query?: string }
   } catch {
@@ -48,7 +54,15 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
 
   try {
-    const results = await searchCodeDocuments(repoId, embedding)
+    const results = await searchCodeDocuments(
+      repoId,
+      embedding,
+      {
+        language: body.language?.trim() || null,
+        fileCategory: body.fileCategory?.trim() || null,
+        pathPrefix: body.pathPrefix?.trim() || null,
+      }
+    )
     return NextResponse.json({ results })
   } catch (error) {
     if (isPrismaConnectivityError(error)) {

@@ -95,6 +95,7 @@ type ScanJobUpdateInput = {
   filesProcessed?: number
   errorMessage?: string | null
   indexedCommitSha?: string | null
+  indexFormatVersion?: number
 }
 
 function mapScanJobStatusToRepositoryStatus(status: ScanJobStatus): RepositoryScanStatus {
@@ -155,23 +156,27 @@ export async function updateScanJobStatus(
       return
     }
 
+    const repositoryUpdateData: Prisma.RepositoryUpdateInput = {
+      scanStatus: mapScanJobStatusToRepositoryStatus(data.status),
+      filesDiscovered: data.filesDiscovered,
+      filesProcessed: data.filesProcessed,
+      errorMessage: data.errorMessage,
+      lastIndexedCommitSha:
+        data.status === ScanJobStatus.COMPLETED
+          ? (data.indexedCommitSha ?? existingScanJob.indexedCommitSha ?? scanJob.indexedCommitSha ?? null)
+          : undefined,
+      lastScannedAt: data.status === ScanJobStatus.COMPLETED ? new Date() : undefined,
+      indexFormatVersion:
+        data.status === ScanJobStatus.COMPLETED ? data.indexFormatVersion : undefined,
+      activeScanJobId:
+        data.status === ScanJobStatus.COMPLETED || data.status === ScanJobStatus.FAILED
+          ? null
+          : undefined,
+    }
+
     await tx.repository.update({
       where: { id: scanJob.repositoryId },
-      data: {
-        scanStatus: mapScanJobStatusToRepositoryStatus(data.status),
-        filesDiscovered: data.filesDiscovered,
-        filesProcessed: data.filesProcessed,
-        errorMessage: data.errorMessage,
-        lastIndexedCommitSha:
-          data.status === ScanJobStatus.COMPLETED
-            ? (data.indexedCommitSha ?? existingScanJob.indexedCommitSha ?? scanJob.indexedCommitSha ?? null)
-            : undefined,
-        lastScannedAt: data.status === ScanJobStatus.COMPLETED ? new Date() : undefined,
-        activeScanJobId:
-          data.status === ScanJobStatus.COMPLETED || data.status === ScanJobStatus.FAILED
-            ? null
-            : undefined,
-      },
+      data: repositoryUpdateData,
     })
   })
 }

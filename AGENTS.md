@@ -152,3 +152,11 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * The left repo pane now supports three workflows: semantic search, repository QA, and saved answer recall. Search remains available; answer generation is additive, not a replacement.
 * Answer generation must run through the Python AI backend. Keep Next.js as orchestration/UI and do not move repo-answer synthesis into the app server.
 * Prompt export is plain text / markdown only in `V1.3`. Do not add file-generation or binary export formats in this release.
+
+### 15. Retrieval Quality & Filters (CRITICAL)
+* `V1.4` upgrades repository indexing to retrieval index format version `2`. The source of truth is `Repository.indexFormatVersion`.
+* Repositories with `indexFormatVersion < 2` are usable but outdated. The UI should clearly encourage a re-scan instead of pretending filters/chunking are fully up to date.
+* `CodeDocument` now carries explicit filter metadata: `fileCategory`, `chunkType`, and `pathBucket`. Keep these queryable in SQL rather than hiding them only in JSON.
+* Shared retrieval filters apply to both semantic search and answer generation. The first-class filter contract is: `language`, `fileCategory`, and `pathPrefix`.
+* The Python scanner is responsible for overlap-based chunking and heuristic file-type-aware chunking. Do not add full AST-heavy parsing or reranking in `V1.4`.
+* A fresh repository re-scan is the supported rollout path for retrieval upgrades. Do not add mixed old/new index compatibility logic unless explicitly requested later.

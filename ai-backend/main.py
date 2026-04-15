@@ -31,6 +31,9 @@ class AnswerRequest(BaseModel):
     repository_id: str
     question: str
     limit: int = 6
+    language: str | None = None
+    file_category: str | None = None
+    path_prefix: str | None = None
 
 
 @app.post("/scan")
@@ -72,6 +75,9 @@ async def answer_question(body: AnswerRequest):
                 repository_id=body.repository_id,
                 query_vector=embedding,
                 limit=max(1, min(body.limit, 12)),
+                language=body.language,
+                file_category=body.file_category,
+                path_prefix=body.path_prefix,
             )
     except Exception as exc:
         raise HTTPException(

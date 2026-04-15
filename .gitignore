@@ -45,3 +45,8 @@ next-env.d.ts
 # python
 __pycache__/
 .venv/
+
+# Claude Code
+.claude/
+CLAUDE.md
+AGENTS.md

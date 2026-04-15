@@ -14,12 +14,20 @@ export default function PublicLayout({
             <Code2 className="size-5" />
             <span className="font-semibold">Context Compiler</span>
           </Link>
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Sign in
-          </Link>
+          <nav className="flex items-center gap-5">
+            <Link
+              href="/pricing"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Sign in
+            </Link>
+          </nav>
         </div>
       </header>
       <main className="flex-1">{children}</main>

@@ -7,6 +7,7 @@ import {
   isPrismaConnectivityError,
 } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
+import { getAiBackendUrl, getAppBaseUrl } from "@/lib/runtime-urls"
 import { resolveScanCredential } from "@/lib/scan-auth"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
@@ -78,13 +79,13 @@ export async function POST(req: Request, { params }: RouteParams) {
     throw error
   }
 
-  const backendUrl = process.env.AI_BACKEND_URL
+  const backendUrl = getAiBackendUrl()
   if (!backendUrl) {
     await failQueuedScanJob(scanJobId, repoId, "AI backend is not configured.").catch(() => {})
     return NextResponse.json({ error: "AI backend is not configured" }, { status: 503 })
   }
 
-  const origin = new URL(req.url).origin
+  const appBaseUrl = getAppBaseUrl(req)
 
   let backendResponse: Response
   try {
@@ -97,7 +98,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         github_url: repository.githubUrl,
         default_branch: repository.defaultBranch ?? "main",
         github_token: scanCredential.token,
-        callback_url: `${process.env.NEXT_PUBLIC_URL ?? origin}/api/repo/${repoId}/scan/status`,
+        callback_url: `${appBaseUrl}/api/repo/${repoId}/scan/status`,
         callback_secret: process.env.AI_CALLBACK_SECRET,
       }),
       signal: AbortSignal.timeout(5000),

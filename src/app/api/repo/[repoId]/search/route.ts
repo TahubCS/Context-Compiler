@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getRepository, searchCodeDocuments, isPrismaConnectivityError } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
+import { getAiBackendUrl } from "@/lib/runtime-urls"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -28,7 +29,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const repo = await getRepository(repoId, workspace.id)
   if (!repo) return NextResponse.json({ error: "Repository not found" }, { status: 404 })
 
-  const backendUrl = process.env.AI_BACKEND_URL
+  const backendUrl = getAiBackendUrl()
   if (!backendUrl)
     return NextResponse.json({ error: "AI backend not configured" }, { status: 503 })
 

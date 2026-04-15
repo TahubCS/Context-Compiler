@@ -16,7 +16,7 @@ type GitHubInstallationRepository = {
   default_branch: string | null
   private: boolean
   archived?: boolean
-  owner: {
+  owner?: {
     login: string
   }
 }

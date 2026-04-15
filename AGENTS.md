@@ -182,6 +182,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
   * webhooks handle installation and repository lifecycle events
   * reconciliation is a safety net and manual `Sync now` fallback
   * do not treat polling-only sync as the target architecture
+  * `installation_repositories` webhook payloads may be sparse. Prefer reconciling the full installation from GitHub for that event instead of assuming every added repo payload contains a full `owner.login` shape.
 * `Workspace.lastRepoSyncAt` and `Workspace.lastWebhookEventAt` are the freshness signals for repo inventory. Use them instead of keeping a permanent primary “Sync GitHub Repositories” CTA in the UI once the GitHub App is connected.
 * `GitHubWebhookDelivery` is the dedupe/debug log for webhook deliveries. Process GitHub deliveries idempotently by `deliveryId`.
 * Webhook scope in `V2.1` is repository inventory only. Do not trigger scans from push events in this release.

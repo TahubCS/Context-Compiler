@@ -13,10 +13,12 @@ function mapGitHubRepository(repo: {
   default_branch: string | null
   private: boolean
   archived?: boolean
-  owner: {
+  owner?: {
     login: string
   }
 }) {
+  const derivedOwnerLogin = repo.owner?.login ?? repo.full_name.split("/")[0] ?? ""
+
   return {
     id: repo.id,
     name: repo.name,
@@ -26,7 +28,7 @@ function mapGitHubRepository(repo: {
     private: repo.private,
     archived: repo.archived ?? false,
     owner: {
-      login: repo.owner.login,
+      login: derivedOwnerLogin,
     },
   }
 }
@@ -97,21 +99,29 @@ export async function processGitHubWebhookForWorkspace(input: {
       return { changed: true }
 
     case "installation_repositories": {
-      if (input.payload.repositories_added?.length) {
-        await upsertGitHubRepositories(
+      if (input.payload.installation?.id) {
+        await reconcileWorkspaceRepositoriesFromInstallation(
           input.userId,
           input.workspaceId,
-          input.payload.repositories_added.map(mapGitHubRepository)
+          String(input.payload.installation.id)
         )
-      }
-
-      if (input.payload.repositories_removed?.length) {
-        for (const repo of input.payload.repositories_removed) {
-          await deleteRepositoryByGitHubRepoId(input.workspaceId, String(repo.id))
+      } else {
+        if (input.payload.repositories_added?.length) {
+          await upsertGitHubRepositories(
+            input.userId,
+            input.workspaceId,
+            input.payload.repositories_added.map(mapGitHubRepository)
+          )
         }
-      }
 
-      await markWorkspaceRepoSyncSuccess(input.workspaceId)
+        if (input.payload.repositories_removed?.length) {
+          for (const repo of input.payload.repositories_removed) {
+            await deleteRepositoryByGitHubRepoId(input.workspaceId, String(repo.id))
+          }
+        }
+
+        await markWorkspaceRepoSyncSuccess(input.workspaceId)
+      }
       return { changed: true }
     }
 

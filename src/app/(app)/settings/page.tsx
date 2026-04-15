@@ -245,8 +245,8 @@ export default async function SettingsPage() {
               </div>
             ) : null}
             <p className="text-sm text-muted-foreground">
-              OAuth stays enabled for login during transition, but repository inventory for this
-              workspace now comes from the GitHub App connection.
+              OAuth stays enabled for login during transition, but repository inventory and scans
+              for this workspace now use the GitHub App connection first.
             </p>
           </div>
         ) : (
@@ -255,7 +255,7 @@ export default async function SettingsPage() {
               <AlertTriangle className="size-4" />
               <AlertDescription>
                 Connect the GitHub App for this workspace to enable automatic repository sync from
-                webhooks and background reconciliation.
+                webhooks, background reconciliation, and workspace-backed scans.
               </AlertDescription>
             </Alert>
             {canManageGitHubConnection ? (
@@ -289,8 +289,8 @@ export default async function SettingsPage() {
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
               <AlertDescription>
-                Your GitHub token is missing or expired. Reconnect GitHub before syncing
-                repositories or starting new scans.
+                Your GitHub OAuth token is missing or expired. Reconnect GitHub if this workspace
+                still relies on OAuth fallback for syncing repositories or starting scans.
               </AlertDescription>
             </Alert>
             <ReconnectGitHubButton redirectPath="/settings" />

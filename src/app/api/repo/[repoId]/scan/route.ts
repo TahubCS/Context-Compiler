@@ -4,10 +4,10 @@ import {
   failStaleScanJobForRepository,
   failQueuedScanJob,
   getRepositoryForScan,
-  getUserGithubToken,
   isPrismaConnectivityError,
 } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
+import { resolveScanCredential } from "@/lib/scan-auth"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -29,12 +29,15 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
 
   let repository: Awaited<ReturnType<typeof getRepositoryForScan>>
-  let githubToken: Awaited<ReturnType<typeof getUserGithubToken>>
+  let scanCredential: Awaited<ReturnType<typeof resolveScanCredential>>
 
   try {
-    ;[repository, githubToken] = await Promise.all([
+    ;[repository, scanCredential] = await Promise.all([
       getRepositoryForScan(repoId, workspace.id),
-      getUserGithubToken(user.id),
+      resolveScanCredential({
+        workspaceGitHubInstallationId: workspace.githubInstallationId,
+        userId: user.id,
+      }),
     ])
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
@@ -50,9 +53,9 @@ export async function POST(req: Request, { params }: RouteParams) {
   // provider_token only exists in the Supabase session immediately after OAuth
   // login — it's dropped after the first token refresh. We persist it to the
   // User table in the auth callback so it's always available here.
-  if (!githubToken) {
+  if (!scanCredential.token) {
     return NextResponse.json(
-      { error: "GitHub needs to be reconnected before you can start a scan." },
+      { error: scanCredential.error },
       { status: 400 }
     )
   }
@@ -95,7 +98,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       repository_id: repository.id,
       github_url: repository.githubUrl,
       default_branch: repository.defaultBranch ?? "main",
-      github_token: githubToken,
+      github_token: scanCredential.token,
       callback_url: `${process.env.NEXT_PUBLIC_URL ?? origin}/api/repo/${repoId}/scan/status`,
       callback_secret: process.env.AI_CALLBACK_SECRET,
     }),

@@ -50,3 +50,6 @@ __pycache__/
 .claude/
 CLAUDE.md
 AGENTS.md
+.agents/
+.sixth/
+skills/

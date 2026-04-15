@@ -177,6 +177,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Keep Supabase GitHub OAuth for user login during transition, but prefer the GitHub App path for repository sync whenever a workspace has an installation connected.
 * The GitHub App setup URL must point at `/api/github-app/callback`, and the webhook URL must point at `/api/github-app/webhook`.
 * The GitHub App install flow must preserve the initiating workspace across the GitHub redirect. Use the `state` param when available, but also persist the initiating workspace in the temporary `cc-github-app-workspace` cookie so the callback can still complete the workspace binding if GitHub drops or mutates `state`.
+* Existing GitHub App installs do not always bounce back through the setup URL. Keep a manual recovery path in Settings that lets an owner/admin link an already-installed GitHub App to the active workspace by installation ID or installation settings URL.
 * Repository inventory sync is now webhook-first with reconciliation backup:
   * webhooks handle installation and repository lifecycle events
   * reconciliation is a safety net and manual `Sync now` fallback

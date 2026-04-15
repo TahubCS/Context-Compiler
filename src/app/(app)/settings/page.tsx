@@ -17,6 +17,7 @@ import { CreateWorkspaceDialog } from "@/components/features/workspaces/create-w
 import { InviteMemberDialog } from "@/components/features/workspaces/invite-member-dialog"
 import { MemberRoleControls } from "@/components/features/workspaces/member-role-controls"
 import { ConnectGitHubAppButton } from "@/components/features/settings/connect-github-app-button"
+import { LinkGitHubInstallationDialog } from "@/components/features/settings/link-github-installation-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, CreditCard, Settings2, User, Users } from "lucide-react"
@@ -261,6 +262,9 @@ export default async function SettingsPage() {
               <>
                 <div className="w-full md:w-fit">
                   <ConnectGitHubAppButton workspaceId={workspace.id} />
+                </div>
+                <div className="w-full md:w-fit">
+                  <LinkGitHubInstallationDialog workspaceId={workspace.id} />
                 </div>
                 <div className="w-full md:w-fit">
                   <SyncRepositoriesButton label="Fallback OAuth Sync" />

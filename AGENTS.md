@@ -125,6 +125,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Repository scans are background jobs executed by the Python FastAPI service, not by the page itself.
 * The source of truth for scan execution is the `ScanJob` table plus the denormalized summary fields on `Repository`.
 * `Repository.activeScanJobId` must be treated as the lock for an in-flight scan. Do not queue a second scan while it is set unless recovery logic clears it first.
+* When dispatching scans from Next.js to the Python service, await the handoff request and fail the queued job immediately if the backend is unreachable or rejects the request. Do not rely on unawaited fire-and-forget fetches in serverless environments like Vercel.
 * The Python scanner sends `SCANNING` callbacks periodically. `ScanJob.lastHeartbeatAt` is updated on every `SCANNING` status update and is used to detect abandoned scans.
 * Stale scan recovery is lazy: before queueing a new scan, and when loading `/repo/[repoId]`, the app should mark stale `SCANNING` jobs as `FAILED` if their heartbeat is too old.
 * Stale code chunks must only be deleted after a scan completes successfully. Never delete old `CodeDocument` rows during a failed or abandoned scan.

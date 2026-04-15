@@ -198,3 +198,7 @@ You are an expert full-stack developer assisting in building a micro-SaaS develo
 * Incremental change detection must use local git diff inside the Python scanner. Do not use AI to infer changed files and do not make GitHub compare APIs the primary diff engine.
 * Unchanged files must be skipped entirely during incremental scans, and unchanged chunks inside changed files must not request fresh embeddings when their `contentHash` is unchanged.
 * Full scans remain the upgrade/compatibility path for older chunking strategies, missing prior commits, or any scan state where diffing cannot be trusted.
+* `V2.3.3` makes scans data-first. File-local and chunk-local problems should usually degrade to warnings, sanitation, or skips instead of failing the entire repository scan.
+* Large real source-code files are valid and must remain indexable. Do not introduce blunt size-based skips for code files; target malformed, binary-like, or clearly noisy/generated artifacts instead.
+* If a replacement indexing attempt for one file fails locally, preserve the file’s previously indexed chunks rather than deleting good old data and replacing it with nothing.
+* Completed scans may carry a warning summary in `errorMessage` while still finishing successfully. The repo UI should surface that as a warning, not as a hard failure.

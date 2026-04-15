@@ -160,6 +160,23 @@ def delete_chunks_for_file_except_indices(
     )
 
 
+def mark_file_chunks_seen(
+    conn,
+    repository_id: str,
+    file_path: str,
+    scan_job_id: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE "CodeDocument"
+        SET "lastSeenScanJobId" = %s
+        WHERE "repositoryId" = %s
+          AND "filePath" = %s
+        """,
+        (scan_job_id, repository_id, file_path),
+    )
+
+
 def search_similar_chunks(
     conn,
     repository_id: str,

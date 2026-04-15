@@ -12,6 +12,11 @@ type StatusCallbackBody = {
   filesDiscovered?: number
   filesProcessed?: number
   errorMessage?: string
+  phase?: string
+  currentFilePath?: string
+  skippedFilesCount?: number
+  skippedChunksCount?: number
+  warningMessage?: string
 }
 
 export async function PATCH(req: Request, { params }: RouteParams) {

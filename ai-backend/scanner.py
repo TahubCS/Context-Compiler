@@ -34,6 +34,7 @@ from vector_store import (
     delete_stale_chunks,
     get_connection,
     get_existing_chunk_hashes_for_file,
+    mark_file_chunks_seen,
     upsert_chunk,
 )
 
@@ -56,6 +57,21 @@ _CODE_LANGUAGES = {
     "kotlin",
 }
 _CONFIG_EXTENSIONS = {".json", ".yaml", ".yml", ".toml", ".ini", ".env", ".sql"}
+_SAFE_CONTROL_CHARS = {"\n", "\r", "\t"}
+_NOISY_PATH_MARKERS = (
+    "test-output",
+    "coverage",
+    "snapshot",
+    "snapshots",
+    "dump",
+    "artifacts",
+    "logs",
+)
+_NOISY_FILE_CHUNK_THRESHOLD = 250
+
+
+class _RecoverableScanIssue(Exception):
+    pass
 
 
 def _callback(url: str, secret: str, payload: dict) -> None:
@@ -148,6 +164,47 @@ class _ScanProgressReporter:
                 "errorMessage": error_message,
             },
         )
+
+
+def _looks_binary_like(content: str) -> bool:
+    if not content:
+        return False
+
+    sample = content[:8000]
+    unsafe_controls = sum(
+        1 for char in sample if ord(char) < 32 and char not in _SAFE_CONTROL_CHARS
+    )
+    return (unsafe_controls / max(1, len(sample))) > 0.02
+
+
+def _sanitize_text_content(content: str) -> tuple[str, list[str], bool]:
+    warnings: list[str] = []
+    sanitized = content
+
+    nul_count = sanitized.count("\x00")
+    if nul_count:
+        sanitized = sanitized.replace("\x00", "")
+        warnings.append(f"removed {nul_count} NUL bytes")
+
+    if _looks_binary_like(sanitized):
+        return sanitized, warnings, False
+
+    cleaned_chars: list[str] = []
+    removed_controls = 0
+    for char in sanitized:
+        if ord(char) < 32 and char not in _SAFE_CONTROL_CHARS:
+            removed_controls += 1
+            continue
+        cleaned_chars.append(char)
+
+    if removed_controls:
+        warnings.append(f"removed {removed_controls} unsafe control characters")
+
+    sanitized = "".join(cleaned_chars)
+    if _looks_binary_like(sanitized):
+        return sanitized, warnings, False
+
+    return sanitized, warnings, True
 
 
 def _fixed_line_chunks(lines: list[str], overlap_lines: int = CHUNK_OVERLAP_LINES) -> list[str]:
@@ -311,6 +368,17 @@ def _infer_path_bucket(relative_path: str) -> str:
     return parts[0] if parts else ""
 
 
+def _is_noisy_text_artifact(relative_path: str, language: str | None, chunk_count: int) -> bool:
+    normalized = relative_path.lower()
+    if language in _CODE_LANGUAGES:
+        return False
+    if language in _DOC_LANGUAGES:
+        return False
+    if chunk_count < _NOISY_FILE_CHUNK_THRESHOLD:
+        return False
+    return any(marker in normalized for marker in _NOISY_PATH_MARKERS)
+
+
 def _has_commit(repo: Repo, commit_sha: str) -> bool:
     try:
         repo.commit(commit_sha)
@@ -458,6 +526,9 @@ def run_scan(
 
             with get_connection() as conn:
                 files_processed = 0
+                skipped_files_count = 0
+                skipped_chunks_count = 0
+                warning_messages: list[str] = []
 
                 for file_path in files:
                     progress.set_scan_context(files_processed=files_processed)
@@ -473,13 +544,45 @@ def run_scan(
                     language = LANGUAGE_MAP.get(suffix)
                     file_category = _infer_file_category(relative_path, language, suffix)
                     path_bucket = _infer_path_bucket(relative_path)
-                    chunks = _chunk_file(content, language, suffix)
+                    sanitized_content, sanitation_warnings, content_is_safe = _sanitize_text_content(content)
+                    if sanitation_warnings:
+                        logger.warning(
+                            "Sanitized %s before indexing: %s",
+                            relative_path,
+                            "; ".join(sanitation_warnings),
+                        )
+
+                    if not content_is_safe:
+                        warning = (
+                            f"Skipped {relative_path}: content still looked binary or malformed after sanitation."
+                        )
+                        logger.warning(warning)
+                        warning_messages.append(warning)
+                        skipped_files_count += 1
+                        mark_file_chunks_seen(conn, repository_id, relative_path, scan_job_id)
+                        conn.commit()
+                        continue
+
+                    chunks = _chunk_file(sanitized_content, language, suffix)
+                    if _is_noisy_text_artifact(relative_path, language, len(chunks)):
+                        warning = (
+                            f"Skipped {relative_path}: generated/noisy text artifact with {len(chunks)} chunks."
+                        )
+                        logger.warning(warning)
+                        warning_messages.append(warning)
+                        skipped_files_count += 1
+                        mark_file_chunks_seen(conn, repository_id, relative_path, scan_job_id)
+                        conn.commit()
+                        continue
+
                     existing_chunk_hashes = (
                         get_existing_chunk_hashes_for_file(conn, repository_id, relative_path)
                         if scan_mode == "incremental"
                         else {}
                     )
                     keep_chunk_indices: list[int] = []
+                    file_had_recoverable_issue = False
+                    file_skipped_chunk_count = 0
 
                     for chunk_index, (chunk_type, chunk_text) in enumerate(chunks):
                         content_hash = hashlib.sha256(chunk_text.encode()).hexdigest()
@@ -500,12 +603,15 @@ def run_scan(
                                 ),
                             )
                         except Exception as exc:
-                            message = (
-                                "Embedding failed while indexing "
-                                f"{relative_path} chunk {chunk_index}: {exc}"
+                            warning = (
+                                f"Skipped {relative_path} chunk {chunk_index}: embedding failed after retries ({exc})."
                             )
-                            logger.error(message)
-                            raise RuntimeError(message) from exc
+                            logger.warning(warning)
+                            warning_messages.append(warning)
+                            skipped_chunks_count += 1
+                            file_skipped_chunk_count += 1
+                            file_had_recoverable_issue = True
+                            continue
 
                         try:
                             progress.send_scanning(phase="writing")
@@ -533,13 +639,29 @@ def run_scan(
                             )
                             raise
                         except Exception as exc:
-                            conn.rollback()
-                            message = (
-                                "Database upsert failed while indexing "
-                                f"{relative_path} chunk {chunk_index}: {exc}"
+                            warning = (
+                                f"Skipped {relative_path} chunk {chunk_index}: database write failed ({exc})."
                             )
-                            logger.error(message)
-                            raise RuntimeError(message) from exc
+                            logger.warning(warning)
+                            warning_messages.append(warning)
+                            skipped_chunks_count += 1
+                            file_skipped_chunk_count += 1
+                            file_had_recoverable_issue = True
+                            conn.rollback()
+                            break
+
+                    if file_had_recoverable_issue:
+                        conn.rollback()
+                        mark_file_chunks_seen(conn, repository_id, relative_path, scan_job_id)
+                        conn.commit()
+                        warning = (
+                            f"Preserved previous indexed data for {relative_path} after "
+                            f"{file_skipped_chunk_count} recoverable chunk issue(s)."
+                        )
+                        logger.warning(warning)
+                        warning_messages.append(warning)
+                        skipped_files_count += 1
+                        continue
 
                     if scan_mode == "incremental":
                         delete_chunks_for_file_except_indices(
@@ -548,8 +670,7 @@ def run_scan(
                             relative_path,
                             keep_chunk_indices,
                         )
-                    else:
-                        conn.commit()
+                    conn.commit()
 
                     files_processed += 1
                     progress.set_scan_context(files_processed=files_processed)
@@ -567,7 +688,34 @@ def run_scan(
                     delete_stale_chunks(conn, repository_id, scan_job_id)
                     conn.commit()
 
-        progress.send_completed()
+        completion_warning = None
+        if warning_messages or skipped_files_count or skipped_chunks_count:
+            completion_warning = (
+                f"Scan completed with warnings: skipped {skipped_files_count} file(s) and "
+                f"{skipped_chunks_count} chunk(s)."
+            )
+            logger.warning(
+                "%s Sample warnings: %s",
+                completion_warning,
+                " | ".join(warning_messages[:5]),
+            )
+
+        if completion_warning:
+            _callback(
+                callback_url,
+                callback_secret,
+                {
+                    "scanJobId": scan_job_id,
+                    "scanStatus": "COMPLETED",
+                    "indexedCommitSha": indexed_commit_sha,
+                    "indexFormatVersion": CURRENT_INDEX_FORMAT_VERSION,
+                    "filesDiscovered": total_files,
+                    "filesProcessed": files_processed,
+                    "errorMessage": completion_warning,
+                },
+            )
+        else:
+            progress.send_completed()
 
     except Exception as exc:
         logger.exception("Scan FAILED for repo=%s: %s", repository_id, exc)

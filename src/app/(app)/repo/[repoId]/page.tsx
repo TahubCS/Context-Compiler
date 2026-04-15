@@ -71,6 +71,13 @@ export default async function RepoPage({ params }: RepoPageProps) {
         </Alert>
       ) : null}
 
+      {repository.scanStatus === "COMPLETED" && repository.errorMessage ? (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertDescription>{repository.errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
       {indexOutdated ? (
         <Alert>
           <AlertCircle className="size-4" />

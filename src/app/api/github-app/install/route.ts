@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 import { getGitHubAppInstallUrl } from "@/lib/github-app"
+import { setPendingGitHubAppWorkspaceCookie } from "@/lib/workspace-session"
 import { WorkspaceRole } from "@prisma/client"
 
 export async function GET(req: Request) {
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
   const workspaceId = requestUrl.searchParams.get("workspaceId")?.trim() || workspace.id
 
   try {
+    await setPendingGitHubAppWorkspaceCookie(workspaceId)
     return NextResponse.redirect(getGitHubAppInstallUrl(workspaceId))
   } catch (error) {
     return NextResponse.json(

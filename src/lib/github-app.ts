@@ -97,7 +97,7 @@ export function getGitHubAppInstallUrl(workspaceId: string) {
     throw new Error("Missing GITHUB_APP_INSTALL_URL or GITHUB_APP_SLUG environment variable.")
   }
 
-  const installUrl = new URL(`https://github.com/apps/${slug}/installations/new`)
+  const installUrl = new URL(`https://github.com/apps/${slug}/installations/select_target`)
   installUrl.searchParams.set("state", workspaceId)
   return installUrl.toString()
 }

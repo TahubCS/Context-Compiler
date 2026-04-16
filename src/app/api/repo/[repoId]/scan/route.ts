@@ -9,6 +9,7 @@ import {
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 import { getAiBackendUrl, getAppBaseUrl } from "@/lib/runtime-urls"
 import { resolveScanCredential } from "@/lib/scan-auth"
+import { getGitHubDefaultBranchHeadSha } from "@/lib/github-repository-refs"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -62,6 +63,25 @@ export async function POST(req: Request, { params }: RouteParams) {
     )
   }
 
+  const defaultBranch = repository.defaultBranch ?? "main"
+  const remoteHeadSha = await getGitHubDefaultBranchHeadSha({
+    githubUrl: repository.githubUrl,
+    defaultBranch,
+    token: scanCredential.token,
+  })
+
+  if (
+    remoteHeadSha &&
+    repository.lastIndexedCommitSha &&
+    remoteHeadSha === repository.lastIndexedCommitSha
+  ) {
+    return NextResponse.json({
+      status: "up_to_date",
+      latestCommitSha: remoteHeadSha,
+      message: "Repository is already up to date. No new changes were detected on the default branch.",
+    })
+  }
+
   let scanJobId: string
   try {
     const scanJob = await createScanJob(repoId, user.id)
@@ -96,7 +116,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         scan_job_id: scanJobId,
         repository_id: repository.id,
         github_url: repository.githubUrl,
-        default_branch: repository.defaultBranch ?? "main",
+        default_branch: defaultBranch,
         previous_indexed_commit_sha: repository.lastIndexedCommitSha,
         repository_index_format_version: repository.indexFormatVersion,
         github_token: scanCredential.token,

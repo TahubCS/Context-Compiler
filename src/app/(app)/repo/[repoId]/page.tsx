@@ -46,6 +46,11 @@ export default async function RepoPage({ params, searchParams }: RepoPageProps) 
     resolvedSearchParams.tour === "1" &&
     !onboardingState.repoTourCompletedAt &&
     !onboardingState.onboardingSkippedAt
+  const latestScanFoundNoChanges =
+    latestScanJob?.status === "COMPLETED" &&
+    latestScanJob.filesDiscovered === 0 &&
+    latestScanJob.filesProcessed === 0 &&
+    !latestScanJob.errorMessage
 
   return (
     <div className="flex min-h-full flex-col gap-4">
@@ -93,6 +98,15 @@ export default async function RepoPage({ params, searchParams }: RepoPageProps) 
         <Alert>
           <AlertCircle className="size-4" />
           <AlertDescription>{repository.errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {latestScanFoundNoChanges ? (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertDescription>
+            The latest scan found no new changes on the default branch. This repository is already up to date.
+          </AlertDescription>
         </Alert>
       ) : null}
 

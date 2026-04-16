@@ -358,7 +358,7 @@ export function RepoHelpCenter({ autoStartTour }: RepoHelpCenterProps) {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(15.5rem,1fr))]">
+            <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(15.5rem,1fr))]">
               <HelpPillar
                 icon={<Sparkles className="size-4 text-muted-foreground" />}
                 title="Ask"

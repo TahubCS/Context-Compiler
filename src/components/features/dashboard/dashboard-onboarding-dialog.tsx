@@ -101,109 +101,118 @@ export function DashboardOnboardingDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => (!nextOpen ? void handleSkip() : setOpen(nextOpen))}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => (!nextOpen ? void handleSkip() : setOpen(nextOpen))}
+    >
       <DialogContent
         showCloseButton={false}
-        className="max-w-4xl rounded-4xl border-border bg-card/95 backdrop-blur-2xl"
+        className="max-h-[90vh] max-w-5xl overflow-y-auto rounded-4xl border-border bg-card/95 p-0 backdrop-blur-2xl"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
-        <DialogHeader className="gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">Welcome to Context Compiler</Badge>
-            <Badge variant="outline">First-time setup</Badge>
-          </div>
-          <DialogTitle className="text-2xl leading-tight">
-            Understand the repo faster, then hand your agent better context
-          </DialogTitle>
-          <DialogDescription className="max-w-3xl text-sm leading-7 text-muted-foreground">
-            Context Compiler helps you search a codebase, ask grounded questions about its
-            architecture, and export focused context packs for an AI agent. It does not magically
-            give complete knowledge of the whole repository, and it does not replace engineering
-            judgment.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-3xl border border-border bg-background/60 p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="size-4 text-muted-foreground" />
-              <h3 className="font-medium text-foreground">What it does well today</h3>
+        <div className="flex flex-col gap-6 p-6 sm:p-7">
+          <DialogHeader className="gap-4 pr-12">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">Welcome to Context Compiler</Badge>
+              <Badge variant="outline">First-time setup</Badge>
             </div>
-            <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
-              <li className="flex gap-2">
-                <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
-                Ask repository-level questions to get grounded architecture and workflow briefs.
-              </li>
-              <li className="flex gap-2">
-                <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
-                Search for exact code evidence, symbols, or implementation snippets.
-              </li>
-              <li className="flex gap-2">
-                <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
-                Build smaller context packs so your agent gets the right slice instead of random
-                file dumps.
-              </li>
-            </ul>
-          </div>
+            <DialogTitle className="text-2xl leading-tight">
+              Understand the repo faster, then hand your agent better context
+            </DialogTitle>
+            <DialogDescription className="max-w-4xl text-sm leading-7 text-muted-foreground">
+              Context Compiler helps you search a codebase, ask grounded questions about its
+              architecture, and export focused context packs for an AI agent. It does not magically
+              give complete knowledge of the whole repository, and it does not replace engineering
+              judgment.
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="rounded-3xl border border-border bg-background/60 p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Compass className="size-4 text-muted-foreground" />
-              <h3 className="font-medium text-foreground">What it cannot do for you</h3>
+          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]">
+            <div className="rounded-3xl border border-border bg-background/60 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Sparkles className="size-4 text-muted-foreground" />
+                <h3 className="font-medium text-foreground">What it does well today</h3>
+              </div>
+              <ul className="space-y-3 text-sm leading-7 text-muted-foreground">
+                <li className="flex gap-2">
+                  <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
+                  Ask repository-level questions to get grounded architecture and workflow briefs.
+                </li>
+                <li className="flex gap-2">
+                  <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
+                  Search for exact code evidence, symbols, or implementation snippets.
+                </li>
+                <li className="flex gap-2">
+                  <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" />
+                  Build smaller context packs so your agent gets the right slice instead of random
+                  file dumps.
+                </li>
+              </ul>
             </div>
-            <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
-              <li className="flex gap-2">
-                <GitBranch className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
-                It is not a full “understand the entire codebase automatically” system.
-              </li>
-              <li className="flex gap-2">
-                <GitBranch className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
-                Search results are best-matching chunks, not guaranteed declaration sites.
-              </li>
-              <li className="flex gap-2">
-                <GitBranch className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
-                The value comes from inspecting the answer and evidence, then exporting what you
-                actually want your agent to see.
-              </li>
-            </ul>
-          </div>
-        </div>
 
-        <div className="rounded-3xl border border-border bg-background/60 p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">Next step</Badge>
-            <h3 className="font-medium text-foreground">{readiness.title}</h3>
+            <div className="rounded-3xl border border-border bg-background/60 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Compass className="size-4 text-muted-foreground" />
+                <h3 className="font-medium text-foreground">What it cannot do for you</h3>
+              </div>
+              <ul className="space-y-3 text-sm leading-7 text-muted-foreground">
+                <li className="flex gap-2">
+                  <GitBranch className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+                  It is not a full “understand the entire codebase automatically” system.
+                </li>
+                <li className="flex gap-2">
+                  <GitBranch className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+                  Search results are best-matching chunks, not guaranteed declaration sites.
+                </li>
+                <li className="flex gap-2">
+                  <GitBranch className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+                  The value comes from inspecting the answer and evidence, then exporting what you
+                  actually want your agent to see.
+                </li>
+              </ul>
+            </div>
           </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{readiness.description}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {!hasGitHubApp && canManageGitHubApp ? (
-              <ConnectGitHubAppButton workspaceId={workspaceId} />
-            ) : null}
-            {!hasGitHubApp && !canManageGitHubApp ? (
-              <p className="text-sm text-muted-foreground">
-                Ask a workspace owner or admin to connect the GitHub App before the guided repo
-                walkthrough can start.
-              </p>
-            ) : null}
-            {hasGitHubApp && !firstRepositoryId ? <SyncRepositoriesButton label="Sync repositories" /> : null}
-            {hasGitHubApp && firstRepositoryId ? (
-              <Button onClick={handleStartTour} disabled={isSaving}>
-                <ArrowRight className="size-4" />
-                Start repo tour
-              </Button>
-            ) : null}
-          </div>
-        </div>
 
-        <DialogFooter className="justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            You can skip now and reopen the walkthrough later from the repo page.
-          </p>
-          <Button variant="ghost" onClick={handleSkip} disabled={isSaving}>
-            Skip for now
-          </Button>
-        </DialogFooter>
+          <div className="rounded-3xl border border-border bg-background/60 p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">Next step</Badge>
+              <h3 className="font-medium text-foreground">{readiness.title}</h3>
+            </div>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-muted-foreground">
+              {readiness.description}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              {!hasGitHubApp && canManageGitHubApp ? (
+                <ConnectGitHubAppButton workspaceId={workspaceId} />
+              ) : null}
+              {!hasGitHubApp && !canManageGitHubApp ? (
+                <p className="text-sm leading-7 text-muted-foreground">
+                  Ask a workspace owner or admin to connect the GitHub App before the guided repo
+                  walkthrough can start.
+                </p>
+              ) : null}
+              {hasGitHubApp && !firstRepositoryId ? (
+                <SyncRepositoriesButton label="Sync repositories" />
+              ) : null}
+              {hasGitHubApp && firstRepositoryId ? (
+                <Button onClick={handleStartTour} disabled={isSaving}>
+                  <ArrowRight className="size-4" />
+                  Start repo tour
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <DialogFooter className="justify-between gap-3">
+            <p className="max-w-2xl text-xs leading-6 text-muted-foreground">
+              You can skip now and reopen the walkthrough later from the repo page.
+            </p>
+            <Button variant="ghost" onClick={handleSkip} disabled={isSaving}>
+              Skip for now
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

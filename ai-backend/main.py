@@ -38,6 +38,15 @@ class AnswerRequest(BaseModel):
     path_prefix: str | None = None
 
 
+class SearchRequest(BaseModel):
+    repository_id: str
+    query: str
+    limit: int = 6
+    language: str | None = None
+    file_category: str | None = None
+    path_prefix: str | None = None
+
+
 @app.post("/scan")
 async def trigger_scan(body: ScanRequest, background_tasks: BackgroundTasks):
     background_tasks.add_task(
@@ -64,6 +73,34 @@ async def embed_query(body: EmbedRequest):
     return {"embedding": embedding}
 
 
+@app.post("/search")
+async def search_repository(body: SearchRequest):
+    query = body.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query must not be empty")
+
+    embedding = embed_text(query)
+
+    try:
+        with get_connection() as conn:
+            results = search_similar_chunks(
+                conn,
+                repository_id=body.repository_id,
+                query=query,
+                query_vector=embedding,
+                limit=max(1, min(body.limit, 12)),
+                language=body.language,
+                file_category=body.file_category,
+                path_prefix=body.path_prefix,
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve repository context"
+        ) from exc
+
+    return {"results": results}
+
+
 @app.post("/answer")
 async def answer_question(body: AnswerRequest):
     question = body.question.strip()
@@ -77,6 +114,7 @@ async def answer_question(body: AnswerRequest):
             citations = search_similar_chunks(
                 conn,
                 repository_id=body.repository_id,
+                query=question,
                 query_vector=embedding,
                 limit=max(1, min(body.limit, 12)),
                 language=body.language,

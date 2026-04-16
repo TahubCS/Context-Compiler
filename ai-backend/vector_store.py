@@ -3,6 +3,7 @@ Vector store - handles PostgreSQL/pgvector database operations for CodeDocument 
 """
 
 import logging
+import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import psycopg
@@ -12,6 +13,10 @@ from config import DATABASE_URL, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL
 logger = logging.getLogger("context-compiler.vector_store")
 
 _PSYCOPG_UNSUPPORTED_PARAMS = {"pgbouncer"}
+_SYMBOL_QUERY_RE = re.compile(r"^[A-Za-z_$][\w$]*(?:[.:][A-Za-z_$][\w$]*)*$")
+_SEARCH_SEMANTIC_LIMIT = 40
+_SEARCH_LEXICAL_LIMIT = 30
+_MAX_RESULTS_PER_FILE = 2
 
 
 def _sanitize_db_url(url: str) -> str:
@@ -177,16 +182,30 @@ def mark_file_chunks_seen(
     )
 
 
-def search_similar_chunks(
+def _normalize_optional_filter(value: str | None) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
+def _is_symbol_style_query(query: str) -> bool:
+    return bool(_SYMBOL_QUERY_RE.fullmatch(query.strip()))
+
+
+def _extract_symbol_token(query: str) -> str:
+    return re.split(r"[.:]", query.strip())[-1]
+
+
+def _semantic_candidates(
     conn,
     repository_id: str,
     query_vector: list[float],
-    limit: int = 6,
-    language: str | None = None,
-    file_category: str | None = None,
-    path_prefix: str | None = None,
+    language: str | None,
+    file_category: str | None,
+    path_prefix: str | None,
+    limit: int,
 ) -> list[dict]:
-    """Fetch relevant code chunks for repository QA."""
     vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
     like_path = f"{path_prefix}%" if path_prefix else None
     rows = conn.execute(
@@ -228,13 +247,364 @@ def search_similar_chunks(
         {
             "id": row[0],
             "filePath": row[1],
-            "chunkIndex": row[2],
+            "chunkIndex": int(row[2]),
             "language": row[3],
             "fileCategory": row[4],
             "chunkType": row[5],
             "pathBucket": row[6],
             "content": row[7],
-            "score": float(row[8]),
+            "semanticScore": float(row[8]),
         }
         for row in rows
     ]
+
+
+def _lexical_candidates(
+    conn,
+    repository_id: str,
+    query: str,
+    language: str | None,
+    file_category: str | None,
+    path_prefix: str | None,
+    limit: int,
+) -> list[dict]:
+    normalized_query = query.strip()
+    if not normalized_query:
+        return []
+
+    like_path_prefix = f"{path_prefix}%" if path_prefix else None
+    is_symbol_style = _is_symbol_style_query(normalized_query)
+
+    if is_symbol_style:
+        symbol = _extract_symbol_token(normalized_query)
+        exact_symbol_regex = rf"(?<![\w$]){re.escape(symbol)}(?![\w$])"
+        declaration_regex = (
+            rf"(?m)(?:^|\s)(?:export\s+)?(?:async\s+)?function\s+{re.escape(symbol)}\b"
+            rf"|(?m)(?:^|\s)(?:export\s+)?(?:const|let|var)\s+{re.escape(symbol)}\b"
+            rf"|(?m)(?:^|\s)class\s+{re.escape(symbol)}\b"
+            rf"|(?m)(?:^|\s)(?:async\s+def|def)\s+{re.escape(symbol)}\b"
+        )
+        file_like = f"%{symbol.lower()}%"
+
+        rows = conn.execute(
+            """
+            SELECT
+                id::text,
+                "filePath",
+                "chunkIndex",
+                language,
+                "fileCategory",
+                "chunkType",
+                "pathBucket",
+                content,
+                CASE WHEN lower("filePath") LIKE %s THEN 1 ELSE 0 END AS path_match,
+                CASE WHEN content ~* %s THEN 1 ELSE 0 END AS declaration_match,
+                CASE WHEN content ~* %s THEN 1 ELSE 0 END AS symbol_match
+            FROM "CodeDocument"
+            WHERE "repositoryId" = %s::uuid
+              AND (%s::text IS NULL OR language = %s)
+              AND (%s::text IS NULL OR "fileCategory" = %s)
+              AND (%s::text IS NULL OR "filePath" ILIKE %s)
+              AND (
+                lower("filePath") LIKE %s
+                OR content ~* %s
+                OR content ~* %s
+              )
+            ORDER BY declaration_match DESC, symbol_match DESC, path_match DESC, "chunkIndex" ASC
+            LIMIT %s
+            """,
+            (
+                file_like,
+                declaration_regex,
+                exact_symbol_regex,
+                repository_id,
+                language,
+                language,
+                file_category,
+                file_category,
+                like_path_prefix,
+                like_path_prefix,
+                file_like,
+                declaration_regex,
+                exact_symbol_regex,
+                limit,
+            ),
+        ).fetchall()
+
+        return [
+            {
+                "id": row[0],
+                "filePath": row[1],
+                "chunkIndex": int(row[2]),
+                "language": row[3],
+                "fileCategory": row[4],
+                "chunkType": row[5],
+                "pathBucket": row[6],
+                "content": row[7],
+                "pathMatch": bool(row[8]),
+                "declarationMatch": bool(row[9]),
+                "symbolMatch": bool(row[10]),
+            }
+            for row in rows
+        ]
+
+    tokens = [token.lower() for token in re.findall(r"[A-Za-z_][\w$-]{2,}", normalized_query)[:4]]
+    if not tokens:
+        return []
+
+    path_patterns = [f"%{token}%" for token in tokens]
+    rows = conn.execute(
+        """
+        SELECT
+            id::text,
+            "filePath",
+            "chunkIndex",
+            language,
+            "fileCategory",
+            "chunkType",
+            "pathBucket",
+            content,
+            CASE WHEN lower("filePath") LIKE ANY(%s) THEN 1 ELSE 0 END AS path_match,
+            CASE WHEN lower(content) LIKE ANY(%s) THEN 1 ELSE 0 END AS content_match
+        FROM "CodeDocument"
+        WHERE "repositoryId" = %s::uuid
+          AND (%s::text IS NULL OR language = %s)
+          AND (%s::text IS NULL OR "fileCategory" = %s)
+          AND (%s::text IS NULL OR "filePath" ILIKE %s)
+          AND (
+            lower("filePath") LIKE ANY(%s)
+            OR lower(content) LIKE ANY(%s)
+          )
+        ORDER BY path_match DESC, content_match DESC, "chunkIndex" ASC
+        LIMIT %s
+        """,
+        (
+            path_patterns,
+            path_patterns,
+            repository_id,
+            language,
+            language,
+            file_category,
+            file_category,
+            like_path_prefix,
+            like_path_prefix,
+            path_patterns,
+            path_patterns,
+            limit,
+        ),
+    ).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "filePath": row[1],
+            "chunkIndex": int(row[2]),
+            "language": row[3],
+            "fileCategory": row[4],
+            "chunkType": row[5],
+            "pathBucket": row[6],
+            "content": row[7],
+            "pathMatch": bool(row[8]),
+            "contentMatch": bool(row[9]),
+        }
+        for row in rows
+    ]
+
+
+def _fetch_context_slice(
+    conn,
+    repository_id: str,
+    file_path: str,
+    chunk_index: int,
+    source_content: str,
+) -> tuple[str, int, int]:
+    window = 2 if len(source_content) < 360 else 1
+    start_index = max(0, chunk_index - window)
+    end_index = chunk_index + window
+    rows = conn.execute(
+        """
+        SELECT "chunkIndex", content
+        FROM "CodeDocument"
+        WHERE "repositoryId" = %s::uuid
+          AND "filePath" = %s
+          AND "chunkIndex" BETWEEN %s AND %s
+        ORDER BY "chunkIndex" ASC
+        """,
+        (repository_id, file_path, start_index, end_index),
+    ).fetchall()
+
+    if not rows:
+        return source_content, chunk_index, chunk_index
+
+    actual_start = int(rows[0][0])
+    actual_end = int(rows[-1][0])
+    stitched = "\n\n".join(row[1] for row in rows)
+    return stitched, actual_start, actual_end
+
+
+def _merge_candidate(candidate_map: dict[str, dict], raw: dict, is_symbol_query: bool) -> None:
+    candidate = candidate_map.setdefault(
+        raw["id"],
+        {
+            "id": raw["id"],
+            "filePath": raw["filePath"],
+            "chunkIndex": raw["chunkIndex"],
+            "language": raw.get("language"),
+            "fileCategory": raw.get("fileCategory"),
+            "chunkType": raw.get("chunkType"),
+            "pathBucket": raw.get("pathBucket"),
+            "sourceContent": raw["content"],
+            "semanticScore": 0.0,
+            "pathMatch": False,
+            "symbolMatch": False,
+            "declarationMatch": False,
+            "contentMatch": False,
+        },
+    )
+
+    candidate["sourceContent"] = raw["content"]
+    candidate["semanticScore"] = max(candidate["semanticScore"], raw.get("semanticScore", 0.0))
+    candidate["pathMatch"] = candidate["pathMatch"] or raw.get("pathMatch", False)
+    candidate["symbolMatch"] = candidate["symbolMatch"] or raw.get("symbolMatch", False)
+    candidate["declarationMatch"] = candidate["declarationMatch"] or raw.get("declarationMatch", False)
+    candidate["contentMatch"] = candidate["contentMatch"] or raw.get("contentMatch", False)
+
+    score = candidate["semanticScore"]
+    if candidate["pathMatch"]:
+        score += 0.22 if is_symbol_query else 0.12
+    if candidate["symbolMatch"]:
+        score += 0.42
+    if candidate["declarationMatch"]:
+        score += 0.38
+    if candidate["contentMatch"] and not is_symbol_query:
+        score += 0.08
+    if is_symbol_query and candidate.get("fileCategory") == "source":
+        score += 0.08
+
+    candidate["finalScore"] = score
+
+
+def _match_reason(candidate: dict) -> str:
+    if candidate["declarationMatch"]:
+        return "Likely declaration"
+    if candidate["symbolMatch"]:
+        return "Exact symbol"
+    if candidate["pathMatch"]:
+        return "Path match"
+    return "Semantic match"
+
+
+def search_hybrid_chunks(
+    conn,
+    repository_id: str,
+    query: str,
+    query_vector: list[float],
+    limit: int = 6,
+    language: str | None = None,
+    file_category: str | None = None,
+    path_prefix: str | None = None,
+) -> list[dict]:
+    language = _normalize_optional_filter(language)
+    file_category = _normalize_optional_filter(file_category)
+    path_prefix = _normalize_optional_filter(path_prefix)
+    normalized_query = query.strip()
+    is_symbol_query = _is_symbol_style_query(normalized_query)
+
+    semantic_rows = _semantic_candidates(
+        conn,
+        repository_id,
+        query_vector,
+        language,
+        file_category,
+        path_prefix,
+        _SEARCH_SEMANTIC_LIMIT,
+    )
+    lexical_rows = _lexical_candidates(
+        conn,
+        repository_id,
+        normalized_query,
+        language,
+        file_category,
+        path_prefix,
+        _SEARCH_LEXICAL_LIMIT,
+    )
+
+    candidate_map: dict[str, dict] = {}
+    for row in semantic_rows:
+        _merge_candidate(candidate_map, row, is_symbol_query)
+    for row in lexical_rows:
+        _merge_candidate(candidate_map, row, is_symbol_query)
+
+    ranked = sorted(
+        candidate_map.values(),
+        key=lambda candidate: (
+            candidate.get("finalScore", candidate["semanticScore"]),
+            candidate["declarationMatch"],
+            candidate["symbolMatch"],
+            candidate["pathMatch"],
+        ),
+        reverse=True,
+    )
+
+    per_file_counts: dict[str, int] = {}
+    results: list[dict] = []
+    for candidate in ranked:
+        file_path = candidate["filePath"]
+        if per_file_counts.get(file_path, 0) >= _MAX_RESULTS_PER_FILE:
+            continue
+
+        context_content, start_chunk_index, end_chunk_index = _fetch_context_slice(
+            conn,
+            repository_id,
+            file_path,
+            candidate["chunkIndex"],
+            candidate["sourceContent"],
+        )
+
+        results.append(
+            {
+                "id": candidate["id"],
+                "filePath": file_path,
+                "chunkIndex": candidate["chunkIndex"],
+                "primaryChunkIndex": candidate["chunkIndex"],
+                "contextStartChunkIndex": start_chunk_index,
+                "contextEndChunkIndex": end_chunk_index,
+                "language": candidate.get("language"),
+                "fileCategory": candidate.get("fileCategory"),
+                "chunkType": candidate.get("chunkType"),
+                "pathBucket": candidate.get("pathBucket"),
+                "content": context_content,
+                "score": round(float(candidate.get("finalScore", candidate["semanticScore"])), 4),
+                "matchReason": _match_reason(candidate),
+                "declarationHint": "high" if candidate["declarationMatch"] else None,
+            }
+        )
+        per_file_counts[file_path] = per_file_counts.get(file_path, 0) + 1
+
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+def search_similar_chunks(
+    conn,
+    repository_id: str,
+    query: str,
+    query_vector: list[float],
+    limit: int = 6,
+    language: str | None = None,
+    file_category: str | None = None,
+    path_prefix: str | None = None,
+) -> list[dict]:
+    """Fetch hybrid-ranked repository context for search and answer generation."""
+    return search_hybrid_chunks(
+        conn,
+        repository_id=repository_id,
+        query=query,
+        query_vector=query_vector,
+        limit=limit,
+        language=language,
+        file_category=file_category,
+        path_prefix=path_prefix,
+    )

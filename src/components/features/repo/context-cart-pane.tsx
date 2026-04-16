@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Copy, Download, Loader2, Save, Trash2, Upload, X } from "lucide-react"
+import { RetrievalResultCard } from "@/components/features/repo/retrieval-result-card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -13,10 +15,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
-import { useContextCart, type CartItem } from "@/store/context-cart"
 import { formatContextPack } from "@/lib/prompt-packs"
+import { useContextCart, type CartItem } from "@/store/context-cart"
+import { toast } from "sonner"
 
 type SavedCartSummary = {
   id: string
@@ -46,6 +49,10 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
   const repoItems = useMemo(
     () => items.filter((item) => item.repositoryId === repoId),
     [items, repoId]
+  )
+  const totalCharacters = useMemo(
+    () => repoItems.reduce((sum, item) => sum + item.content.length, 0),
+    [repoItems]
   )
 
   const loadSavedCarts = useCallback(async () => {
@@ -84,6 +91,15 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
       () => toast.success("Context pack copied to clipboard."),
       () => toast.error("Failed to copy context pack.")
     )
+  }
+
+  async function copySnippet(item: CartItem) {
+    try {
+      await navigator.clipboard.writeText(item.content)
+      toast.success("Snippet copied to clipboard.")
+    } catch {
+      toast.error("Failed to copy snippet.")
+    }
   }
 
   async function saveCart() {
@@ -232,134 +248,166 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">
-          {repoItems.length} {repoItems.length === 1 ? "item" : "items"}
-        </span>
-        {repoItems.length > 0 ? (
-          <div className="ml-auto flex flex-wrap gap-1">
-            <Button size="xs" variant="outline" onClick={copyAll}>
-              <Copy className="size-3.5" />
-              Copy Pack
-            </Button>
-            <Button size="xs" variant="secondary" onClick={() => setIsSaveDialogOpen(true)}>
-              <Save className="size-3.5" />
-              Save Cart
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => clearRepository(repoId)}>
-              <Trash2 className="size-3.5" />
-              Clear
-            </Button>
+    <div className="flex h-full flex-col gap-4">
+      <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
+        <CardHeader className="gap-2 border-b border-border/70">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-base">Context review workspace</CardTitle>
+            <Badge variant="secondary">{repoItems.length} items</Badge>
+            <Badge variant="outline">~{totalCharacters.toLocaleString()} chars</Badge>
           </div>
-        ) : null}
-      </div>
+          <CardDescription>
+            Review what is actually going into the exported context pack before you copy or save it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {repoItems.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <Button size="xs" variant="outline" onClick={copyAll}>
+                <Copy className="size-3.5" />
+                Copy Pack
+              </Button>
+              <Button size="xs" variant="secondary" onClick={() => setIsSaveDialogOpen(true)}>
+                <Save className="size-3.5" />
+                Save Cart
+              </Button>
+              <Button size="xs" variant="ghost" onClick={() => clearRepository(repoId)}>
+                <Trash2 className="size-3.5" />
+                Clear
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Add evidence from search results or answer citations to build a focused context pack.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         {repoItems.length === 0 ? (
-          <p className="py-16 text-center text-sm text-muted-foreground">
-            Add code blocks from search results or answer citations.
-          </p>
+          <Card
+            size="sm"
+            className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+          >
+            <CardContent className="py-16 text-center text-sm text-muted-foreground">
+              Add code blocks from search results or answer citations.
+            </CardContent>
+          </Card>
         ) : (
-          <div className="flex flex-col gap-2 pr-3">
-            {repoItems.map((item) => (
-              <div
-                key={`${item.id}-${item.repositoryId}`}
-                className="flex flex-col gap-1.5 rounded-lg border border-border bg-background p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-xs font-medium text-foreground">
-                    {item.filePath.split(/[/\\]/).pop()}
-                  </span>
-                  <Button size="icon-sm" variant="ghost" onClick={() => remove(item.id)}>
+          <div className="flex flex-col gap-3 pr-3">
+            {repoItems.map((item, index) => (
+              <div key={`${item.id}-${item.repositoryId}`} className="relative">
+                <RetrievalResultCard
+                  result={{
+                    id: item.id,
+                    filePath: item.filePath,
+                    chunkIndex: item.chunkIndex,
+                    language: item.language,
+                    content: item.content,
+                    score: item.score,
+                  }}
+                  onCopy={() => copySnippet(item)}
+                  defaultExpanded={index === 0}
+                />
+                <div className="absolute top-3 right-3">
+                  <Button size="icon-xs" variant="ghost" onClick={() => remove(item.id)}>
                     <X className="size-3.5" />
                   </Button>
                 </div>
-                <span className="truncate text-xs text-muted-foreground">{item.filePath}</span>
-                <pre className="line-clamp-3 whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground">
-                  {item.content}
-                </pre>
               </div>
             ))}
           </div>
         )}
       </ScrollArea>
 
-      <div className="border-t border-border pt-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-foreground">Saved Carts</h3>
-          {isLoadingSavedCarts ? (
-            <span className="text-xs text-muted-foreground">Loading...</span>
-          ) : (
-            <span className="text-xs text-muted-foreground">{savedCarts.length} saved</span>
-          )}
-        </div>
-        <ScrollArea className="h-48">
-          {isLoadingSavedCarts ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading saved carts...
-            </div>
-          ) : savedCarts.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">
-              Save a cart to reopen it later.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2 pr-3">
-              {savedCarts.map((cart) => (
-                <div
-                  key={cart.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-foreground">{cart.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {cart._count.items} items
-                      </p>
-                    </div>
-                    <span className="text-[11px] text-muted-foreground">
-                      {new Date(cart.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => loadSavedCart(cart.id)}
-                      disabled={activeCartId === cart.id}
-                    >
-                      {activeCartId === cart.id ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <Upload className="size-3.5" />
-                      )}
-                      Load
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => overwriteSavedCart(cart)}
-                      disabled={activeCartId === cart.id}
-                    >
-                      <Save className="size-3.5" />
-                      Update
-                    </Button>
-                    <Button size="xs" variant="outline" onClick={() => exportSavedCart(cart.id)}>
-                      <Download className="size-3.5" />
-                      Export
-                    </Button>
-                    <Button size="xs" variant="ghost" onClick={() => deleteSavedCart(cart.id)}>
-                      <Trash2 className="size-3.5" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </div>
+      <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
+        <CardHeader className="gap-2 border-b border-border/70">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-base">Saved carts</CardTitle>
+            {isLoadingSavedCarts ? (
+              <span className="text-xs text-muted-foreground">Loading...</span>
+            ) : (
+              <Badge variant="outline">{savedCarts.length} saved</Badge>
+            )}
+          </div>
+          <CardDescription>
+            Reopen, update, or export context packs you want to reuse across tasks.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <ScrollArea className="h-56">
+            {isLoadingSavedCarts ? (
+              <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading saved carts...
+              </div>
+            ) : savedCarts.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                Save a cart to reopen it later.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 pr-3">
+                {savedCarts.map((cart) => (
+                  <Card
+                    key={cart.id}
+                    size="sm"
+                    className="rounded-2xl border border-border bg-card/60 shadow-none"
+                  >
+                    <CardHeader className="gap-1 border-b border-border/70">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <CardTitle className="truncate text-sm">{cart.title}</CardTitle>
+                          <CardDescription>
+                            {cart._count.items} {cart._count.items === 1 ? "item" : "items"}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline">
+                          {new Date(cart.updatedAt).toLocaleDateString()}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => loadSavedCart(cart.id)}
+                          disabled={activeCartId === cart.id}
+                        >
+                          {activeCartId === cart.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="size-3.5" />
+                          )}
+                          Load
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => overwriteSavedCart(cart)}
+                          disabled={activeCartId === cart.id}
+                        >
+                          <Save className="size-3.5" />
+                          Update
+                        </Button>
+                        <Button size="xs" variant="outline" onClick={() => exportSavedCart(cart.id)}>
+                          <Download className="size-3.5" />
+                          Export
+                        </Button>
+                        <Button size="xs" variant="ghost" onClick={() => deleteSavedCart(cart.id)}>
+                          <Trash2 className="size-3.5" />
+                          Delete
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
 
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent>
@@ -373,7 +421,7 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
             <Input
               value={saveTitle}
               onChange={(event) => setSaveTitle(event.target.value)}
-              placeholder="Auth flow context"
+              placeholder="Database architecture slice"
             />
             <Textarea
               value={saveDescription}
@@ -385,7 +433,10 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
             <Button variant="outline" onClick={() => setIsSaveDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveCart} disabled={isSaving || !saveTitle.trim() || repoItems.length === 0}>
+            <Button
+              onClick={saveCart}
+              disabled={isSaving || !saveTitle.trim() || repoItems.length === 0}
+            >
               {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               {isSaving ? "Saving..." : "Save Cart"}
             </Button>

@@ -341,6 +341,38 @@ export async function ensurePersonalWorkspaceForUser(userId: string, email: stri
   return workspace.id
 }
 
+export async function ensureOwnedWorkspaceMemberships(userId: string) {
+  const ownedWorkspaces = await prisma.workspace.findMany({
+    where: { ownerUserId: userId },
+    select: { id: true },
+  })
+
+  if (ownedWorkspaces.length === 0) {
+    return
+  }
+
+  await prisma.$transaction(
+    ownedWorkspaces.map((workspace) =>
+      prisma.workspaceMember.upsert({
+        where: {
+          workspaceId_userId: {
+            workspaceId: workspace.id,
+            userId,
+          },
+        },
+        update: {
+          role: WorkspaceRole.OWNER,
+        },
+        create: {
+          workspaceId: workspace.id,
+          userId,
+          role: WorkspaceRole.OWNER,
+        },
+      })
+    )
+  )
+}
+
 export async function listUserWorkspaces(userId: string): Promise<WorkspaceSwitcherItem[]> {
   const [memberships, user] = await Promise.all([
     prisma.workspaceMember.findMany({

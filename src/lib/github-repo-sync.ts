@@ -1,4 +1,13 @@
-import { deleteRepositoriesMissingFromGitHubIds, deleteRepositoryByGitHubRepoId, markWorkspaceRepoSyncSuccess, markWorkspaceWebhookReceived, setRepositoryArchivedState, updateWorkspaceGitHubInstallation, upsertGitHubRepositories } from "@/lib/db"
+import {
+  deleteRepositoriesMissingFromGitHubIds,
+  deleteRepositoryByGitHubRepoId,
+  getWorkspaceByInstallationId,
+  markWorkspaceRepoSyncSuccess,
+  markWorkspaceWebhookReceived,
+  setRepositoryArchivedState,
+  updateWorkspaceGitHubInstallation,
+  upsertGitHubRepositories,
+} from "@/lib/db"
 import {
   getGitHubAppInstallation,
   listInstallationRepositories,
@@ -39,6 +48,13 @@ export async function syncWorkspaceGithubInstallation(
   installationId: string
 ) {
   const installation = await getGitHubAppInstallation(installationId)
+  const existingWorkspace = await getWorkspaceByInstallationId(String(installation.id))
+
+  if (existingWorkspace && existingWorkspace.id !== workspaceId) {
+    throw new Error(
+      `This GitHub App installation is already linked to "${existingWorkspace.name}". Switch to that workspace instead of linking it again.`
+    )
+  }
 
   await updateWorkspaceGitHubInstallation({
     workspaceId,

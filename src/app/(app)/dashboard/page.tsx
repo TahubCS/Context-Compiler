@@ -81,9 +81,6 @@ export default async function DashboardPage() {
                 ? ` Last synced ${githubConnection.lastRepoSyncAt.toLocaleString()}.`
                 : " Repo reconciliation will run automatically."}
             </p>
-            <div className="w-full md:w-fit">
-              <SyncRepositoriesButton label="Sync now" />
-            </div>
           </div>
         ) : (
           <div className="mt-4 w-full md:w-fit">

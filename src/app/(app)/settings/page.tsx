@@ -241,7 +241,6 @@ export default async function SettingsPage() {
             </Alert>
             {canManageGitHubConnection ? (
               <div className="w-full md:w-fit">
-                <SyncRepositoriesButton label="Sync now" />
               </div>
             ) : null}
             <p className="text-sm text-muted-foreground">

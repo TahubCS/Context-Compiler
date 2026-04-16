@@ -2,7 +2,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { Prisma } from "@prisma/client"
 import { decryptGithubToken, encryptGithubToken } from "@/lib/crypto"
 import { prisma } from "./client"
-import { ensurePersonalWorkspaceForUser } from "./workspaces"
+import { ensureOwnedWorkspaceMemberships, ensurePersonalWorkspaceForUser } from "./workspaces"
 import { syncPendingInviteNotificationsForUser } from "./notifications"
 
 const PLATFORM_ADMIN_EMAIL = "Khatrim23@students.ecu.edu"
@@ -45,6 +45,7 @@ export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
     user.email,
     user.user_metadata.full_name ?? user.user_metadata.user_name ?? null
   )
+  await ensureOwnedWorkspaceMemberships(user.id)
 
   await syncPendingInviteNotificationsForUser(user.id, user.email)
 }

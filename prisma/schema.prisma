@@ -75,6 +75,10 @@ model User {
   sentWorkspaceInvites WorkspaceInvite[] @relation("WorkspaceInviteSender")
   notifications        Notification[]
   auditLogs            AuditLog[]
+  onboardingSeenAt     DateTime?
+  onboardingCompletedAt DateTime?
+  onboardingSkippedAt  DateTime?
+  repoTourCompletedAt  DateTime?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 }

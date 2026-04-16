@@ -222,63 +222,65 @@ export function RepoHelpCenter({ autoStartTour }: RepoHelpCenterProps) {
       </div>
 
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-        <DialogContent className="max-w-3xl rounded-4xl border-border bg-card/95 backdrop-blur-2xl">
-          <DialogHeader className="gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">Repo help</Badge>
-              <Badge variant="outline">Workflow + FAQ</Badge>
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto rounded-4xl border-border bg-card/95 p-0 backdrop-blur-2xl">
+          <div className="flex flex-col gap-6 p-6 sm:p-7">
+            <DialogHeader className="gap-4 pr-12">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">Repo help</Badge>
+                <Badge variant="outline">Workflow + FAQ</Badge>
+              </div>
+              <DialogTitle className="text-2xl leading-tight">
+                Use Ask, Search, and the Cart deliberately
+              </DialogTitle>
+              <DialogDescription className="max-w-4xl text-sm leading-7 text-muted-foreground">
+                Context Compiler shines when you start broad, inspect evidence, and then export only
+                the right slice of code context to your agent.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(15.5rem,1fr))]">
+              <HelpPillar
+                icon={<Sparkles className="size-4 text-muted-foreground" />}
+                title="Ask"
+                description="Use Ask first when you want architecture, use cases, responsibilities, or a fast read on the shape of the repo."
+              />
+              <HelpPillar
+                icon={<Search className="size-4 text-muted-foreground" />}
+                title="Search"
+                description="Use Search when you need exact supporting evidence like a function, helper, or the most relevant chunks around a specific change."
+              />
+              <HelpPillar
+                icon={<ShoppingCart className="size-4 text-muted-foreground" />}
+                title="Context Cart"
+                description="Review the snippets you actually want to send to an agent so the final prompt pack stays grounded and intentional."
+              />
             </div>
-            <DialogTitle className="text-2xl leading-tight">
-              Use Ask, Search, and the Cart deliberately
-            </DialogTitle>
-            <DialogDescription className="text-sm leading-7 text-muted-foreground">
-              Context Compiler shines when you start broad, inspect evidence, and then export only
-              the right slice of code context to your agent.
-            </DialogDescription>
-          </DialogHeader>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <HelpPillar
-              icon={<Sparkles className="size-4 text-muted-foreground" />}
-              title="Ask"
-              description="Use Ask first when you want architecture, use cases, responsibilities, or a fast read on the shape of the repo."
-            />
-            <HelpPillar
-              icon={<Search className="size-4 text-muted-foreground" />}
-              title="Search"
-              description="Use Search when you need exact supporting evidence like a function, helper, or the most relevant chunks around a specific change."
-            />
-            <HelpPillar
-              icon={<ShoppingCart className="size-4 text-muted-foreground" />}
-              title="Context Cart"
-              description="Review the snippets you actually want to send to an agent so the final prompt pack stays grounded and intentional."
-            />
-          </div>
-
-          <div className="rounded-3xl border border-border bg-background/60 p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Compass className="size-4 text-muted-foreground" />
-              <h3 className="font-medium text-foreground">Frequently asked questions</h3>
+            <div className="rounded-3xl border border-border bg-background/60 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Compass className="size-4 text-muted-foreground" />
+                <h3 className="font-medium text-foreground">Frequently asked questions</h3>
+              </div>
+              <Accordion type="single" collapsible className="border-border bg-transparent">
+                {FAQ_ITEMS.map((item) => (
+                  <AccordionItem key={item.value} value={item.value}>
+                    <AccordionTrigger>{item.question}</AccordionTrigger>
+                    <AccordionContent>{item.answer}</AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
-            <Accordion type="single" collapsible className="border-border bg-transparent">
-              {FAQ_ITEMS.map((item) => (
-                <AccordionItem key={item.value} value={item.value}>
-                  <AccordionTrigger>{item.question}</AccordionTrigger>
-                  <AccordionContent>{item.answer}</AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
 
-          <DialogFooter className="justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Replay the guided walkthrough whenever you want a visual reminder.
-            </p>
-            <Button onClick={handleReplayTour}>
-              <WandSparkles className="size-4" />
-              Replay guided tour
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="justify-between gap-3">
+              <p className="max-w-2xl text-xs leading-6 text-muted-foreground">
+                Replay the guided walkthrough whenever you want a visual reminder.
+              </p>
+              <Button onClick={handleReplayTour}>
+                <WandSparkles className="size-4" />
+                Replay guided tour
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -350,12 +352,12 @@ function HelpPillar({
   description: string
 }) {
   return (
-    <div className="rounded-3xl border border-border bg-background/60 p-5">
-      <div className="mb-3 flex items-center gap-2">
+    <div className="flex h-full flex-col rounded-3xl border border-border bg-background/60 p-6">
+      <div className="mb-4 flex items-center gap-2">
         {icon}
         <h3 className="font-medium text-foreground">{title}</h3>
       </div>
-      <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+      <p className="text-sm leading-7 text-muted-foreground">{description}</p>
     </div>
   )
 }

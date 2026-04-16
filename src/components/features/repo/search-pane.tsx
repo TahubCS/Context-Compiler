@@ -20,7 +20,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectContent,
@@ -364,7 +363,7 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {indexOutdated ? (
         <Alert>
           <AlertDescription>
@@ -452,13 +451,13 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
         <TabsList className="self-start">
           <TabsTrigger value="ask">
             <Sparkles className="size-4" />
             Ask
           </TabsTrigger>
-          <TabsTrigger value="search">
+          <TabsTrigger value="search" data-tour="search-tab">
             <Search className="size-4" />
             Search
           </TabsTrigger>
@@ -468,9 +467,13 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ask" className="min-h-0 flex-1">
-          <div className="flex h-full flex-col gap-4">
-            <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
+        <TabsContent value="ask" className="mt-0">
+          <div className="flex flex-col gap-4">
+            <Card
+              data-tour="ask-workflow"
+              size="sm"
+              className="rounded-2xl border border-border bg-background/70 shadow-none"
+            >
               <CardHeader className="gap-2 border-b border-border/70">
                 <CardTitle className="text-base">Repository context brief</CardTitle>
                 <CardDescription>
@@ -519,86 +522,84 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
               </CardContent>
             </Card>
 
-            <ScrollArea className="min-h-0 flex-1">
-              {!answerResult ? (
-                <Card
-                  size="sm"
-                  className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
-                >
-                  <CardContent className="py-16 text-center text-sm text-muted-foreground">
-                    Ask a repository-level question to get a grounded answer plus inspectable
-                    supporting code.
+            {!answerResult ? (
+              <Card
+                size="sm"
+                className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+              >
+                <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                  Ask a repository-level question to get a grounded answer plus inspectable
+                  supporting code.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <Card className="rounded-2xl border border-border bg-background/80 shadow-none">
+                  <CardHeader className="gap-3 border-b border-border/70">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">Grounded answer</Badge>
+                      {savedAnswerId ? <Badge variant="outline">Saved</Badge> : null}
+                      <Badge variant="outline">{answerResult.citations.length} citations</Badge>
+                      {activeFilterBadges.map((filter) => (
+                        <Badge key={filter} variant="outline">
+                          {filter}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <CardTitle className="text-lg leading-tight">{answerResult.question}</CardTitle>
+                      <CardDescription>
+                        Grounded answer from indexed repo context. Review the evidence below
+                        before exporting it to an agent.
+                      </CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-5 pt-5">
+                    <AnswerRichText text={answerResult.answer} />
+                    <div className="space-y-2 rounded-2xl border border-border/70 bg-card/60 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Supporting evidence</p>
+                          <p className="text-xs text-muted-foreground">
+                            Review the cited code blocks before sending them to the cart.
+                          </p>
+                        </div>
+                        <Button size="xs" variant="outline" onClick={addAllCitationsToCart}>
+                          Add All To Cart
+                        </Button>
+                      </div>
+                      {topCitationFiles.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {topCitationFiles.map((file) => (
+                            <Badge key={file} variant="secondary">
+                              {file}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="flex flex-col gap-4 pr-3">
-                  <Card className="rounded-2xl border border-border bg-background/80 shadow-none">
-                    <CardHeader className="gap-3 border-b border-border/70">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary">Grounded answer</Badge>
-                        {savedAnswerId ? <Badge variant="outline">Saved</Badge> : null}
-                        <Badge variant="outline">{answerResult.citations.length} citations</Badge>
-                        {activeFilterBadges.map((filter) => (
-                          <Badge key={filter} variant="outline">
-                            {filter}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="space-y-2">
-                        <CardTitle className="text-lg leading-tight">{answerResult.question}</CardTitle>
-                        <CardDescription>
-                          Grounded answer from indexed repo context. Review the evidence below
-                          before exporting it to an agent.
-                        </CardDescription>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-5 pt-5">
-                      <AnswerRichText text={answerResult.answer} />
-                      <div className="space-y-2 rounded-2xl border border-border/70 bg-card/60 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">Supporting evidence</p>
-                            <p className="text-xs text-muted-foreground">
-                              Review the cited code blocks before sending them to the cart.
-                            </p>
-                          </div>
-                          <Button size="xs" variant="outline" onClick={addAllCitationsToCart}>
-                            Add All To Cart
-                          </Button>
-                        </div>
-                        {topCitationFiles.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {topCitationFiles.map((file) => (
-                              <Badge key={file} variant="secondary">
-                                {file}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </CardContent>
-                  </Card>
 
-                  <div className="flex flex-col gap-3">
-                    {answerResult.citations.map((citation, index) => (
-                      <RetrievalResultCard
-                        key={`${citation.filePath}-${citation.chunkIndex}-${citation.id}`}
-                        result={citation}
-                        inCart={has(citation.id)}
-                        onAdd={() => addToCart(citation)}
-                        onCopy={() => copySnippet(citation)}
-                        defaultExpanded={index === 0}
-                      />
-                    ))}
-                  </div>
+                <div className="flex flex-col gap-3">
+                  {answerResult.citations.map((citation, index) => (
+                    <RetrievalResultCard
+                      key={`${citation.filePath}-${citation.chunkIndex}-${citation.id}`}
+                      result={citation}
+                      inCart={has(citation.id)}
+                      onAdd={() => addToCart(citation)}
+                      onCopy={() => copySnippet(citation)}
+                      defaultExpanded={index === 0}
+                    />
+                  ))}
                 </div>
-              )}
-            </ScrollArea>
+              </div>
+            )}
           </div>
         </TabsContent>
 
-        <TabsContent value="search" className="min-h-0 flex-1">
-          <div className="flex h-full flex-col gap-4">
+        <TabsContent value="search" className="mt-0">
+          <div className="flex flex-col gap-4">
             <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
               <CardHeader className="gap-2 border-b border-border/70">
                 <CardTitle className="text-base">Inspect exact evidence</CardTitle>
@@ -638,124 +639,120 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
               </CardContent>
             </Card>
 
-            <ScrollArea className="min-h-0 flex-1">
-              {!hasSearched ? (
-                <Card
-                  size="sm"
-                  className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
-                >
-                  <CardContent className="py-16 text-center text-sm text-muted-foreground">
-                    Search your codebase with natural language or exact symbol names.
-                  </CardContent>
-                </Card>
-              ) : groupedResults.length === 0 ? (
-                <Card
-                  size="sm"
-                  className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
-                >
-                  <CardContent className="py-16 text-center text-sm text-muted-foreground">
-                    No results found. Try a different query or loosen the filters.
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="flex flex-col gap-5 pr-3">
-                  {groupedResults.map((group) => (
-                    <div key={group.filePath} className="flex flex-col gap-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{group.fileName}</p>
-                          <p className="break-all text-xs text-muted-foreground">{group.filePath}</p>
-                        </div>
-                        <Badge variant="outline">
-                          {group.results.length} {group.results.length === 1 ? "match" : "matches"}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        {group.results.map((result, index) => (
-                          <RetrievalResultCard
-                            key={result.id}
-                            result={result}
-                            inCart={has(result.id)}
-                            onAdd={() => addToCart(result)}
-                            onCopy={() => copySnippet(result)}
-                            defaultExpanded={index === 0}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="saved" className="min-h-0 flex-1">
-          <ScrollArea className="flex-1">
-            {isLoadingSavedAnswers ? (
-              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Loading saved answers...
-              </div>
-            ) : savedAnswers.length === 0 ? (
-              <Alert>
-                <AlertDescription>
-                  No saved answers yet. Generate an answer first, then save it here as a reusable
-                  repo brief.
-                </AlertDescription>
-              </Alert>
+            {!hasSearched ? (
+              <Card
+                size="sm"
+                className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+              >
+                <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                  Search your codebase with natural language or exact symbol names.
+                </CardContent>
+              </Card>
+            ) : groupedResults.length === 0 ? (
+              <Card
+                size="sm"
+                className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+              >
+                <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                  No results found. Try a different query or loosen the filters.
+                </CardContent>
+              </Card>
             ) : (
-              <div className="flex flex-col gap-3 pr-3">
-                {savedAnswers.map((saved) => (
-                  <Card
-                    key={saved.id}
-                    size="sm"
-                    className="rounded-2xl border border-border bg-background/70 shadow-none"
-                  >
-                    <CardHeader className="gap-2 border-b border-border/70">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 space-y-1">
-                          <CardTitle className="line-clamp-2 text-sm">{saved.question}</CardTitle>
-                          <CardDescription>
-                            {saved._count.citations} supporting{" "}
-                            {saved._count.citations === 1 ? "citation" : "citations"}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline">
-                          {new Date(saved.updatedAt).toLocaleDateString()}
-                        </Badge>
+              <div className="flex flex-col gap-5">
+                {groupedResults.map((group) => (
+                  <div key={group.filePath} className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{group.fileName}</p>
+                        <p className="break-all text-xs text-muted-foreground">{group.filePath}</p>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => loadSavedAnswer(saved.id)}
-                          disabled={activeSavedAnswerId === saved.id}
-                        >
-                          {activeSavedAnswerId === saved.id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <MessageSquare className="size-3.5" />
-                          )}
-                          Open Brief
-                        </Button>
-                        <Button size="xs" variant="outline" onClick={() => copySavedAnswerPack(saved.id)}>
-                          <Copy className="size-3.5" />
-                          Export
-                        </Button>
-                        <Button size="xs" variant="ghost" onClick={() => deleteSavedAnswer(saved.id)}>
-                          <Trash2 className="size-3.5" />
-                          Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <Badge variant="outline">
+                        {group.results.length} {group.results.length === 1 ? "match" : "matches"}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {group.results.map((result, index) => (
+                        <RetrievalResultCard
+                          key={result.id}
+                          result={result}
+                          inCart={has(result.id)}
+                          onAdd={() => addToCart(result)}
+                          onCopy={() => copySnippet(result)}
+                          defaultExpanded={index === 0}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
-          </ScrollArea>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="saved" className="mt-0">
+          {isLoadingSavedAnswers ? (
+            <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Loading saved answers...
+            </div>
+          ) : savedAnswers.length === 0 ? (
+            <Alert>
+              <AlertDescription>
+                No saved answers yet. Generate an answer first, then save it here as a reusable
+                repo brief.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {savedAnswers.map((saved) => (
+                <Card
+                  key={saved.id}
+                  size="sm"
+                  className="rounded-2xl border border-border bg-background/70 shadow-none"
+                >
+                  <CardHeader className="gap-2 border-b border-border/70">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <CardTitle className="line-clamp-2 text-sm">{saved.question}</CardTitle>
+                        <CardDescription>
+                          {saved._count.citations} supporting{" "}
+                          {saved._count.citations === 1 ? "citation" : "citations"}
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline">
+                        {new Date(saved.updatedAt).toLocaleDateString()}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => loadSavedAnswer(saved.id)}
+                        disabled={activeSavedAnswerId === saved.id}
+                      >
+                        {activeSavedAnswerId === saved.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <MessageSquare className="size-3.5" />
+                        )}
+                        Open Brief
+                      </Button>
+                      <Button size="xs" variant="outline" onClick={() => copySavedAnswerPack(saved.id)}>
+                        <Copy className="size-3.5" />
+                        Export
+                      </Button>
+                      <Button size="xs" variant="ghost" onClick={() => deleteSavedAnswer(saved.id)}>
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

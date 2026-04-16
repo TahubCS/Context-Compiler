@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { formatContextPack } from "@/lib/prompt-packs"
 import { useContextCart, type CartItem } from "@/store/context-cart"
@@ -248,7 +247,7 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
         <CardHeader className="gap-2 border-b border-border/70">
           <div className="flex flex-wrap items-center gap-2">
@@ -284,42 +283,40 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
         </CardContent>
       </Card>
 
-      <ScrollArea className="min-h-0 flex-1">
-        {repoItems.length === 0 ? (
-          <Card
-            size="sm"
-            className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
-          >
-            <CardContent className="py-16 text-center text-sm text-muted-foreground">
-              Add code blocks from search results or answer citations.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-3 pr-3">
-            {repoItems.map((item, index) => (
-              <div key={`${item.id}-${item.repositoryId}`} className="relative">
-                <RetrievalResultCard
-                  result={{
-                    id: item.id,
-                    filePath: item.filePath,
-                    chunkIndex: item.chunkIndex,
-                    language: item.language,
-                    content: item.content,
-                    score: item.score,
-                  }}
-                  onCopy={() => copySnippet(item)}
-                  defaultExpanded={index === 0}
-                />
-                <div className="absolute top-3 right-3">
-                  <Button size="icon-xs" variant="ghost" onClick={() => remove(item.id)}>
-                    <X className="size-3.5" />
-                  </Button>
-                </div>
+      {repoItems.length === 0 ? (
+        <Card
+          size="sm"
+          className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+        >
+          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+            Add code blocks from search results or answer citations.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {repoItems.map((item, index) => (
+            <div key={`${item.id}-${item.repositoryId}`} className="relative">
+              <RetrievalResultCard
+                result={{
+                  id: item.id,
+                  filePath: item.filePath,
+                  chunkIndex: item.chunkIndex,
+                  language: item.language,
+                  content: item.content,
+                  score: item.score,
+                }}
+                onCopy={() => copySnippet(item)}
+                defaultExpanded={index === 0}
+              />
+              <div className="absolute top-3 right-3">
+                <Button size="icon-xs" variant="ghost" onClick={() => remove(item.id)}>
+                  <X className="size-3.5" />
+                </Button>
               </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
         <CardHeader className="gap-2 border-b border-border/70">
@@ -336,76 +333,74 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-4">
-          <ScrollArea className="h-56">
-            {isLoadingSavedCarts ? (
-              <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Loading saved carts...
-              </div>
-            ) : savedCarts.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Save a cart to reopen it later.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3 pr-3">
-                {savedCarts.map((cart) => (
-                  <Card
-                    key={cart.id}
-                    size="sm"
-                    className="rounded-2xl border border-border bg-card/60 shadow-none"
-                  >
-                    <CardHeader className="gap-1 border-b border-border/70">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <CardTitle className="truncate text-sm">{cart.title}</CardTitle>
-                          <CardDescription>
-                            {cart._count.items} {cart._count.items === 1 ? "item" : "items"}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline">
-                          {new Date(cart.updatedAt).toLocaleDateString()}
-                        </Badge>
+          {isLoadingSavedCarts ? (
+            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Loading saved carts...
+            </div>
+          ) : savedCarts.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Save a cart to reopen it later.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {savedCarts.map((cart) => (
+                <Card
+                  key={cart.id}
+                  size="sm"
+                  className="rounded-2xl border border-border bg-card/60 shadow-none"
+                >
+                  <CardHeader className="gap-1 border-b border-border/70">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <CardTitle className="truncate text-sm">{cart.title}</CardTitle>
+                        <CardDescription>
+                          {cart._count.items} {cart._count.items === 1 ? "item" : "items"}
+                        </CardDescription>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => loadSavedCart(cart.id)}
-                          disabled={activeCartId === cart.id}
-                        >
-                          {activeCartId === cart.id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <Upload className="size-3.5" />
-                          )}
-                          Load
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => overwriteSavedCart(cart)}
-                          disabled={activeCartId === cart.id}
-                        >
-                          <Save className="size-3.5" />
-                          Update
-                        </Button>
-                        <Button size="xs" variant="outline" onClick={() => exportSavedCart(cart.id)}>
-                          <Download className="size-3.5" />
-                          Export
-                        </Button>
-                        <Button size="xs" variant="ghost" onClick={() => deleteSavedCart(cart.id)}>
-                          <Trash2 className="size-3.5" />
-                          Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+                      <Badge variant="outline">
+                        {new Date(cart.updatedAt).toLocaleDateString()}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => loadSavedCart(cart.id)}
+                        disabled={activeCartId === cart.id}
+                      >
+                        {activeCartId === cart.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="size-3.5" />
+                        )}
+                        Load
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => overwriteSavedCart(cart)}
+                        disabled={activeCartId === cart.id}
+                      >
+                        <Save className="size-3.5" />
+                        Update
+                      </Button>
+                      <Button size="xs" variant="outline" onClick={() => exportSavedCart(cart.id)}>
+                        <Download className="size-3.5" />
+                        Export
+                      </Button>
+                      <Button size="xs" variant="ghost" onClick={() => deleteSavedCart(cart.id)}>
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

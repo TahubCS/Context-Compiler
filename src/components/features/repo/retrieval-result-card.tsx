@@ -97,7 +97,7 @@ export function RetrievalResultCard({
         <pre
           className={cn(
             "overflow-x-auto rounded-xl border border-border/60 bg-card/60 p-4 font-mono text-xs leading-6 text-foreground",
-            expanded ? "max-h-[32rem] whitespace-pre-wrap" : "line-clamp-none whitespace-pre-wrap"
+            expanded ? "max-h-128 whitespace-pre-wrap" : "line-clamp-none whitespace-pre-wrap"
           )}
           style={expanded ? undefined : { display: "-webkit-box", WebkitLineClamp: COLLAPSED_MAX_LINES, WebkitBoxOrient: "vertical", overflow: "hidden" }}
         >

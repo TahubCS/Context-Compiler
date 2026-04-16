@@ -106,8 +106,8 @@ export default async function RepoPage({ params }: RepoPageProps) {
         />
       ) : null}
 
-      <div className="flex flex-col gap-4 xl:min-h-0 xl:flex-1 xl:flex-row">
-        <section className="flex min-h-0 w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 xl:w-[62%]">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(22rem,1fr)]">
+        <section className="flex w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Ask This Repository</h2>
@@ -119,7 +119,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
           />
         </section>
 
-        <section className="flex min-h-0 w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 xl:w-[38%]">
+        <section className="flex w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2">
             <ShoppingCart className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Context Cart</h2>

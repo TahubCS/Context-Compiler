@@ -11,6 +11,12 @@ export type UserSubscriptionTier =
   Prisma.UserGetPayload<{ select: { subscriptionTier: true } }>["subscriptionTier"]
 
 export type GitHubConnectionStatus = "connected" | "needs_reconnect"
+export type UserOnboardingState = {
+  onboardingSeenAt: Date | null
+  onboardingCompletedAt: Date | null
+  onboardingSkippedAt: Date | null
+  repoTourCompletedAt: Date | null
+}
 
 export async function upsertSupabaseUser(user: SupabaseUser): Promise<void> {
   if (!user.email) return
@@ -113,4 +119,80 @@ export async function isPlatformAdmin(userId: string): Promise<boolean> {
   })
 
   return dbUser?.isPlatformAdmin ?? false
+}
+
+export async function getUserOnboardingState(userId: string): Promise<UserOnboardingState> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      onboardingSeenAt: true,
+      onboardingCompletedAt: true,
+      onboardingSkippedAt: true,
+      repoTourCompletedAt: true,
+    },
+  })
+
+  return {
+    onboardingSeenAt: row?.onboardingSeenAt ?? null,
+    onboardingCompletedAt: row?.onboardingCompletedAt ?? null,
+    onboardingSkippedAt: row?.onboardingSkippedAt ?? null,
+    repoTourCompletedAt: row?.repoTourCompletedAt ?? null,
+  }
+}
+
+export async function markUserOnboardingSeen(userId: string): Promise<UserOnboardingState> {
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      onboardingSeenAt: new Date(),
+      onboardingSkippedAt: null,
+    },
+    select: {
+      onboardingSeenAt: true,
+      onboardingCompletedAt: true,
+      onboardingSkippedAt: true,
+      repoTourCompletedAt: true,
+    },
+  })
+
+  return updated
+}
+
+export async function skipUserOnboarding(userId: string): Promise<UserOnboardingState> {
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      onboardingSeenAt: { set: new Date() },
+      onboardingSkippedAt: { set: new Date() },
+    },
+    select: {
+      onboardingSeenAt: true,
+      onboardingCompletedAt: true,
+      onboardingSkippedAt: true,
+      repoTourCompletedAt: true,
+    },
+  })
+
+  return updated
+}
+
+export async function completeUserRepoTour(userId: string): Promise<UserOnboardingState> {
+  const now = new Date()
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      onboardingSeenAt: { set: now },
+      onboardingCompletedAt: { set: now },
+      onboardingSkippedAt: null,
+      repoTourCompletedAt: { set: now },
+    },
+    select: {
+      onboardingSeenAt: true,
+      onboardingCompletedAt: true,
+      onboardingSkippedAt: true,
+      repoTourCompletedAt: true,
+    },
+  })
+
+  return updated
 }

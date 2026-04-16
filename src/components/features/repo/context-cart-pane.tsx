@@ -248,7 +248,7 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex min-h-0 flex-col gap-4">
       <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
         <CardHeader className="gap-2 border-b border-border/70">
           <div className="flex flex-wrap items-center gap-2">

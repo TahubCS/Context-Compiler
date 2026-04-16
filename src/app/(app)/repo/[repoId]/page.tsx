@@ -33,7 +33,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
   const indexOutdated = isRepositoryIndexOutdated(repository.indexFormatVersion)
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <ScanPoller active={isBusy} />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -106,8 +106,8 @@ export default async function RepoPage({ params }: RepoPageProps) {
         />
       ) : null}
 
-      <div className="flex min-h-0 flex-1 gap-4">
-        <section className="flex w-[62%] flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-col gap-4 xl:min-h-0 xl:flex-1 xl:flex-row">
+        <section className="flex min-h-0 w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 xl:w-[62%]">
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Ask This Repository</h2>
@@ -119,7 +119,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
           />
         </section>
 
-        <section className="flex w-[38%] flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+        <section className="flex min-h-0 w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 xl:w-[38%]">
           <div className="flex items-center gap-2">
             <ShoppingCart className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Context Cart</h2>

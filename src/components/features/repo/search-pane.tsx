@@ -364,7 +364,7 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex min-h-0 flex-col gap-4">
       {indexOutdated ? (
         <Alert>
           <AlertDescription>

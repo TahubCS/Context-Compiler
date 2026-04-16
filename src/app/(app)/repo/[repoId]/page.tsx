@@ -1,5 +1,10 @@
 import { notFound } from "next/navigation"
-import { failStaleScanJobForRepository, getLatestScanJobForRepository, getRepository } from "@/lib/db"
+import {
+  failStaleScanJobForRepository,
+  getLatestScanJobForRepository,
+  getRepository,
+  getUserOnboardingState,
+} from "@/lib/db"
 import { ShoppingCart, GitBranch, AlertCircle, History, Sparkles } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -8,21 +13,27 @@ import { ScanTriggerButton } from "@/components/features/repo/scan-trigger-butto
 import { ScanPoller } from "@/components/features/repo/scan-poller"
 import { SearchPane } from "@/components/features/repo/search-pane"
 import { ContextCartPane } from "@/components/features/repo/context-cart-pane"
+import { RepoHelpCenter } from "@/components/features/repo/repo-help-center"
 import { CURRENT_INDEX_FORMAT_VERSION, isRepositoryIndexOutdated } from "@/lib/index-format"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 type RepoPageProps = {
   params: Promise<{ repoId: string }>
+  searchParams: Promise<{ tour?: string }>
 }
 
-export default async function RepoPage({ params }: RepoPageProps) {
+export default async function RepoPage({ params, searchParams }: RepoPageProps) {
   const { repoId } = await params
+  const resolvedSearchParams = await searchParams
   const { user, workspace } = await getAuthenticatedAppContext()
   if (!user || !workspace) return null
 
   await failStaleScanJobForRepository(repoId)
 
-  const repository = await getRepository(repoId, workspace.id)
+  const [repository, onboardingState] = await Promise.all([
+    getRepository(repoId, workspace.id),
+    getUserOnboardingState(user.id),
+  ])
   if (!repository) notFound()
   const latestScanJob = await getLatestScanJobForRepository(repoId)
 
@@ -31,6 +42,10 @@ export default async function RepoPage({ params }: RepoPageProps) {
   const commitSha = repository.lastIndexedCommitSha
   const shortCommitSha = commitSha ? commitSha.slice(0, 7) : null
   const indexOutdated = isRepositoryIndexOutdated(repository.indexFormatVersion)
+  const shouldAutoStartTour =
+    resolvedSearchParams.tour === "1" &&
+    !onboardingState.repoTourCompletedAt &&
+    !onboardingState.onboardingSkippedAt
 
   return (
     <div className="flex min-h-full flex-col gap-4">
@@ -57,8 +72,11 @@ export default async function RepoPage({ params }: RepoPageProps) {
             {repository.filesProcessed} / {repository.filesDiscovered} files
           </span>
         ) : null}
+        <RepoHelpCenter autoStartTour={shouldAutoStartTour} />
         <div className="ml-auto">
-          <ScanTriggerButton repoId={repoId} disabled={isBusy} />
+          <div data-tour="scan-button">
+            <ScanTriggerButton repoId={repoId} disabled={isBusy} />
+          </div>
         </div>
       </div>
 
@@ -119,7 +137,10 @@ export default async function RepoPage({ params }: RepoPageProps) {
           />
         </section>
 
-        <section className="flex w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4">
+        <section
+          data-tour="context-cart"
+          className="flex w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4"
+        >
           <div className="flex items-center gap-2">
             <ShoppingCart className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Context Cart</h2>

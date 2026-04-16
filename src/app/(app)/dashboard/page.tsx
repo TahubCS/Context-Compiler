@@ -1,11 +1,18 @@
+import { WorkspaceRole } from "@prisma/client"
 import { AutoReconcileRepositories } from "@/components/features/repositories/auto-reconcile-repositories"
+import { DashboardOnboardingDialog } from "@/components/features/dashboard/dashboard-onboarding-dialog"
 import { RepositoryList } from "@/components/features/repositories/repository-list"
 import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
-import { getWorkspaceGitHubConnection, getWorkspaceRepositories, isPrismaConnectivityError } from "@/lib/db"
+import {
+  getUserOnboardingState,
+  getWorkspaceGitHubConnection,
+  getWorkspaceRepositories,
+  isPrismaConnectivityError,
+} from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 
 export default async function DashboardPage() {
-  const { user, workspace } = await getAuthenticatedAppContext()
+  const { user, workspace, isPlatformAdmin } = await getAuthenticatedAppContext()
   if (!user || !workspace) return null
 
   const displayName =
@@ -14,11 +21,13 @@ export default async function DashboardPage() {
   let repositories: Awaited<ReturnType<typeof getWorkspaceRepositories>> = []
   let databaseError: string | null = null
   let githubConnection: Awaited<ReturnType<typeof getWorkspaceGitHubConnection>> | null = null
+  let onboardingState = null as Awaited<ReturnType<typeof getUserOnboardingState>> | null
 
   try {
-    ;[repositories, githubConnection] = await Promise.all([
+    ;[repositories, githubConnection, onboardingState] = await Promise.all([
       getWorkspaceRepositories(workspace.id),
       getWorkspaceGitHubConnection(workspace.id),
+      getUserOnboardingState(user.id),
     ])
   } catch (dbError) {
     if (isPrismaConnectivityError(dbError)) {
@@ -30,9 +39,26 @@ export default async function DashboardPage() {
   }
 
   const hasGitHubApp = !!githubConnection?.githubInstallationId
+  const canManageGitHubApp =
+    isPlatformAdmin ||
+    workspace.currentUserRole === WorkspaceRole.OWNER ||
+    workspace.currentUserRole === WorkspaceRole.ADMIN
+  const shouldAutoOpenOnboarding = Boolean(
+    onboardingState &&
+      !onboardingState.onboardingCompletedAt &&
+      !onboardingState.onboardingSkippedAt
+  )
+  const firstRepositoryId = repositories[0]?.id ?? null
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <DashboardOnboardingDialog
+        shouldAutoOpen={shouldAutoOpenOnboarding}
+        hasGitHubApp={hasGitHubApp}
+        firstRepositoryId={firstRepositoryId}
+        workspaceId={workspace.id}
+        canManageGitHubApp={canManageGitHubApp}
+      />
       <AutoReconcileRepositories
         enabled={hasGitHubApp}
         lastRepoSyncAt={githubConnection?.lastRepoSyncAt?.toISOString() ?? null}

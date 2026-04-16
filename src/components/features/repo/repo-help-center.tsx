@@ -295,7 +295,7 @@ export function RepoHelpCenter({ autoStartTour }: RepoHelpCenterProps) {
             }}
           />
           <div
-            className="absolute w-[22rem] rounded-4xl border border-border bg-card/95 p-5 shadow-2xl backdrop-blur-2xl"
+            className="absolute w-88 rounded-4xl border border-border bg-card/95 p-5 shadow-2xl backdrop-blur-2xl"
             style={coachmarkPosition}
           >
             <div className="mb-3 flex items-center justify-between gap-2">

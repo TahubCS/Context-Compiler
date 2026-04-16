@@ -1,25 +1,26 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Bookmark,
-  Check,
   Copy,
-  FileCode,
   Loader2,
   MessageSquare,
-  Plus,
   Search,
   Sparkles,
   Trash2,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
+import { AnswerRichText } from "@/components/features/repo/answer-rich-text"
+import {
+  RetrievalResultCard,
+  type RetrievalResultCardData,
+} from "@/components/features/repo/retrieval-result-card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectContent,
@@ -27,21 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { toast } from "sonner"
-import { useContextCart, type CartItem } from "@/store/context-cart"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { formatAnswerPack } from "@/lib/prompt-packs"
+import { useContextCart, type CartItem } from "@/store/context-cart"
+import { toast } from "sonner"
 
-type SearchResult = {
-  id: string
-  filePath: string
-  chunkIndex: number
-  language: string | null
-  fileCategory?: string | null
-  chunkType?: string | null
-  pathBucket?: string | null
-  content: string
-  score: number
-}
+type SearchResult = RetrievalResultCardData
 
 type AnswerResult = {
   question: string
@@ -78,7 +71,7 @@ const DEFAULT_FILTERS: RetrievalFilters = {
 }
 
 export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPaneProps) {
-  const [activeTab, setActiveTab] = useState("search")
+  const [activeTab, setActiveTab] = useState("ask")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -92,6 +85,21 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
   const [activeSavedAnswerId, setActiveSavedAnswerId] = useState<string | null>(null)
   const [filters, setFilters] = useState<RetrievalFilters>(DEFAULT_FILTERS)
   const { add, has } = useContextCart()
+
+  const activeFilterBadges = useMemo(() => {
+    return [
+      filters.language !== "all" ? `Language: ${filters.language}` : null,
+      filters.fileCategory !== "all" ? `Category: ${filters.fileCategory}` : null,
+      filters.pathPrefix.trim() ? `Path: ${filters.pathPrefix.trim()}` : null,
+    ].filter(Boolean) as string[]
+  }, [filters])
+
+  const groupedResults = useMemo(() => groupSearchResults(results), [results])
+  const topCitationFiles = useMemo(
+    () => getTopCitationFiles(answerResult?.citations ?? []),
+    [answerResult]
+  )
+  const symbolStyleQuery = useMemo(() => isSymbolStyleQuery(query), [query])
 
   const loadSavedAnswers = useCallback(async () => {
     setIsLoadingSavedAnswers(true)
@@ -188,8 +196,21 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
   }
 
   function addToCart(result: SearchResult) {
-    const item: CartItem = { ...result, repositoryId: repoId }
+    const item: CartItem = {
+      ...result,
+      repositoryId: repoId,
+      score: result.score ?? 0,
+    }
     add(item)
+  }
+
+  async function copySnippet(result: SearchResult) {
+    try {
+      await navigator.clipboard.writeText(result.content)
+      toast.success("Snippet copied to clipboard.")
+    } catch {
+      toast.error("Could not copy snippet.")
+    }
   }
 
   function addAllCitationsToCart() {
@@ -240,6 +261,9 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
             filePath: string
             chunkIndex: number
             language: string | null
+            fileCategory?: string | null
+            chunkType?: string | null
+            pathBucket?: string | null
             contentSnapshot: string
             score: number | null
           }>
@@ -262,6 +286,9 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
           filePath: citation.filePath,
           chunkIndex: citation.chunkIndex,
           language: citation.language,
+          fileCategory: citation.fileCategory ?? null,
+          chunkType: citation.chunkType ?? null,
+          pathBucket: citation.pathBucket ?? null,
           content: citation.contentSnapshot,
           score: citation.score ?? 0,
         })),
@@ -337,7 +364,7 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
+    <div className="flex h-full flex-col gap-4">
       {indexOutdated ? (
         <Alert>
           <AlertDescription>
@@ -347,299 +374,432 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
         </Alert>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Select
-          value={filters.language}
-          onValueChange={(value) => setFilters((current) => ({ ...current, language: value }))}
-        >
-          <SelectTrigger size="sm" className="w-[150px]">
-            <SelectValue placeholder="Language" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All languages</SelectItem>
-            <SelectItem value="typescript">TypeScript</SelectItem>
-            <SelectItem value="javascript">JavaScript</SelectItem>
-            <SelectItem value="python">Python</SelectItem>
-            <SelectItem value="go">Go</SelectItem>
-            <SelectItem value="rust">Rust</SelectItem>
-            <SelectItem value="markdown">Markdown</SelectItem>
-            <SelectItem value="json">JSON</SelectItem>
-            <SelectItem value="sql">SQL</SelectItem>
-          </SelectContent>
-        </Select>
+      <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
+        <CardHeader className="gap-2 border-b border-border/70">
+          <Badge variant="secondary" className="w-fit">
+            Ask-first workflow
+          </Badge>
+          <CardTitle className="text-lg">Ask this repository, then inspect the evidence</CardTitle>
+          <CardDescription>
+            Start with a repo-level question, review the grounded answer, then inspect and collect
+            the exact code context you want to export.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="flex flex-wrap gap-2">
+            <Select
+              value={filters.language}
+              onValueChange={(value) => setFilters((current) => ({ ...current, language: value }))}
+            >
+              <SelectTrigger size="sm" className="w-[160px]">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All languages</SelectItem>
+                <SelectItem value="typescript">TypeScript</SelectItem>
+                <SelectItem value="javascript">JavaScript</SelectItem>
+                <SelectItem value="python">Python</SelectItem>
+                <SelectItem value="go">Go</SelectItem>
+                <SelectItem value="rust">Rust</SelectItem>
+                <SelectItem value="markdown">Markdown</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="sql">SQL</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <Select
-          value={filters.fileCategory}
-          onValueChange={(value) => setFilters((current) => ({ ...current, fileCategory: value }))}
-        >
-          <SelectTrigger size="sm" className="w-[150px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            <SelectItem value="source">Source</SelectItem>
-            <SelectItem value="tests">Tests</SelectItem>
-            <SelectItem value="docs">Docs</SelectItem>
-            <SelectItem value="config">Config</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
+            <Select
+              value={filters.fileCategory}
+              onValueChange={(value) =>
+                setFilters((current) => ({ ...current, fileCategory: value }))
+              }
+            >
+              <SelectTrigger size="sm" className="w-[170px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="source">Source</SelectItem>
+                <SelectItem value="tests">Tests</SelectItem>
+                <SelectItem value="docs">Docs</SelectItem>
+                <SelectItem value="config">Config</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <Input
-          value={filters.pathPrefix}
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, pathPrefix: event.target.value }))
-          }
-          placeholder="Path prefix like src/ or docs/"
-          className="h-8 max-w-56"
-        />
-      </div>
-
-      <TabsList className="self-start">
-        <TabsTrigger value="search">
-          <Search className="size-4" />
-          Search
-        </TabsTrigger>
-        <TabsTrigger value="ask">
-          <Sparkles className="size-4" />
-          Ask
-        </TabsTrigger>
-        <TabsTrigger value="saved">
-          <Bookmark className="size-4" />
-          Saved
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="search" className="min-h-0 flex-1">
-        <div className="flex h-full flex-col gap-3">
-          <form onSubmit={handleSearch} className="flex gap-2">
             <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Describe what you're looking for..."
-              className="flex-1"
-              disabled={isSearching}
+              value={filters.pathPrefix}
+              onChange={(event) =>
+                setFilters((current) => ({ ...current, pathPrefix: event.target.value }))
+              }
+              placeholder="Path prefix like src/ or docs/"
+              className="h-8 max-w-64"
             />
-            <Button type="submit" size="sm" disabled={isSearching || !query.trim()}>
-              {isSearching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Search className="size-4" />
-              )}
-              {isSearching ? "Searching..." : "Search"}
-            </Button>
-          </form>
+          </div>
 
-          <ScrollArea className="flex-1">
-            {!hasSearched ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">
-                Search your codebase with natural language.
-              </p>
-            ) : results.length === 0 ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">
-                No results found. Try a different query.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2 pr-3">
-                {results.map((result) => (
-                  <SearchResultCard
-                    key={result.id}
-                    result={result}
-                    inCart={has(result.id)}
-                    onAdd={() => addToCart(result)}
+          {activeFilterBadges.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {activeFilterBadges.map((filter) => (
+                <Badge key={filter} variant="outline">
+                  {filter}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Filters apply to both answer generation and search evidence.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="self-start">
+          <TabsTrigger value="ask">
+            <Sparkles className="size-4" />
+            Ask
+          </TabsTrigger>
+          <TabsTrigger value="search">
+            <Search className="size-4" />
+            Search
+          </TabsTrigger>
+          <TabsTrigger value="saved">
+            <Bookmark className="size-4" />
+            Saved
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ask" className="min-h-0 flex-1">
+          <div className="flex h-full flex-col gap-4">
+            <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
+              <CardHeader className="gap-2 border-b border-border/70">
+                <CardTitle className="text-base">Repository context brief</CardTitle>
+                <CardDescription>
+                  Ask for architecture, workflows, or implementation surfaces before you dig into
+                  exact snippets.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <form onSubmit={handleAsk} className="flex flex-col gap-3">
+                  <Textarea
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                    placeholder="Ask a repository-level question..."
+                    disabled={isAnswering}
+                    className="min-h-32"
                   />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" size="sm" disabled={isAnswering || !question.trim()}>
+                      {isAnswering ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <MessageSquare className="size-4" />
+                      )}
+                      {isAnswering ? "Generating..." : "Ask Repository"}
+                    </Button>
+                    {answerResult ? (
+                      <>
+                        <Button type="button" size="sm" variant="outline" onClick={copyCurrentAnswerPack}>
+                          <Copy className="size-4" />
+                          Copy Answer Pack
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={saveAnswer}
+                          disabled={!!savedAnswerId}
+                        >
+                          <Bookmark className="size-4" />
+                          {savedAnswerId ? "Saved" : "Save Answer"}
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <ScrollArea className="min-h-0 flex-1">
+              {!answerResult ? (
+                <Card
+                  size="sm"
+                  className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+                >
+                  <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                    Ask a repository-level question to get a grounded answer plus inspectable
+                    supporting code.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-4 pr-3">
+                  <Card className="rounded-2xl border border-border bg-background/80 shadow-none">
+                    <CardHeader className="gap-3 border-b border-border/70">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">Grounded answer</Badge>
+                        {savedAnswerId ? <Badge variant="outline">Saved</Badge> : null}
+                        <Badge variant="outline">{answerResult.citations.length} citations</Badge>
+                        {activeFilterBadges.map((filter) => (
+                          <Badge key={filter} variant="outline">
+                            {filter}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        <CardTitle className="text-lg leading-tight">{answerResult.question}</CardTitle>
+                        <CardDescription>
+                          Grounded answer from indexed repo context. Review the evidence below
+                          before exporting it to an agent.
+                        </CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-5 pt-5">
+                      <AnswerRichText text={answerResult.answer} />
+                      <div className="space-y-2 rounded-2xl border border-border/70 bg-card/60 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">Supporting evidence</p>
+                            <p className="text-xs text-muted-foreground">
+                              Review the cited code blocks before sending them to the cart.
+                            </p>
+                          </div>
+                          <Button size="xs" variant="outline" onClick={addAllCitationsToCart}>
+                            Add All To Cart
+                          </Button>
+                        </div>
+                        {topCitationFiles.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {topCitationFiles.map((file) => (
+                              <Badge key={file} variant="secondary">
+                                {file}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex flex-col gap-3">
+                    {answerResult.citations.map((citation, index) => (
+                      <RetrievalResultCard
+                        key={`${citation.filePath}-${citation.chunkIndex}-${citation.id}`}
+                        result={citation}
+                        inCart={has(citation.id)}
+                        onAdd={() => addToCart(citation)}
+                        onCopy={() => copySnippet(citation)}
+                        defaultExpanded={index === 0}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="search" className="min-h-0 flex-1">
+          <div className="flex h-full flex-col gap-4">
+            <Card size="sm" className="rounded-2xl border border-border bg-background/70 shadow-none">
+              <CardHeader className="gap-2 border-b border-border/70">
+                <CardTitle className="text-base">Inspect exact evidence</CardTitle>
+                <CardDescription>
+                  Use search when you want declaration sites, implementation details, or
+                  neighboring code after you already understand the repo-level answer.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4">
+                <form onSubmit={handleSearch} className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <Input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search for a function, workflow, or file..."
+                      className="flex-1"
+                      disabled={isSearching}
+                    />
+                    <Button type="submit" size="sm" disabled={isSearching || !query.trim()}>
+                      {isSearching ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Search className="size-4" />
+                      )}
+                      {isSearching ? "Searching..." : "Search"}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {symbolStyleQuery ? (
+                      <Badge variant="secondary">Exact symbol-style query</Badge>
+                    ) : null}
+                    <Badge variant="outline">
+                      Best matching code chunks, not guaranteed declaration sites
+                    </Badge>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <ScrollArea className="min-h-0 flex-1">
+              {!hasSearched ? (
+                <Card
+                  size="sm"
+                  className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+                >
+                  <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                    Search your codebase with natural language or exact symbol names.
+                  </CardContent>
+                </Card>
+              ) : groupedResults.length === 0 ? (
+                <Card
+                  size="sm"
+                  className="rounded-2xl border border-dashed border-border bg-background/40 shadow-none"
+                >
+                  <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                    No results found. Try a different query or loosen the filters.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-5 pr-3">
+                  {groupedResults.map((group) => (
+                    <div key={group.filePath} className="flex flex-col gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{group.fileName}</p>
+                          <p className="break-all text-xs text-muted-foreground">{group.filePath}</p>
+                        </div>
+                        <Badge variant="outline">
+                          {group.results.length} {group.results.length === 1 ? "match" : "matches"}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {group.results.map((result, index) => (
+                          <RetrievalResultCard
+                            key={result.id}
+                            result={result}
+                            inCart={has(result.id)}
+                            onAdd={() => addToCart(result)}
+                            onCopy={() => copySnippet(result)}
+                            defaultExpanded={index === 0}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="saved" className="min-h-0 flex-1">
+          <ScrollArea className="flex-1">
+            {isLoadingSavedAnswers ? (
+              <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading saved answers...
+              </div>
+            ) : savedAnswers.length === 0 ? (
+              <Alert>
+                <AlertDescription>
+                  No saved answers yet. Generate an answer first, then save it here as a reusable
+                  repo brief.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="flex flex-col gap-3 pr-3">
+                {savedAnswers.map((saved) => (
+                  <Card
+                    key={saved.id}
+                    size="sm"
+                    className="rounded-2xl border border-border bg-background/70 shadow-none"
+                  >
+                    <CardHeader className="gap-2 border-b border-border/70">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <CardTitle className="line-clamp-2 text-sm">{saved.question}</CardTitle>
+                          <CardDescription>
+                            {saved._count.citations} supporting{" "}
+                            {saved._count.citations === 1 ? "citation" : "citations"}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline">
+                          {new Date(saved.updatedAt).toLocaleDateString()}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => loadSavedAnswer(saved.id)}
+                          disabled={activeSavedAnswerId === saved.id}
+                        >
+                          {activeSavedAnswerId === saved.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <MessageSquare className="size-3.5" />
+                          )}
+                          Open Brief
+                        </Button>
+                        <Button size="xs" variant="outline" onClick={() => copySavedAnswerPack(saved.id)}>
+                          <Copy className="size-3.5" />
+                          Export
+                        </Button>
+                        <Button size="xs" variant="ghost" onClick={() => deleteSavedAnswer(saved.id)}>
+                          <Trash2 className="size-3.5" />
+                          Delete
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
           </ScrollArea>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="ask" className="min-h-0 flex-1">
-        <div className="flex h-full flex-col gap-3">
-          <form onSubmit={handleAsk} className="flex flex-col gap-2">
-            <Textarea
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              placeholder="Ask a question about this repository..."
-              disabled={isAnswering}
-              className="min-h-28"
-            />
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={isAnswering || !question.trim()}>
-                {isAnswering ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <MessageSquare className="size-4" />
-                )}
-                {isAnswering ? "Generating..." : "Ask Repository"}
-              </Button>
-              {answerResult ? (
-                <>
-                  <Button type="button" size="sm" variant="outline" onClick={copyCurrentAnswerPack}>
-                    <Copy className="size-4" />
-                    Copy Answer Pack
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={saveAnswer}
-                    disabled={!!savedAnswerId}
-                  >
-                    <Bookmark className="size-4" />
-                    {savedAnswerId ? "Saved" : "Save Answer"}
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          </form>
-
-          <ScrollArea className="flex-1">
-            {!answerResult ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">
-                Ask a repository-level question to get a grounded answer with citations.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3 pr-3">
-                <div className="rounded-xl border border-border bg-background p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">Answer</Badge>
-                    {savedAnswerId ? <Badge variant="secondary">Saved</Badge> : null}
-                    <Button size="xs" variant="outline" onClick={addAllCitationsToCart}>
-                      <Plus className="size-3.5" />
-                      Add All To Cart
-                    </Button>
-                  </div>
-                  <p className="mt-3 text-sm leading-relaxed text-foreground">{answerResult.answer}</p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-foreground">Citations</h3>
-                    <span className="text-xs text-muted-foreground">
-                      {answerResult.citations.length} supporting chunks
-                    </span>
-                  </div>
-                  {answerResult.citations.map((citation) => (
-                    <SearchResultCard
-                      key={`${citation.filePath}-${citation.chunkIndex}-${citation.id}`}
-                      result={citation}
-                      inCart={has(citation.id)}
-                      onAdd={() => addToCart(citation)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </ScrollArea>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="saved" className="min-h-0 flex-1">
-        <ScrollArea className="flex-1">
-          {isLoadingSavedAnswers ? (
-            <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading saved answers...
-            </div>
-          ) : savedAnswers.length === 0 ? (
-            <Alert>
-              <AlertDescription>
-                No saved answers yet. Generate an answer first, then save it here for later.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <div className="flex flex-col gap-2 pr-3">
-              {savedAnswers.map((saved) => (
-                <div
-                  key={saved.id}
-                  className="flex flex-col gap-3 rounded-xl border border-border bg-background p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="line-clamp-2 text-sm font-medium text-foreground">
-                        {saved.question}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {saved._count.citations} citations
-                      </p>
-                    </div>
-                    <Badge variant="secondary">
-                      {new Date(saved.updatedAt).toLocaleDateString()}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => loadSavedAnswer(saved.id)}
-                      disabled={activeSavedAnswerId === saved.id}
-                    >
-                      {activeSavedAnswerId === saved.id ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <MessageSquare className="size-3.5" />
-                      )}
-                      Open
-                    </Button>
-                    <Button size="xs" variant="outline" onClick={() => copySavedAnswerPack(saved.id)}>
-                      <Copy className="size-3.5" />
-                      Export
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => deleteSavedAnswer(saved.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </TabsContent>
-    </Tabs>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }
 
-type CardProps = { result: SearchResult; inCart: boolean; onAdd: () => void }
+function isSymbolStyleQuery(query: string) {
+  const trimmed = query.trim()
+  if (!trimmed || trimmed.includes(" ")) return false
+  return /^[A-Za-z_$][\w$]*(?:[.:][A-Za-z_$][\w$]*)*$/.test(trimmed)
+}
 
-function SearchResultCard({ result, inCart, onAdd }: CardProps) {
-  const scorePercent = Math.round(result.score * 100)
-  const fileName = result.filePath.split(/[/\\]/).pop() ?? result.filePath
+function groupSearchResults(results: SearchResult[]) {
+  const grouped = new Map<
+    string,
+    { filePath: string; fileName: string; results: SearchResult[] }
+  >()
 
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileCode className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate text-xs font-medium text-foreground">{fileName}</span>
-          {result.language ? (
-            <Badge variant="secondary" className="shrink-0 text-xs">
-              {result.language}
-            </Badge>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="text-xs text-muted-foreground">{scorePercent}%</span>
-          <Button
-            size="icon-sm"
-            variant={inCart ? "secondary" : "outline"}
-            onClick={onAdd}
-            disabled={inCart}
-          >
-            {inCart ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
-          </Button>
-        </div>
-      </div>
-      <pre className="line-clamp-4 whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground">
-        {result.content}
-      </pre>
-      <span className="truncate text-xs text-muted-foreground">{result.filePath}</span>
-    </div>
-  )
+  for (const result of results) {
+    const current = grouped.get(result.filePath)
+    if (current) {
+      current.results.push(result)
+      continue
+    }
+
+    grouped.set(result.filePath, {
+      filePath: result.filePath,
+      fileName: result.filePath.split(/[/\\]/).pop() ?? result.filePath,
+      results: [result],
+    })
+  }
+
+  return Array.from(grouped.values())
+}
+
+function getTopCitationFiles(citations: SearchResult[]) {
+  const counts = new Map<string, number>()
+
+  for (const citation of citations) {
+    counts.set(citation.filePath, (counts.get(citation.filePath) ?? 0) + 1)
+  }
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([filePath]) => filePath.split(/[/\\]/).pop() ?? filePath)
 }

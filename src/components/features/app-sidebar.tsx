@@ -57,7 +57,7 @@ export function AppSidebar({ hasRepos, isPlatformAdmin = false }: AppSidebarProp
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  Sync repositories first
+                  Connect the GitHub App and let repository sync finish first
                 </TooltipContent>
               </Tooltip>
             )

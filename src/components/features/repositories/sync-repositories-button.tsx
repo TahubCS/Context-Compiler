@@ -16,7 +16,7 @@ type SyncRepositoriesButtonProps = {
 }
 
 export function SyncRepositoriesButton({
-  label = "Sync GitHub Repositories",
+  label = "Run Legacy OAuth Reconcile",
 }: SyncRepositoriesButtonProps) {
   const router = useRouter()
   const [isSyncing, setIsSyncing] = useState(false)
@@ -36,7 +36,7 @@ export function SyncRepositoriesButton({
       const payload = (await response.json().catch(() => null)) as SyncRepositoriesResponse | null
 
       if (!response.ok) {
-        throw new Error(payload?.error ?? "Failed to sync repositories.")
+        throw new Error(payload?.error ?? "Failed to run legacy repository reconcile.")
       }
 
       const syncedCount = payload?.syncedCount ?? 0
@@ -49,7 +49,7 @@ export function SyncRepositoriesButton({
       router.refresh()
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to sync repositories from GitHub."
+        error instanceof Error ? error.message : "Failed to run legacy repository reconcile."
       setSyncError(message)
     } finally {
       setIsSyncing(false)

@@ -7,7 +7,11 @@ import {
   WorkspaceType,
 } from "@prisma/client"
 import { prisma } from "./client"
-import { getActiveWorkspaceCookie, setActiveWorkspaceCookie } from "@/lib/workspace-session"
+import {
+  clearActiveWorkspaceCookie,
+  getActiveWorkspaceCookie,
+  setActiveWorkspaceCookie,
+} from "@/lib/workspace-session"
 
 function slugifyWorkspaceName(name: string) {
   const base = name
@@ -222,6 +226,7 @@ const AUDIT_LOG_SELECT = {
 
 export type WorkspaceSwitcherItem = {
   role: WorkspaceRole
+  accessMode: "membership" | "platform_admin"
   workspace: Prisma.WorkspaceGetPayload<{
     select: typeof WORKSPACE_SWITCHER_SELECT
   }>
@@ -231,6 +236,7 @@ export type ActiveWorkspace = Prisma.WorkspaceGetPayload<{
   select: typeof ACTIVE_WORKSPACE_SELECT
 }> & {
   currentUserRole: WorkspaceRole
+  accessMode: "membership" | "platform_admin"
 }
 
 export type WorkspaceMemberListItem = Prisma.WorkspaceMemberGetPayload<{
@@ -272,6 +278,14 @@ const GITHUB_WEBHOOK_DELIVERY_SELECT = {
 export type GitHubWebhookDeliveryItem = Prisma.GitHubWebhookDeliveryGetPayload<{
   select: typeof GITHUB_WEBHOOK_DELIVERY_SELECT
 }>
+
+type ActiveWorkspaceCandidate = {
+  role: WorkspaceRole
+  accessMode: "membership" | "platform_admin"
+  workspace: Prisma.WorkspaceGetPayload<{
+    select: typeof ACTIVE_WORKSPACE_SELECT
+  }>
+}
 
 function canManageWorkspace(role: WorkspaceRole | null, isPlatformAdmin = false) {
   return isPlatformAdmin || role === WorkspaceRole.OWNER || role === WorkspaceRole.ADMIN
@@ -373,6 +387,18 @@ export async function ensureOwnedWorkspaceMemberships(userId: string) {
   )
 }
 
+async function persistLastActiveWorkspaceForUser(
+  userId: string,
+  workspaceId: string | null
+): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      lastActiveWorkspaceId: workspaceId,
+    },
+  })
+}
+
 export async function listUserWorkspaces(userId: string): Promise<WorkspaceSwitcherItem[]> {
   const [memberships, user] = await Promise.all([
     prisma.workspaceMember.findMany({
@@ -392,7 +418,10 @@ export async function listUserWorkspaces(userId: string): Promise<WorkspaceSwitc
   ])
 
   if (!user?.isPlatformAdmin) {
-    return memberships
+    return memberships.map((membership) => ({
+      ...membership,
+      accessMode: "membership" as const,
+    }))
   }
 
   const memberWorkspaceIds = new Set(memberships.map((membership) => membership.workspace.id))
@@ -402,11 +431,15 @@ export async function listUserWorkspaces(userId: string): Promise<WorkspaceSwitc
   })
 
   return [
-    ...memberships,
+    ...memberships.map((membership) => ({
+      ...membership,
+      accessMode: "membership" as const,
+    })),
     ...allWorkspaces
       .filter((workspace) => !memberWorkspaceIds.has(workspace.id))
       .map((workspace) => ({
         role: WorkspaceRole.ADMIN,
+        accessMode: "platform_admin" as const,
         workspace,
       })),
   ]
@@ -426,25 +459,33 @@ export async function getActiveWorkspaceForUser(userId: string): Promise<ActiveW
     }),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { isPlatformAdmin: true },
+      select: { isPlatformAdmin: true, lastActiveWorkspaceId: true },
     }),
   ])
 
-  let switchableWorkspaces = memberships
+  const directMembershipWorkspaces = memberships.map((membership) => ({
+    ...membership,
+    accessMode: "membership" as const,
+  })) satisfies ActiveWorkspaceCandidate[]
+
+  let switchableWorkspaces: ActiveWorkspaceCandidate[] = directMembershipWorkspaces
 
   if (user?.isPlatformAdmin) {
-    const memberWorkspaceIds = new Set(memberships.map((membership) => membership.workspace.id))
+    const memberWorkspaceIds = new Set(
+      directMembershipWorkspaces.map((membership) => membership.workspace.id)
+    )
     const allWorkspaces = await prisma.workspace.findMany({
       select: ACTIVE_WORKSPACE_SELECT,
       orderBy: [{ type: "asc" }, { name: "asc" }],
     })
 
     switchableWorkspaces = [
-      ...memberships,
+      ...directMembershipWorkspaces,
       ...allWorkspaces
         .filter((workspace) => !memberWorkspaceIds.has(workspace.id))
         .map((workspace) => ({
           role: WorkspaceRole.ADMIN,
+          accessMode: "platform_admin" as const,
           workspace,
         })),
     ]
@@ -455,13 +496,38 @@ export async function getActiveWorkspaceForUser(userId: string): Promise<ActiveW
   }
 
   const activeWorkspaceId = await getActiveWorkspaceCookie()
+  const lastActiveWorkspaceId = user?.lastActiveWorkspaceId ?? null
+
+  if (
+    activeWorkspaceId &&
+    !switchableWorkspaces.some((membership) => membership.workspace.id === activeWorkspaceId)
+  ) {
+    await clearActiveWorkspaceCookie()
+  }
+
+  if (
+    lastActiveWorkspaceId &&
+    !switchableWorkspaces.some((membership) => membership.workspace.id === lastActiveWorkspaceId)
+  ) {
+    await persistLastActiveWorkspaceForUser(userId, null)
+  }
+
   const selected =
     switchableWorkspaces.find((membership) => membership.workspace.id === activeWorkspaceId) ??
+    switchableWorkspaces.find(
+      (membership) => membership.workspace.id === lastActiveWorkspaceId
+    ) ??
+    directMembershipWorkspaces[0] ??
     switchableWorkspaces[0]
+
+  if (selected.workspace.id !== lastActiveWorkspaceId) {
+    await persistLastActiveWorkspaceForUser(userId, selected.workspace.id)
+  }
 
   return {
     ...selected.workspace,
     currentUserRole: selected.role,
+    accessMode: selected.accessMode,
   }
 }
 
@@ -484,6 +550,7 @@ export async function setActiveWorkspaceForUser(userId: string, workspaceId: str
   if (!workspace) return false
   if (!membership && !user?.isPlatformAdmin) return false
   await setActiveWorkspaceCookie(workspaceId)
+  await persistLastActiveWorkspaceForUser(userId, workspaceId)
   return true
 }
 
@@ -1156,6 +1223,7 @@ export async function acceptWorkspaceInvite(input: {
   })
 
   await setActiveWorkspaceCookie(result.workspaceId)
+  await persistLastActiveWorkspaceForUser(input.userId, result.workspaceId)
   return result
 }
 

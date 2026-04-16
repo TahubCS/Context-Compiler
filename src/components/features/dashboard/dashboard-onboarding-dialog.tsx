@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight, CheckCircle2, Compass, GitBranch, Sparkles } from "lucide-react"
 import { ConnectGitHubAppButton } from "@/components/features/settings/connect-github-app-button"
-import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,9 +46,9 @@ export function DashboardOnboardingDialog({
 
     if (!firstRepositoryId) {
       return {
-        title: "Sync repositories before the repo tour",
+        title: "Wait for repository inventory to appear",
         description:
-          "The guided walkthrough uses one of your real repositories, so pull repository inventory into the workspace before starting the tour.",
+          "The guided walkthrough uses one of your real repositories. Once the GitHub App finishes webhook and reconciliation sync, the repo tour will be ready automatically.",
       }
     }
 
@@ -128,7 +127,7 @@ export function DashboardOnboardingDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] gap-4">
             <div className="rounded-3xl border border-border bg-background/60 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <Sparkles className="size-4 text-muted-foreground" />
@@ -191,9 +190,6 @@ export function DashboardOnboardingDialog({
                   Ask a workspace owner or admin to connect the GitHub App before the guided repo
                   walkthrough can start.
                 </p>
-              ) : null}
-              {hasGitHubApp && !firstRepositoryId ? (
-                <SyncRepositoriesButton label="Sync repositories" />
               ) : null}
               {hasGitHubApp && firstRepositoryId ? (
                 <Button onClick={handleStartTour} disabled={isSaving}>

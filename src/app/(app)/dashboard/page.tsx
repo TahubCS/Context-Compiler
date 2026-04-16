@@ -2,7 +2,7 @@ import { WorkspaceRole } from "@prisma/client"
 import { AutoReconcileRepositories } from "@/components/features/repositories/auto-reconcile-repositories"
 import { DashboardOnboardingDialog } from "@/components/features/dashboard/dashboard-onboarding-dialog"
 import { RepositoryList } from "@/components/features/repositories/repository-list"
-import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
+import { ConnectGitHubAppButton } from "@/components/features/settings/connect-github-app-button"
 import {
   getUserOnboardingState,
   getWorkspaceGitHubConnection,
@@ -69,7 +69,7 @@ export default async function DashboardPage() {
           You are currently working in <span className="font-medium text-foreground">{workspace.name}</span>.{" "}
           {hasGitHubApp
             ? "This workspace is connected to GitHub App sync."
-            : "Connect the GitHub App to keep repositories in sync automatically."}
+            : "Connect the GitHub App to enable webhook-driven repository inventory and scans."}
         </p>
         {hasGitHubApp ? (
           <div className="mt-4 flex flex-col gap-2">
@@ -82,11 +82,17 @@ export default async function DashboardPage() {
                 : " Repo reconciliation will run automatically."}
             </p>
           </div>
-        ) : (
+        ) : canManageGitHubApp ? (
           <div className="mt-4 w-full md:w-fit">
-            <SyncRepositoriesButton />
+            <ConnectGitHubAppButton workspaceId={workspace.id} />
           </div>
-        )}
+        ) : null}
+        {workspace.accessMode === "platform_admin" ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            You are viewing this workspace through platform admin access, not through a direct
+            membership.
+          </p>
+        ) : null}
         {databaseError ? (
           <p className="mt-3 text-sm text-destructive">{databaseError}</p>
         ) : null}

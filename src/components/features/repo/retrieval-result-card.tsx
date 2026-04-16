@@ -11,12 +11,17 @@ export type RetrievalResultCardData = {
   id: string
   filePath: string
   chunkIndex: number
+  primaryChunkIndex?: number
+  contextStartChunkIndex?: number
+  contextEndChunkIndex?: number
   language: string | null
   content: string
   score?: number | null
   fileCategory?: string | null
   chunkType?: string | null
   pathBucket?: string | null
+  matchReason?: string | null
+  declarationHint?: string | null
 }
 
 type RetrievalResultCardProps = {
@@ -46,6 +51,13 @@ export function RetrievalResultCard({
   )
   const scorePercent =
     typeof result.score === "number" ? Math.max(0, Math.min(100, Math.round(result.score * 100))) : null
+  const primaryChunkIndex = result.primaryChunkIndex ?? result.chunkIndex
+  const hasContextRange =
+    typeof result.contextStartChunkIndex === "number" && typeof result.contextEndChunkIndex === "number"
+  const contextRangeLabel =
+    hasContextRange && result.contextStartChunkIndex !== result.contextEndChunkIndex
+      ? `Chunks ${result.contextStartChunkIndex}-${result.contextEndChunkIndex}`
+      : `Chunk ${primaryChunkIndex}`
 
   return (
     <Card
@@ -60,10 +72,14 @@ export function RetrievalResultCard({
               <CardTitle className="truncate text-sm">{fileName}</CardTitle>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">Chunk {result.chunkIndex}</Badge>
+              <Badge variant="outline">{contextRangeLabel}</Badge>
+              {result.matchReason ? <Badge variant="secondary">{result.matchReason}</Badge> : null}
               {result.language ? <Badge variant="secondary">{result.language}</Badge> : null}
               {result.fileCategory ? <Badge variant="secondary">{result.fileCategory}</Badge> : null}
               {result.chunkType ? <Badge variant="outline">{result.chunkType}</Badge> : null}
+              {result.declarationHint ? (
+                <Badge variant="outline">Declaration confidence: {result.declarationHint}</Badge>
+              ) : null}
               {scorePercent !== null ? (
                 <Badge variant="ghost" className="text-muted-foreground">
                   {scorePercent}% match
@@ -88,6 +104,14 @@ export function RetrievalResultCard({
         </div>
         <div className="space-y-1">
           <p className="break-all text-xs text-muted-foreground">{result.filePath}</p>
+          {hasContextRange ? (
+            <p className="text-xs text-muted-foreground">
+              Primary match at chunk {primaryChunkIndex}
+              {result.contextStartChunkIndex !== result.contextEndChunkIndex
+                ? ` with surrounding context from ${result.contextStartChunkIndex} to ${result.contextEndChunkIndex}`
+                : ""}
+            </p>
+          ) : null}
           {result.pathBucket ? (
             <p className="text-xs text-muted-foreground">Path bucket: {result.pathBucket}</p>
           ) : null}
@@ -106,7 +130,7 @@ export function RetrievalResultCard({
       </CardContent>
       <CardFooter className="justify-between border-t border-border/70 pt-4">
         <p className="text-xs text-muted-foreground">
-          Inspect the snippet before sending it to the cart so the exported context stays intentional.
+          Inspect why this matched before sending it to the cart so the exported context stays intentional.
         </p>
         <Button
           size="xs"

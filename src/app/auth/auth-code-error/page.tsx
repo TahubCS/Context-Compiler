@@ -9,7 +9,7 @@ const reasonLabelMap: Record<string, string> = {
   exchange_failed: "We could not exchange the authorization code for a session.",
   missing_email: "Your GitHub account did not provide an email for authentication.",
   missing_provider_token:
-    "GitHub login succeeded, but Supabase did not return the provider access token needed to sync repositories.",
+    "GitHub login succeeded, but Supabase did not return the provider access token needed to finish the login transition cleanly.",
   token_storage_failed:
     "GitHub login succeeded, but we could not securely store the provider token. Check GITHUB_TOKEN_ENCRYPTION_KEY and try again.",
 }

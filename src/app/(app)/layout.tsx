@@ -42,6 +42,7 @@ export default async function AppLayout({
             type: membership.workspace.type,
             subscriptionTier: membership.workspace.subscriptionTier,
             role: membership.role,
+            accessMode: membership.accessMode,
           }))}
         />
         <main className="flex-1 overflow-y-auto bg-muted/50 p-4 md:p-6">{children}</main>

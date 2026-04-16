@@ -12,6 +12,7 @@ type AppTopNavProps = {
     type: "PERSONAL" | "TEAM"
     subscriptionTier: string
     role: string
+    accessMode: "membership" | "platform_admin"
   }>
 }
 

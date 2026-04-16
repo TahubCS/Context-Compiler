@@ -61,9 +61,17 @@ export async function POST(req: Request, { params }: RouteParams) {
         id: string
         filePath: string
         chunkIndex: number
+        primaryChunkIndex?: number
+        contextStartChunkIndex?: number
+        contextEndChunkIndex?: number
         language: string | null
+        fileCategory?: string | null
+        chunkType?: string | null
+        pathBucket?: string | null
         content: string
         score: number
+        matchReason?: string | null
+        declarationHint?: string | null
       }>
       detail?: string
     }

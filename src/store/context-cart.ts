@@ -6,9 +6,17 @@ export type CartItem = {
   repositoryId: string
   filePath: string
   chunkIndex: number
+  primaryChunkIndex?: number
+  contextStartChunkIndex?: number
+  contextEndChunkIndex?: number
   language: string | null
   content: string
   score: number
+  fileCategory?: string | null
+  chunkType?: string | null
+  pathBucket?: string | null
+  matchReason?: string | null
+  declarationHint?: string | null
 }
 
 type ContextCartStore = {

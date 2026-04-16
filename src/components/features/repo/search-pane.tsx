@@ -632,7 +632,7 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
                       <Badge variant="secondary">Exact symbol-style query</Badge>
                     ) : null}
                     <Badge variant="outline">
-                      Best matching code chunks, not guaranteed declaration sites
+                      Hybrid ranking favors exact symbols and likely declarations, but still is not absolute
                     </Badge>
                   </div>
                 </form>

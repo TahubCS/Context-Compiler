@@ -55,7 +55,9 @@ export default async function RepoPage({ params, searchParams }: RepoPageProps) 
         <h1 className="text-lg font-semibold text-foreground">{repository.fullName}</h1>
         <div className="flex items-center gap-2">
           <GitBranch className="size-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{repository.defaultBranch ?? "main"}</span>
+          <span className="text-sm text-muted-foreground">
+            {repository.defaultBranch ?? "main"}
+          </span>
         </div>
         {shortCommitSha ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

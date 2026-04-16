@@ -123,7 +123,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "GitHub needs to be reconnected before you can sync repositories.",
+          "GitHub needs to be reconnected before you can use the legacy OAuth repository reconcile path.",
       },
       { status: 400 }
     )
@@ -139,7 +139,8 @@ export async function POST() {
 
     return NextResponse.json({ syncedCount: githubRepositories.length, source: "oauth" })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to sync repositories."
+    const message =
+      error instanceof Error ? error.message : "Failed to run the legacy repository reconcile."
 
     if (
       error instanceof Error &&

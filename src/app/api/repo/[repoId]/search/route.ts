@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getRepository, searchCodeDocuments, isPrismaConnectivityError } from "@/lib/db"
+import { getRepository } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 import { getAiBackendUrl } from "@/lib/runtime-urls"
 
@@ -33,38 +33,35 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!backendUrl)
     return NextResponse.json({ error: "AI backend not configured" }, { status: 503 })
 
-  let embedding: number[]
   try {
-    const embedRes = await fetch(`${backendUrl}/embed`, {
+    const searchResponse = await fetch(`${backendUrl}/search`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: query }),
-      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({
+        repository_id: repoId,
+        query,
+        limit: 10,
+        language: body.language?.trim() || null,
+        file_category: body.fileCategory?.trim() || null,
+        path_prefix: body.pathPrefix?.trim() || null,
+      }),
+      signal: AbortSignal.timeout(30000),
     })
-    if (!embedRes.ok) {
-      return NextResponse.json({ error: "Embedding service error" }, { status: 502 })
+
+    const data = (await searchResponse.json()) as {
+      results?: unknown[]
+      detail?: string
     }
-    const data = (await embedRes.json()) as { embedding: number[] }
-    embedding = data.embedding
+
+    if (!searchResponse.ok) {
+      return NextResponse.json(
+        { error: data.detail ?? "Search failed." },
+        { status: searchResponse.status === 400 ? 400 : 502 }
+      )
+    }
+
+    return NextResponse.json({ results: data.results ?? [] })
   } catch {
     return NextResponse.json({ error: "AI backend unreachable" }, { status: 503 })
-  }
-
-  try {
-    const results = await searchCodeDocuments(
-      repoId,
-      embedding,
-      {
-        language: body.language?.trim() || null,
-        fileCategory: body.fileCategory?.trim() || null,
-        pathPrefix: body.pathPrefix?.trim() || null,
-      }
-    )
-    return NextResponse.json({ results })
-  } catch (error) {
-    if (isPrismaConnectivityError(error)) {
-      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
-    }
-    throw error
   }
 }

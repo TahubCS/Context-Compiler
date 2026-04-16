@@ -9,7 +9,6 @@ import {
   listWorkspaceMembers,
 } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
-import { SyncRepositoriesButton } from "@/components/features/repositories/sync-repositories-button"
 import { AutoReconcileRepositories } from "@/components/features/repositories/auto-reconcile-repositories"
 import { EditProfileDialog } from "@/components/features/settings/edit-profile-dialog"
 import { ReconnectGitHubButton } from "@/components/features/settings/reconnect-github-button"
@@ -140,6 +139,16 @@ export default async function SettingsPage() {
             <Link href="/notifications">Open Notifications</Link>
           </Button>
         </div>
+        {workspace.accessMode === "platform_admin" ? (
+          <Alert className="mt-4">
+            <AlertTriangle className="size-4" />
+            <AlertDescription>
+              You are viewing this workspace through platform admin access. Membership-based role
+              controls and GitHub ownership expectations may differ from a normal workspace member
+              session.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {!teamFeaturesEnabled && workspace.type === "TEAM" ? (
           <Alert className="mt-4">
             <AlertTriangle className="size-4" />
@@ -239,10 +248,6 @@ export default async function SettingsPage() {
                   : " Repository sync will happen automatically after install and via webhooks."}
               </AlertDescription>
             </Alert>
-            {canManageGitHubConnection ? (
-              <div className="w-full md:w-fit">
-              </div>
-            ) : null}
             <p className="text-sm text-muted-foreground">
               OAuth stays enabled for login during transition, but repository inventory and scans
               for this workspace now use the GitHub App connection first.
@@ -253,8 +258,8 @@ export default async function SettingsPage() {
             <Alert>
               <AlertTriangle className="size-4" />
               <AlertDescription>
-                Connect the GitHub App for this workspace to enable automatic repository sync from
-                webhooks, background reconciliation, and workspace-backed scans.
+                Connect the GitHub App for this workspace to enable webhook-driven repository sync,
+                background reconciliation, and workspace-backed scans.
               </AlertDescription>
             </Alert>
             {canManageGitHubConnection ? (
@@ -264,9 +269,6 @@ export default async function SettingsPage() {
                 </div>
                 <div className="w-full md:w-fit">
                   <LinkGitHubInstallationDialog workspaceId={workspace.id} />
-                </div>
-                <div className="w-full md:w-fit">
-                  <SyncRepositoriesButton label="Fallback OAuth Sync" />
                 </div>
               </>
             ) : (
@@ -288,8 +290,8 @@ export default async function SettingsPage() {
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
               <AlertDescription>
-                Your GitHub OAuth token is missing or expired. Reconnect GitHub if this workspace
-                still relies on OAuth fallback for syncing repositories or starting scans.
+                Your GitHub OAuth token is missing or expired. Reconnect GitHub if you need GitHub
+                OAuth for login continuity or legacy recovery flows.
               </AlertDescription>
             </Alert>
             <ReconnectGitHubButton redirectPath="/settings" />

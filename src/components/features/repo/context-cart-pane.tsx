@@ -301,9 +301,17 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
                   id: item.id,
                   filePath: item.filePath,
                   chunkIndex: item.chunkIndex,
+                  primaryChunkIndex: item.primaryChunkIndex,
+                  contextStartChunkIndex: item.contextStartChunkIndex,
+                  contextEndChunkIndex: item.contextEndChunkIndex,
                   language: item.language,
                   content: item.content,
                   score: item.score,
+                  fileCategory: item.fileCategory,
+                  chunkType: item.chunkType,
+                  pathBucket: item.pathBucket,
+                  matchReason: item.matchReason,
+                  declarationHint: item.declarationHint,
                 }}
                 onCopy={() => copySnippet(item)}
                 defaultExpanded={index === 0}

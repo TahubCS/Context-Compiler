@@ -18,6 +18,7 @@ type WorkspaceOption = {
   type: "PERSONAL" | "TEAM"
   subscriptionTier: string
   role: string
+  accessMode: "membership" | "platform_admin"
 }
 
 type WorkspaceSwitcherProps = {
@@ -70,7 +71,14 @@ export function WorkspaceSwitcher({
               ) : (
                 <Users className="size-4 text-muted-foreground" />
               )}
-              <span>{workspace.name}</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate">{workspace.name}</span>
+                {workspace.accessMode === "platform_admin" ? (
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                    Admin view only
+                  </span>
+                ) : null}
+              </div>
             </div>
           </SelectItem>
         ))}

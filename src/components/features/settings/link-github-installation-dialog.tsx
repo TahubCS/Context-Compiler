@@ -86,8 +86,8 @@ export function LinkGitHubInstallationDialog({
         <DialogHeader>
           <DialogTitle>Link Existing GitHub Installation</DialogTitle>
           <DialogDescription>
-            Use this if the GitHub App is already installed on GitHub but did not attach itself to
-            this workspace automatically.
+            Use this if the GitHub App is already installed on GitHub but has not attached to this
+            workspace yet.
           </DialogDescription>
         </DialogHeader>
 

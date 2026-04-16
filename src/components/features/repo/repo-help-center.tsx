@@ -42,6 +42,21 @@ type TourStep = {
   description: string
 }
 
+type SpotlightRect = {
+  top: number
+  left: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+}
+
+const VIEWPORT_PADDING = 24
+const SPOTLIGHT_PADDING = 8
+const COACHMARK_WIDTH = 360
+const COACHMARK_HEIGHT = 260
+const COACHMARK_GAP = 20
+
 const TOUR_STEPS: TourStep[] = [
   {
     selector: '[data-tour="ask-workflow"]',
@@ -158,20 +173,125 @@ export function RepoHelpCenter({ autoStartTour }: RepoHelpCenterProps) {
     }
   }, [currentStep, tourOpen])
 
-  const coachmarkPosition = useMemo(() => {
+  const spotlightRect = useMemo<SpotlightRect | null>(() => {
     if (!targetRect || typeof window === "undefined") return null
 
-    const cardWidth = 360
-    const horizontalPadding = 24
-    const left = Math.min(
-      window.innerWidth - cardWidth - horizontalPadding,
-      Math.max(horizontalPadding, targetRect.left)
-    )
-    const spaceBelow = window.innerHeight - targetRect.bottom
-    const top = spaceBelow > 260 ? targetRect.bottom + 16 : Math.max(24, targetRect.top - 220)
+    const left = Math.max(8, targetRect.left - SPOTLIGHT_PADDING)
+    const top = Math.max(8, targetRect.top - SPOTLIGHT_PADDING)
+    const right = Math.min(window.innerWidth - 8, targetRect.right + SPOTLIGHT_PADDING)
+    const bottom = Math.min(window.innerHeight - 8, targetRect.bottom + SPOTLIGHT_PADDING)
 
-    return { top, left }
+    return {
+      top,
+      left,
+      right,
+      bottom,
+      width: right - left,
+      height: bottom - top,
+    }
   }, [targetRect])
+
+  const coachmarkPosition = useMemo(() => {
+    if (!spotlightRect || typeof window === "undefined") return null
+
+    const clamp = (value: number, min: number, max: number) =>
+      Math.min(Math.max(value, min), max)
+
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const maxLeft = viewportWidth - COACHMARK_WIDTH - VIEWPORT_PADDING
+    const maxTop = viewportHeight - COACHMARK_HEIGHT - VIEWPORT_PADDING
+
+    const alignedLeft = clamp(spotlightRect.left, VIEWPORT_PADDING, maxLeft)
+    const centeredLeft = clamp(
+      spotlightRect.left + spotlightRect.width / 2 - COACHMARK_WIDTH / 2,
+      VIEWPORT_PADDING,
+      maxLeft
+    )
+    const centeredTop = clamp(
+      spotlightRect.top + spotlightRect.height / 2 - COACHMARK_HEIGHT / 2,
+      VIEWPORT_PADDING,
+      maxTop
+    )
+
+    const leftSpace = spotlightRect.left - VIEWPORT_PADDING
+    const rightSpace = viewportWidth - spotlightRect.right - VIEWPORT_PADDING
+    const aboveSpace = spotlightRect.top - VIEWPORT_PADDING
+    const belowSpace = viewportHeight - spotlightRect.bottom - VIEWPORT_PADDING
+
+    const candidates = [
+      leftSpace >= COACHMARK_WIDTH + COACHMARK_GAP
+        ? {
+            top: centeredTop,
+            left: spotlightRect.left - COACHMARK_WIDTH - COACHMARK_GAP,
+          }
+        : null,
+      rightSpace >= COACHMARK_WIDTH + COACHMARK_GAP
+        ? {
+            top: centeredTop,
+            left: spotlightRect.right + COACHMARK_GAP,
+          }
+        : null,
+      belowSpace >= COACHMARK_HEIGHT + COACHMARK_GAP
+        ? {
+            top: spotlightRect.bottom + COACHMARK_GAP,
+            left: centeredLeft,
+          }
+        : null,
+      aboveSpace >= COACHMARK_HEIGHT + COACHMARK_GAP
+        ? {
+            top: spotlightRect.top - COACHMARK_HEIGHT - COACHMARK_GAP,
+            left: centeredLeft,
+          }
+        : null,
+      belowSpace >= COACHMARK_HEIGHT + COACHMARK_GAP
+        ? {
+            top: spotlightRect.bottom + COACHMARK_GAP,
+            left: alignedLeft,
+          }
+        : null,
+      aboveSpace >= COACHMARK_HEIGHT + COACHMARK_GAP
+        ? {
+            top: spotlightRect.top - COACHMARK_HEIGHT - COACHMARK_GAP,
+            left: alignedLeft,
+          }
+        : null,
+    ].filter((candidate): candidate is { top: number; left: number } => candidate !== null)
+
+    if (candidates.length > 0) {
+      return candidates[0]
+    }
+
+    if (leftSpace >= rightSpace) {
+      return {
+        top: centeredTop,
+        left: clamp(
+          spotlightRect.left - COACHMARK_WIDTH - COACHMARK_GAP,
+          VIEWPORT_PADDING,
+          maxLeft
+        ),
+      }
+    }
+
+    if (rightSpace > 0) {
+      return {
+        top: centeredTop,
+        left: clamp(spotlightRect.right + COACHMARK_GAP, VIEWPORT_PADDING, maxLeft),
+      }
+    }
+
+    return {
+      top:
+        belowSpace >= aboveSpace
+          ? clamp(spotlightRect.bottom + COACHMARK_GAP, VIEWPORT_PADDING, maxTop)
+          : clamp(
+              spotlightRect.top - COACHMARK_HEIGHT - COACHMARK_GAP,
+              VIEWPORT_PADDING,
+              maxTop
+            ),
+      left: alignedLeft,
+    }
+  }, [spotlightRect])
 
   function removeTourQuery() {
     if (!searchParams?.get("tour")) return
@@ -284,16 +404,43 @@ export function RepoHelpCenter({ autoStartTour }: RepoHelpCenterProps) {
         </DialogContent>
       </Dialog>
 
-      {tourOpen && currentStep && targetRect && coachmarkPosition ? (
+      {tourOpen && currentStep && spotlightRect && coachmarkPosition ? (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-background/75 backdrop-blur-sm" />
+          <div
+            className="absolute left-0 bg-background/75 backdrop-blur-sm"
+            style={{ top: 0, width: "100%", height: spotlightRect.top }}
+          />
+          <div
+            className="absolute left-0 bg-background/75 backdrop-blur-sm"
+            style={{
+              top: spotlightRect.top,
+              width: spotlightRect.left,
+              height: spotlightRect.height,
+            }}
+          />
+          <div
+            className="absolute right-0 bg-background/75 backdrop-blur-sm"
+            style={{
+              top: spotlightRect.top,
+              width: `calc(100% - ${spotlightRect.right}px)`,
+              height: spotlightRect.height,
+            }}
+          />
+          <div
+            className="absolute left-0 bg-background/75 backdrop-blur-sm"
+            style={{
+              top: spotlightRect.bottom,
+              width: "100%",
+              height: `calc(100% - ${spotlightRect.bottom}px)`,
+            }}
+          />
           <div
             className="pointer-events-none absolute rounded-3xl ring-2 ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.45)] transition-all"
             style={{
-              top: targetRect.top - 8,
-              left: targetRect.left - 8,
-              width: targetRect.width + 16,
-              height: targetRect.height + 16,
+              top: spotlightRect.top,
+              left: spotlightRect.left,
+              width: spotlightRect.width,
+              height: spotlightRect.height,
             }}
           />
           <div

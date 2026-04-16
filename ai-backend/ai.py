@@ -84,7 +84,7 @@ def _answer_models() -> list[str]:
     return models
 
 
-def _should_retry_answer_error(exc: Exception) -> bool:
+def _should_fallback_answer_error(exc: Exception) -> bool:
     if isinstance(exc, ClientError):
         return exc.code == 429
     if isinstance(exc, APIError):
@@ -92,44 +92,12 @@ def _should_retry_answer_error(exc: Exception) -> bool:
     return False
 
 
-def _generate_with_model(
-    model: str,
-    prompt: str,
-) -> str:
-    delay = _BASE_DELAY_S
-
-    for attempt in range(_MAX_RETRIES + 1):
-        try:
-            response = gemini_client.models.generate_content(
-                model=model,
-                contents=prompt,
-            )
-            return (response.text or "").strip()
-        except Exception as exc:
-            if not _should_retry_answer_error(exc):
-                logger.error("Gemini answer model %s failed: %s", model, exc)
-                raise
-
-            if attempt == _MAX_RETRIES:
-                logger.warning(
-                    "Gemini answer model %s failed after %d retries: %s",
-                    model,
-                    _MAX_RETRIES,
-                    exc,
-                )
-                raise
-
-            wait = _compute_wait(delay)
-            logger.warning(
-                "Gemini answer model %s unavailable on attempt %d/%d, retrying in %.1fs: %s",
-                model,
-                attempt + 1,
-                _MAX_RETRIES,
-                wait,
-                exc,
-            )
-            time.sleep(wait)
-            delay = min(delay * 2, _MAX_DELAY_S)
+def _generate_with_model_once(model: str, prompt: str) -> str:
+    response = gemini_client.models.generate_content(
+        model=model,
+        contents=prompt,
+    )
+    return (response.text or "").strip()
 
 
 def generate_grounded_answer(question: str, citations: list[dict]) -> str:
@@ -162,13 +130,25 @@ def generate_grounded_answer(question: str, citations: list[dict]) -> str:
     last_error: Exception | None = None
     for model in _answer_models():
         try:
-            answer = _generate_with_model(model, prompt)
+            answer = _generate_with_model_once(model, prompt)
             if model != ANSWER_MODEL:
                 logger.warning("Answer generation fell back from %s to %s.", ANSWER_MODEL, model)
             return answer
         except Exception as exc:
             last_error = exc
-            logger.warning("Answer model %s failed, trying next fallback if available.", model)
+            if _should_fallback_answer_error(exc):
+                logger.warning(
+                    "Answer model %s is temporarily unavailable, trying next model immediately: %s",
+                    model,
+                    exc,
+                )
+                continue
+
+            logger.warning(
+                "Answer model %s failed, trying next fallback if available: %s",
+                model,
+                exc,
+            )
             continue
 
     raise RuntimeError("All Gemini answer models failed.") from last_error

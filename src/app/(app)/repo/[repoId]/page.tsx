@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { failStaleScanJobForRepository, getLatestScanJobForRepository, getRepository } from "@/lib/db"
-import { Search, ShoppingCart, GitBranch, AlertCircle, History } from "lucide-react"
+import { ShoppingCart, GitBranch, AlertCircle, History, Sparkles } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ScanStatusBadge } from "@/components/features/repositories/scan-status-badge"
@@ -34,10 +34,8 @@ export default async function RepoPage({ params }: RepoPageProps) {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      {/* Poll for status updates while scan is in progress */}
       <ScanPoller active={isBusy} />
 
-      {/* Repo header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-semibold text-foreground">{repository.fullName}</h1>
         <div className="flex items-center gap-2">
@@ -108,13 +106,11 @@ export default async function RepoPage({ params }: RepoPageProps) {
         />
       ) : null}
 
-      {/* Split pane */}
       <div className="flex min-h-0 flex-1 gap-4">
-        {/* Left pane — Search (60%) */}
-        <section className="flex w-3/5 flex-col gap-4 rounded-xl border border-border bg-card p-4">
+        <section className="flex w-[62%] flex-col gap-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2">
-            <Search className="size-4 text-muted-foreground" />
-            <h2 className="font-semibold text-foreground">Search</h2>
+            <Sparkles className="size-4 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground">Ask This Repository</h2>
           </div>
           <SearchPane
             repoId={repoId}
@@ -123,8 +119,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
           />
         </section>
 
-        {/* Right pane — Context Cart (40%) */}
-        <section className="flex w-2/5 flex-col gap-4 rounded-xl border border-border bg-card p-4">
+        <section className="flex w-[38%] flex-col gap-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2">
             <ShoppingCart className="size-4 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Context Cart</h2>

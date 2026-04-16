@@ -135,7 +135,15 @@ async def answer_question(body: AnswerRequest):
             "citations": [],
         }
 
-    answer = generate_grounded_answer(question, citations)
+    try:
+        answer = generate_grounded_answer(question, citations)
+    except Exception as exc:
+        logger.warning("Answer generation unavailable after fallback chain: %s", exc)
+        answer = (
+            "I found relevant repository context, but answer generation is temporarily "
+            "unavailable. Review the citations below or try again shortly."
+        )
+
     if not answer:
         answer = "I found relevant context, but could not synthesize a reliable answer from it."
 

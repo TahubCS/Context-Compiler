@@ -73,3 +73,11 @@ LANGUAGE_MAP: dict[str, str] = {
 EMBEDDING_MODEL = "models/gemini-embedding-001"
 EMBEDDING_DIMENSIONS = 768
 ANSWER_MODEL = os.getenv("GEMINI_ANSWER_MODEL", "gemini-2.5-flash")
+ANSWER_MODEL_FALLBACKS = [
+    model.strip()
+    for model in os.getenv(
+        "GEMINI_ANSWER_MODEL_FALLBACKS",
+        "gemini-2.5-flash-lite",
+    ).split(",")
+    if model.strip()
+]

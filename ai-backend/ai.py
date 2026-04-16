@@ -10,7 +10,13 @@ from collections.abc import Callable
 from google import genai
 from google.genai.errors import APIError, ClientError
 
-from config import ANSWER_MODEL, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, GOOGLE_GEMINI_API_KEY
+from config import (
+    ANSWER_MODEL,
+    ANSWER_MODEL_FALLBACKS,
+    EMBEDDING_DIMENSIONS,
+    EMBEDDING_MODEL,
+    GOOGLE_GEMINI_API_KEY,
+)
 
 logger = logging.getLogger("context-compiler.ai")
 
@@ -19,6 +25,11 @@ gemini_client = genai.Client(api_key=GOOGLE_GEMINI_API_KEY)
 _MAX_RETRIES = 6
 _BASE_DELAY_S = 5.0
 _MAX_DELAY_S = 120.0
+
+
+def _compute_wait(delay: float) -> float:
+    jitter = random.uniform(0, delay * 0.3)
+    return min(delay + jitter, _MAX_DELAY_S)
 
 
 def embed_text(
@@ -46,8 +57,7 @@ def embed_text(
                     )
                     raise
 
-                jitter = random.uniform(0, delay * 0.3)
-                wait = min(delay + jitter, _MAX_DELAY_S)
+                wait = _compute_wait(delay)
                 logger.warning(
                     "Rate limited (429) on attempt %d/%d, waiting %.1fs before retry.",
                     attempt + 1,
@@ -64,6 +74,62 @@ def embed_text(
         except APIError as exc:
             logger.error("Gemini server error %s: %s", exc.code, exc.message)
             raise
+
+
+def _answer_models() -> list[str]:
+    models: list[str] = []
+    for model in [ANSWER_MODEL, *ANSWER_MODEL_FALLBACKS]:
+        if model and model not in models:
+            models.append(model)
+    return models
+
+
+def _should_retry_answer_error(exc: Exception) -> bool:
+    if isinstance(exc, ClientError):
+        return exc.code == 429
+    if isinstance(exc, APIError):
+        return exc.code in {500, 503}
+    return False
+
+
+def _generate_with_model(
+    model: str,
+    prompt: str,
+) -> str:
+    delay = _BASE_DELAY_S
+
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            response = gemini_client.models.generate_content(
+                model=model,
+                contents=prompt,
+            )
+            return (response.text or "").strip()
+        except Exception as exc:
+            if not _should_retry_answer_error(exc):
+                logger.error("Gemini answer model %s failed: %s", model, exc)
+                raise
+
+            if attempt == _MAX_RETRIES:
+                logger.warning(
+                    "Gemini answer model %s failed after %d retries: %s",
+                    model,
+                    _MAX_RETRIES,
+                    exc,
+                )
+                raise
+
+            wait = _compute_wait(delay)
+            logger.warning(
+                "Gemini answer model %s unavailable on attempt %d/%d, retrying in %.1fs: %s",
+                model,
+                attempt + 1,
+                _MAX_RETRIES,
+                wait,
+                exc,
+            )
+            time.sleep(wait)
+            delay = min(delay * 2, _MAX_DELAY_S)
 
 
 def generate_grounded_answer(question: str, citations: list[dict]) -> str:
@@ -93,9 +159,16 @@ def generate_grounded_answer(question: str, citations: list[dict]) -> str:
         ]
     )
 
-    response = gemini_client.models.generate_content(
-        model=ANSWER_MODEL,
-        contents=prompt,
-    )
+    last_error: Exception | None = None
+    for model in _answer_models():
+        try:
+            answer = _generate_with_model(model, prompt)
+            if model != ANSWER_MODEL:
+                logger.warning("Answer generation fell back from %s to %s.", ANSWER_MODEL, model)
+            return answer
+        except Exception as exc:
+            last_error = exc
+            logger.warning("Answer model %s failed, trying next fallback if available.", model)
+            continue
 
-    return (response.text or "").strip()
+    raise RuntimeError("All Gemini answer models failed.") from last_error

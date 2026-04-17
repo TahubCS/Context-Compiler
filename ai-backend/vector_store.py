@@ -197,6 +197,23 @@ def _extract_symbol_token(query: str) -> str:
     return re.split(r"[.:]", query.strip())[-1]
 
 
+def _compile_symbol_patterns(symbol: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    escaped = re.escape(symbol)
+    exact = re.compile(rf"(?<![\w$]){escaped}(?![\w$])", re.IGNORECASE)
+    declaration = re.compile(
+        "|".join(
+            [
+                rf"(?:^|\s)(?:export\s+)?(?:async\s+)?function\s+{escaped}\b",
+                rf"(?:^|\s)(?:export\s+)?(?:const|let|var)\s+{escaped}\b",
+                rf"(?:^|\s)class\s+{escaped}\b",
+                rf"(?:^|\s)(?:async\s+def|def)\s+{escaped}\b",
+            ]
+        ),
+        re.IGNORECASE | re.MULTILINE,
+    )
+    return exact, declaration
+
+
 def _semantic_candidates(
     conn,
     repository_id: str,
@@ -277,14 +294,8 @@ def _lexical_candidates(
 
     if is_symbol_style:
         symbol = _extract_symbol_token(normalized_query)
-        exact_symbol_regex = rf"(?<![\w$]){re.escape(symbol)}(?![\w$])"
-        declaration_regex = (
-            rf"(?m)(?:^|\s)(?:export\s+)?(?:async\s+)?function\s+{re.escape(symbol)}\b"
-            rf"|(?m)(?:^|\s)(?:export\s+)?(?:const|let|var)\s+{re.escape(symbol)}\b"
-            rf"|(?m)(?:^|\s)class\s+{re.escape(symbol)}\b"
-            rf"|(?m)(?:^|\s)(?:async\s+def|def)\s+{re.escape(symbol)}\b"
-        )
-        file_like = f"%{symbol.lower()}%"
+        exact_symbol_re, declaration_re = _compile_symbol_patterns(symbol)
+        token_like = f"%{symbol.lower()}%"
 
         rows = conn.execute(
             """
@@ -296,10 +307,7 @@ def _lexical_candidates(
                 "fileCategory",
                 "chunkType",
                 "pathBucket",
-                content,
-                CASE WHEN lower("filePath") LIKE %s THEN 1 ELSE 0 END AS path_match,
-                CASE WHEN content ~* %s THEN 1 ELSE 0 END AS declaration_match,
-                CASE WHEN content ~* %s THEN 1 ELSE 0 END AS symbol_match
+                content
             FROM "CodeDocument"
             WHERE "repositoryId" = %s::uuid
               AND (%s::text IS NULL OR language = %s)
@@ -307,16 +315,12 @@ def _lexical_candidates(
               AND (%s::text IS NULL OR "filePath" ILIKE %s)
               AND (
                 lower("filePath") LIKE %s
-                OR content ~* %s
-                OR content ~* %s
+                OR lower(content) LIKE %s
               )
-            ORDER BY declaration_match DESC, symbol_match DESC, path_match DESC, "chunkIndex" ASC
+            ORDER BY "chunkIndex" ASC
             LIMIT %s
             """,
             (
-                file_like,
-                declaration_regex,
-                exact_symbol_regex,
                 repository_id,
                 language,
                 language,
@@ -324,29 +328,32 @@ def _lexical_candidates(
                 file_category,
                 like_path_prefix,
                 like_path_prefix,
-                file_like,
-                declaration_regex,
-                exact_symbol_regex,
+                token_like,
+                token_like,
                 limit,
             ),
         ).fetchall()
 
-        return [
-            {
-                "id": row[0],
-                "filePath": row[1],
-                "chunkIndex": int(row[2]),
-                "language": row[3],
-                "fileCategory": row[4],
-                "chunkType": row[5],
-                "pathBucket": row[6],
-                "content": row[7],
-                "pathMatch": bool(row[8]),
-                "declarationMatch": bool(row[9]),
-                "symbolMatch": bool(row[10]),
-            }
-            for row in rows
-        ]
+        results: list[dict] = []
+        for row in rows:
+            content = row[7]
+            file_path = row[1]
+            results.append(
+                {
+                    "id": row[0],
+                    "filePath": file_path,
+                    "chunkIndex": int(row[2]),
+                    "language": row[3],
+                    "fileCategory": row[4],
+                    "chunkType": row[5],
+                    "pathBucket": row[6],
+                    "content": content,
+                    "pathMatch": symbol.lower() in file_path.lower(),
+                    "declarationMatch": bool(declaration_re.search(content)),
+                    "symbolMatch": bool(exact_symbol_re.search(content)),
+                }
+            )
+        return results
 
     tokens = [token.lower() for token in re.findall(r"[A-Za-z_][\w$-]{2,}", normalized_query)[:4]]
     if not tokens:
@@ -519,15 +526,23 @@ def search_hybrid_chunks(
         path_prefix,
         _SEARCH_SEMANTIC_LIMIT,
     )
-    lexical_rows = _lexical_candidates(
-        conn,
-        repository_id,
-        normalized_query,
-        language,
-        file_category,
-        path_prefix,
-        _SEARCH_LEXICAL_LIMIT,
-    )
+    try:
+        lexical_rows = _lexical_candidates(
+            conn,
+            repository_id,
+            normalized_query,
+            language,
+            file_category,
+            path_prefix,
+            _SEARCH_LEXICAL_LIMIT,
+        )
+    except Exception:
+        logger.exception(
+            "Hybrid lexical search failed for repo=%s query=%r; falling back to semantic-only results.",
+            repository_id,
+            normalized_query,
+        )
+        lexical_rows = []
 
     candidate_map: dict[str, dict] = {}
     for row in semantic_rows:
@@ -553,13 +568,24 @@ def search_hybrid_chunks(
         if per_file_counts.get(file_path, 0) >= _MAX_RESULTS_PER_FILE:
             continue
 
-        context_content, start_chunk_index, end_chunk_index = _fetch_context_slice(
-            conn,
-            repository_id,
-            file_path,
-            candidate["chunkIndex"],
-            candidate["sourceContent"],
-        )
+        try:
+            context_content, start_chunk_index, end_chunk_index = _fetch_context_slice(
+                conn,
+                repository_id,
+                file_path,
+                candidate["chunkIndex"],
+                candidate["sourceContent"],
+            )
+        except Exception:
+            logger.exception(
+                "Context slice fetch failed for repo=%s path=%s chunk=%s; using primary chunk only.",
+                repository_id,
+                file_path,
+                candidate["chunkIndex"],
+            )
+            context_content = candidate["sourceContent"]
+            start_chunk_index = candidate["chunkIndex"]
+            end_chunk_index = candidate["chunkIndex"]
 
         results.append(
             {

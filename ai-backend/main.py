@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from ai import embed_text, generate_grounded_answer
-from config import logger  # noqa: F401 - ensures logging is configured on startup
+from config import logger
 from scanner import run_scan
 from vector_store import get_connection, search_similar_chunks
 
@@ -94,6 +94,11 @@ async def search_repository(body: SearchRequest):
                 path_prefix=body.path_prefix,
             )
     except Exception as exc:
+        logger.exception(
+            "Repository search failed for repo=%s query=%r",
+            body.repository_id,
+            query,
+        )
         raise HTTPException(
             status_code=500, detail="Failed to retrieve repository context"
         ) from exc

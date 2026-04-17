@@ -51,6 +51,8 @@ const BASE_URL = requireEnv("CONTEXT_COMPILER_BASE_URL").replace(/\/+$/, "")
 const MCP_KEY = requireEnv("CONTEXT_COMPILER_MCP_KEY")
 
 let session: SessionResponse | null = null
+let sessionFetchedAt = 0
+const SESSION_TTL_MS = 5 * 60 * 1000
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -123,13 +125,12 @@ function errorResult(message: string) {
 }
 
 async function ensureSession() {
-  if (session) {
+  const now = Date.now()
+  if (session && now - sessionFetchedAt < SESSION_TTL_MS) {
     return session
   }
-
-  session = await requestJson<SessionResponse>("/api/mcp/session", {
-    method: "GET",
-  })
+  session = await requestJson<SessionResponse>("/api/mcp/session", { method: "GET" })
+  sessionFetchedAt = now
   return session
 }
 
@@ -253,7 +254,13 @@ server.registerTool(
   {
     description: "Retrieve stitched indexed context for a specific file path in the bound repository.",
     inputSchema: {
-      filePath: z.string().min(1),
+      filePath: z
+        .string()
+        .min(1)
+        .max(1024)
+        .refine((p) => !p.includes("..") && !p.startsWith("/"), {
+          message: "filePath must be a relative path without traversal segments",
+        }),
       startChunkIndex: z.number().int().min(0).optional(),
       maxChunks: z.number().int().min(1).max(24).optional(),
     },

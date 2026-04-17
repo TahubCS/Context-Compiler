@@ -192,15 +192,23 @@ export function RepoMcpSetupDialog({
     }
   }
 
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setPlaintextKey("")
+      setRevealedKeyId(null)
+    }
+    setOpen(next)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" data-tour="mcp-button">
           <PlugZap />
           Use With Agent
         </Button>
       </DialogTrigger>
-      <DialogContent className="h-auto max-h-[92vh] w-[96vw] overflow-hidden p-0 sm:max-w-[96vw] xl:max-w-[88rem] 2xl:max-w-[96rem]">
+      <DialogContent className="h-auto max-h-[92vh] w-[96vw] overflow-hidden p-0 sm:max-w-[96vw] xl:max-w-352 2xl:max-w-384">
         <div className="grid min-w-0 gap-0 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)] 2xl:grid-cols-[minmax(0,1.3fr)_minmax(22rem,0.75fr)]">
           <div className="min-w-0 space-y-6 overflow-y-auto p-6 xl:max-h-[calc(92vh-5rem)]">
             <DialogHeader className="space-y-3">

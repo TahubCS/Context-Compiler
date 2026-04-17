@@ -1,7 +1,3 @@
-"""
-Vector store - handles PostgreSQL/pgvector database operations for CodeDocument storage.
-"""
-
 import logging
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse

@@ -9,6 +9,7 @@ import {
 } from "@/lib/db"
 import { processGitHubWebhookForWorkspace } from "@/lib/github-repo-sync"
 import { verifyGitHubWebhookSignature, type GitHubWebhookPayload } from "@/lib/github-app"
+import { getAppBaseUrl } from "@/lib/runtime-urls"
 
 export async function POST(req: Request) {
   const signature = req.headers.get("x-hub-signature-256")
@@ -66,6 +67,8 @@ export async function POST(req: Request) {
     await processGitHubWebhookForWorkspace({
       userId: workspace.ownerUserId,
       workspaceId: workspace.id,
+      workspaceGitHubInstallationId: workspace.githubInstallationId ?? null,
+      appBaseUrl: getAppBaseUrl(req),
       eventName,
       payload,
     })

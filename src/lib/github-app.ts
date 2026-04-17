@@ -202,6 +202,12 @@ export type GitHubWebhookRepositoryPayload = GitHubInstallationRepository
 
 export type GitHubWebhookPayload = {
   action?: string
+  /** Present on push events: the full ref that was pushed, e.g. "refs/heads/main". */
+  ref?: string
+  /** Present on push events: the SHA before the push. */
+  before?: string
+  /** Present on push events: the new HEAD SHA. All-zeros means branch deletion. */
+  after?: string
   installation?: {
     id: number
     account?: {

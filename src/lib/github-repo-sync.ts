@@ -1,6 +1,7 @@
 import {
   deleteRepositoriesMissingFromGitHubIds,
   deleteRepositoryByGitHubRepoId,
+  getRepositoryForScanByGithubRepoId,
   getWorkspaceByInstallationId,
   markWorkspaceRepoSyncSuccess,
   markWorkspaceWebhookReceived,
@@ -13,6 +14,7 @@ import {
   listInstallationRepositories,
   type GitHubWebhookPayload,
 } from "@/lib/github-app"
+import { dispatchRepositoryScan } from "@/lib/scan-dispatch"
 
 function mapGitHubRepository(repo: {
   id: number
@@ -87,6 +89,8 @@ export async function reconcileWorkspaceRepositoriesFromInstallation(
 export async function processGitHubWebhookForWorkspace(input: {
   userId: string
   workspaceId: string
+  workspaceGitHubInstallationId: string | null
+  appBaseUrl: string
   eventName: string
   payload: GitHubWebhookPayload
 }) {
@@ -167,6 +171,42 @@ export async function processGitHubWebhookForWorkspace(input: {
 
       await upsertGitHubRepositories(input.userId, input.workspaceId, [mapGitHubRepository(repository)])
       await markWorkspaceRepoSyncSuccess(input.workspaceId)
+      return { changed: true }
+    }
+
+    case "push": {
+      const ref = input.payload.ref
+      const newSha = input.payload.after
+      const githubRepoId = input.payload.repository?.id
+
+      // Skip branch deletions and malformed payloads
+      if (!ref || !newSha || newSha === "0".repeat(40) || !githubRepoId) {
+        return { changed: false }
+      }
+
+      const branchName = ref.replace("refs/heads/", "")
+      const repository = await getRepositoryForScanByGithubRepoId(
+        input.workspaceId,
+        String(githubRepoId)
+      )
+
+      if (!repository) return { changed: false }
+      if (branchName !== (repository.defaultBranch ?? "main")) return { changed: false }
+      if (repository.activeScanJobId) return { changed: false }
+      if (repository.lastIndexedCommitSha === newSha) return { changed: false }
+
+      // Fire-and-forget: a failed auto-scan must not fail the webhook delivery
+      dispatchRepositoryScan({
+        repoId: repository.id,
+        workspaceId: input.workspaceId,
+        workspaceGitHubInstallationId: input.workspaceGitHubInstallationId,
+        triggeredByUserId: input.userId,
+        knownHeadSha: newSha,
+        appBaseUrl: input.appBaseUrl,
+      }).catch((error: unknown) => {
+        console.error("[webhook/push] dispatchRepositoryScan failed:", error)
+      })
+
       return { changed: true }
     }
 

@@ -84,6 +84,17 @@ export async function getRepositoryForScan(
   })
 }
 
+/** Looks up a repository by its GitHub numeric repo ID — used by webhook push handlers. */
+export async function getRepositoryForScanByGithubRepoId(
+  workspaceId: string,
+  githubRepoId: string
+): Promise<RepositoryScanInfo | null> {
+  return prisma.repository.findFirst({
+    where: { workspaceId, githubRepoId },
+    select: REPOSITORY_SCAN_SELECT,
+  })
+}
+
 export async function updateRepositoryScanStatus(
   repositoryId: string,
   data: {

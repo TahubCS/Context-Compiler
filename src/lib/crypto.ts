@@ -1,7 +1,23 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto"
 
 const ENCRYPTION_ALGORITHM = "aes-256-gcm"
 const IV_LENGTH = 12
+const MCP_API_KEY_PREFIX = "ccmcp_"
+
+function decode32ByteSecret(value: string, envName: string): Buffer {
+  const normalized = value.trim()
+  const keyBuffer = /^[A-Fa-f0-9]{64}$/.test(normalized)
+    ? Buffer.from(normalized, "hex")
+    : Buffer.from(normalized, "base64")
+
+  if (keyBuffer.length !== 32) {
+    throw new Error(
+      `${envName} must decode to exactly 32 bytes (64 hex chars or base64 for 32 bytes).`
+    )
+  }
+
+  return keyBuffer
+}
 
 function getGithubTokenEncryptionKey(): Buffer {
   const value = process.env.GITHUB_TOKEN_ENCRYPTION_KEY
@@ -12,18 +28,19 @@ function getGithubTokenEncryptionKey(): Buffer {
     )
   }
 
-  const normalized = value.trim()
-  const keyBuffer = /^[A-Fa-f0-9]{64}$/.test(normalized)
-    ? Buffer.from(normalized, "hex")
-    : Buffer.from(normalized, "base64")
+  return decode32ByteSecret(value, "GITHUB_TOKEN_ENCRYPTION_KEY")
+}
 
-  if (keyBuffer.length !== 32) {
+function getMcpApiKeySecret(): Buffer {
+  const value = process.env.MCP_API_KEY_SECRET
+
+  if (!value) {
     throw new Error(
-      "GITHUB_TOKEN_ENCRYPTION_KEY must decode to exactly 32 bytes (64 hex chars or base64 for 32 bytes)."
+      "Missing MCP_API_KEY_SECRET. Set a 32-byte secret for MCP API key hashing."
     )
   }
 
-  return keyBuffer
+  return decode32ByteSecret(value, "MCP_API_KEY_SECRET")
 }
 
 export function encryptGithubToken(token: string): string {
@@ -59,4 +76,16 @@ export function decryptGithubToken(payload: string): string {
   ])
 
   return plaintext.toString("utf8")
+}
+
+export function generateMcpApiKey(): { plaintextKey: string; keyPrefix: string } {
+  const plaintextKey = `${MCP_API_KEY_PREFIX}${randomBytes(32).toString("base64url")}`
+  return {
+    plaintextKey,
+    keyPrefix: plaintextKey.slice(0, 18),
+  }
+}
+
+export function hashMcpApiKey(plaintextKey: string): string {
+  return createHmac("sha256", getMcpApiKeySecret()).update(plaintextKey).digest("hex")
 }

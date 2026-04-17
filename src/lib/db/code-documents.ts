@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client"
 import { prisma } from "./client"
 
 export type CodeDocumentSearchFilters = {
@@ -17,6 +18,21 @@ export type CodeDocumentSearchResult = {
   content: string
   score: number
 }
+
+const FILE_CONTEXT_CHUNK_SELECT = {
+  id: true,
+  filePath: true,
+  chunkIndex: true,
+  language: true,
+  fileCategory: true,
+  chunkType: true,
+  pathBucket: true,
+  content: true,
+} as const
+
+export type FileContextChunk = Prisma.CodeDocumentGetPayload<{
+  select: typeof FILE_CONTEXT_CHUNK_SELECT
+}>
 
 function normalizeFilter(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
@@ -61,4 +77,47 @@ export async function searchCodeDocuments(
   `
 
   return rows
+}
+
+export async function getFileContextChunks(
+  repositoryId: string,
+  filePath: string,
+  options: {
+    startChunkIndex?: number | null
+    maxChunks?: number | null
+  } = {}
+): Promise<FileContextChunk[]> {
+  const normalizedPath = filePath.trim()
+  if (!normalizedPath) {
+    return []
+  }
+
+  const maxChunks =
+    typeof options.maxChunks === "number" && Number.isFinite(options.maxChunks)
+      ? Math.max(1, Math.min(Math.trunc(options.maxChunks), 24))
+      : 8
+
+  const startChunkIndex =
+    typeof options.startChunkIndex === "number" && Number.isFinite(options.startChunkIndex)
+      ? Math.max(0, Math.trunc(options.startChunkIndex))
+      : null
+
+  return prisma.codeDocument.findMany({
+    where: {
+      repositoryId,
+      filePath: normalizedPath,
+      ...(startChunkIndex === null
+        ? {}
+        : {
+            chunkIndex: {
+              gte: startChunkIndex,
+            },
+          }),
+    },
+    select: FILE_CONTEXT_CHUNK_SELECT,
+    orderBy: {
+      chunkIndex: "asc",
+    },
+    take: maxChunks,
+  })
 }

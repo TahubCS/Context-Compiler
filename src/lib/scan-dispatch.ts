@@ -63,7 +63,7 @@ export async function dispatchRepositoryScan(input: {
     return { status: "repo_not_found" }
   }
 
-  if (!scanCredential.token) {
+  if (scanCredential.token === null) {
     return { status: "credential_missing", error: scanCredential.error }
   }
 

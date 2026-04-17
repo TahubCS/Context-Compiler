@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getRepository } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
-import { getAiBackendUrl } from "@/lib/runtime-urls"
+import { answerRepositoryQuestion } from "@/lib/repository-retrieval"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -35,59 +35,20 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Repository not found" }, { status: 404 })
   }
 
-  const backendUrl = getAiBackendUrl()
-  if (!backendUrl) {
-    return NextResponse.json({ error: "AI backend not configured" }, { status: 503 })
+  const answer = await answerRepositoryQuestion(
+    repoId,
+    question,
+    {
+      language: body.language,
+      fileCategory: body.fileCategory,
+      pathPrefix: body.pathPrefix,
+    },
+    typeof body.limit === "number" ? body.limit : 6
+  )
+
+  if (!answer.ok) {
+    return NextResponse.json({ error: answer.error }, { status: answer.status })
   }
 
-  try {
-    const answerResponse = await fetch(`${backendUrl}/answer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        repository_id: repoId,
-        question,
-        limit: typeof body.limit === "number" ? body.limit : 6,
-        language: body.language?.trim() || null,
-        file_category: body.fileCategory?.trim() || null,
-        path_prefix: body.pathPrefix?.trim() || null,
-      }),
-      signal: AbortSignal.timeout(30000),
-    })
-
-    const data = (await answerResponse.json()) as {
-      answer?: string
-      citations?: Array<{
-        id: string
-        filePath: string
-        chunkIndex: number
-        primaryChunkIndex?: number
-        contextStartChunkIndex?: number
-        contextEndChunkIndex?: number
-        language: string | null
-        fileCategory?: string | null
-        chunkType?: string | null
-        pathBucket?: string | null
-        content: string
-        score: number
-        matchReason?: string | null
-        declarationHint?: string | null
-      }>
-      detail?: string
-    }
-
-    if (!answerResponse.ok) {
-      return NextResponse.json(
-        { error: data.detail ?? "Answer generation failed." },
-        { status: answerResponse.status === 400 ? 400 : 502 }
-      )
-    }
-
-    return NextResponse.json({
-      answer: data.answer ?? "",
-      citations: data.citations ?? [],
-    })
-  } catch {
-    return NextResponse.json({ error: "AI backend unreachable" }, { status: 503 })
-  }
+  return NextResponse.json(answer.data)
 }

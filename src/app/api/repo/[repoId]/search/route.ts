@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getRepository } from "@/lib/db"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
-import { getAiBackendUrl } from "@/lib/runtime-urls"
+import { searchRepositoryContext } from "@/lib/repository-retrieval"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
 
@@ -29,39 +29,20 @@ export async function POST(req: Request, { params }: RouteParams) {
   const repo = await getRepository(repoId, workspace.id)
   if (!repo) return NextResponse.json({ error: "Repository not found" }, { status: 404 })
 
-  const backendUrl = getAiBackendUrl()
-  if (!backendUrl)
-    return NextResponse.json({ error: "AI backend not configured" }, { status: 503 })
+  const search = await searchRepositoryContext(
+    repoId,
+    query,
+    {
+      language: body.language,
+      fileCategory: body.fileCategory,
+      pathPrefix: body.pathPrefix,
+    },
+    10
+  )
 
-  try {
-    const searchResponse = await fetch(`${backendUrl}/search`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        repository_id: repoId,
-        query,
-        limit: 10,
-        language: body.language?.trim() || null,
-        file_category: body.fileCategory?.trim() || null,
-        path_prefix: body.pathPrefix?.trim() || null,
-      }),
-      signal: AbortSignal.timeout(30000),
-    })
-
-    const data = (await searchResponse.json()) as {
-      results?: unknown[]
-      detail?: string
-    }
-
-    if (!searchResponse.ok) {
-      return NextResponse.json(
-        { error: data.detail ?? "Search failed." },
-        { status: searchResponse.status === 400 ? 400 : 502 }
-      )
-    }
-
-    return NextResponse.json({ results: data.results ?? [] })
-  } catch {
-    return NextResponse.json({ error: "AI backend unreachable" }, { status: 503 })
+  if (!search.ok) {
+    return NextResponse.json({ error: search.error }, { status: search.status })
   }
+
+  return NextResponse.json({ results: search.data })
 }

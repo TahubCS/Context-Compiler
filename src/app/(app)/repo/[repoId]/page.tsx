@@ -14,6 +14,7 @@ import { ScanPoller } from "@/components/features/repo/scan-poller"
 import { SearchPane } from "@/components/features/repo/search-pane"
 import { ContextCartPane } from "@/components/features/repo/context-cart-pane"
 import { RepoHelpCenter } from "@/components/features/repo/repo-help-center"
+import { RepoMcpSetupDialog } from "@/components/features/repo/repo-mcp-setup-dialog"
 import { CURRENT_INDEX_FORMAT_VERSION, isRepositoryIndexOutdated } from "@/lib/index-format"
 import { getAuthenticatedAppContext } from "@/lib/app-context"
 
@@ -79,6 +80,7 @@ export default async function RepoPage({ params, searchParams }: RepoPageProps) 
             {repository.filesProcessed} / {repository.filesDiscovered} files
           </span>
         ) : null}
+        <RepoMcpSetupDialog repoId={repoId} repositoryName={repository.fullName} />
         <RepoHelpCenter autoStartTour={shouldAutoStartTour} />
         <div className="ml-auto">
           <div data-tour="scan-button">

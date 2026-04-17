@@ -77,6 +77,7 @@ model User {
   sentWorkspaceInvites WorkspaceInvite[] @relation("WorkspaceInviteSender")
   notifications        Notification[]
   auditLogs            AuditLog[]
+  mcpApiKeys           McpApiKey[]
   onboardingSeenAt     DateTime?
   onboardingCompletedAt DateTime?
   onboardingSkippedAt  DateTime?
@@ -110,6 +111,7 @@ model Workspace {
   savedCarts           SavedCart[]
   answerSessions       AnswerSession[]
   auditLogs            AuditLog[]
+  mcpApiKeys           McpApiKey[]
   githubWebhookDeliveries GitHubWebhookDelivery[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -209,6 +211,7 @@ model Repository {
   scanJobs             ScanJob[]
   savedCarts           SavedCart[]
   answerSessions       AnswerSession[]
+  mcpApiKeys           McpApiKey[]
   user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace            Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt            DateTime             @default(now())
@@ -222,6 +225,26 @@ model Repository {
   @@index([workspaceId, githubRepoId])
   @@index([workspaceId, isArchived])
   @@index([lastScannedAt])
+}
+
+model McpApiKey {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  workspaceId  String     @db.Uuid
+  repositoryId String     @db.Uuid
+  name         String
+  keyPrefix    String
+  keyHash      String     @unique
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId, repositoryId, createdAt])
+  @@index([workspaceId, repositoryId, createdAt])
+  @@index([repositoryId, revokedAt, createdAt])
 }
 
 model GitHubWebhookDelivery {

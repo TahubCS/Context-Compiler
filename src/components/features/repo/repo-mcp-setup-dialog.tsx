@@ -63,12 +63,14 @@ export function RepoMcpSetupDialog({
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null)
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null)
   const [localProjectPath, setLocalProjectPath] = useState("")
+  const [clientOrigin, setClientOrigin] = useState<string | null>(null)
 
-  const resolvedBaseUrl = useMemo(() => {
-    if (appBaseUrl) return appBaseUrl
-    if (typeof window !== "undefined") return window.location.origin
-    return "https://your-context-compiler-url"
+  useEffect(() => {
+    if (appBaseUrl) return
+    setClientOrigin(window.location.origin)
   }, [appBaseUrl])
+
+  const resolvedBaseUrl = appBaseUrl ?? clientOrigin ?? "https://your-context-compiler-url"
 
   const configSnippet = useMemo(() => {
     const keyValue = plaintextKey || "<paste-your-repo-key>"
@@ -198,9 +200,9 @@ export function RepoMcpSetupDialog({
           Use With Agent
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto p-0">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
-          <div className="space-y-6 p-6">
+      <DialogContent className="h-auto max-h-[92vh] w-[96vw] overflow-hidden p-0 sm:max-w-[96vw] xl:max-w-[88rem] 2xl:max-w-[96rem]">
+        <div className="grid min-w-0 gap-0 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)] 2xl:grid-cols-[minmax(0,1.3fr)_minmax(22rem,0.75fr)]">
+          <div className="min-w-0 space-y-6 overflow-y-auto p-6 xl:max-h-[calc(92vh-5rem)]">
             <DialogHeader className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">Repo-bound MCP</Badge>
@@ -216,8 +218,8 @@ export function RepoMcpSetupDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border bg-background p-4">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+              <div className="min-w-0 rounded-2xl border border-border bg-background p-4">
                 <div className="mb-3 flex items-center gap-2 font-medium text-foreground">
                   <Bot className="size-4 text-muted-foreground" />
                   One repo only
@@ -227,7 +229,7 @@ export function RepoMcpSetupDialog({
                   repos or your wider workspace.
                 </p>
               </div>
-              <div className="rounded-2xl border border-border bg-background p-4">
+              <div className="min-w-0 rounded-2xl border border-border bg-background p-4">
                 <div className="mb-3 flex items-center gap-2 font-medium text-foreground">
                   <ShieldCheck className="size-4 text-muted-foreground" />
                   Read-only tools
@@ -237,7 +239,7 @@ export function RepoMcpSetupDialog({
                   but it cannot scan, save, or mutate app state.
                 </p>
               </div>
-              <div className="rounded-2xl border border-border bg-background p-4">
+              <div className="min-w-0 rounded-2xl border border-border bg-background p-4">
                 <div className="mb-3 flex items-center gap-2 font-medium text-foreground">
                   <KeyRound className="size-4 text-muted-foreground" />
                   One-time reveal
@@ -249,7 +251,7 @@ export function RepoMcpSetupDialog({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border bg-background p-5">
+            <div className="min-w-0 rounded-2xl border border-border bg-background p-5">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                 <div className="space-y-2">
                   <Label htmlFor="mcp-key-name">Key name</Label>
@@ -270,10 +272,10 @@ export function RepoMcpSetupDialog({
               </p>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-              <div className="space-y-3 rounded-2xl border border-border bg-background p-5">
+            <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="min-w-0 space-y-3 rounded-2xl border border-border bg-background p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-medium text-foreground">Plaintext key</h3>
                     <p className="text-sm text-muted-foreground">Copy this immediately after creation.</p>
                   </div>
@@ -290,13 +292,13 @@ export function RepoMcpSetupDialog({
                 <Textarea
                   value={plaintextKey || "Create a repo key to reveal the plaintext value once."}
                   readOnly
-                  className="min-h-32 font-mono text-xs"
+                  className="min-h-32 min-w-0 overflow-x-auto font-mono text-xs"
                 />
               </div>
 
-              <div className="space-y-3 rounded-2xl border border-border bg-background p-5">
+              <div className="min-w-0 space-y-3 rounded-2xl border border-border bg-background p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-medium text-foreground">Local MCP config</h3>
                     <p className="text-sm text-muted-foreground">
                       Paste this into your Claude Code or Codex MCP configuration.
@@ -324,14 +326,18 @@ export function RepoMcpSetupDialog({
                     Absolute path to your local context-compiler clone. Sets <code>cwd</code> so the MCP server runs from the right directory.
                   </p>
                 </div>
-                <Textarea value={configSnippet} readOnly className="min-h-56 font-mono text-xs" />
+                <Textarea
+                  value={configSnippet}
+                  readOnly
+                  className="min-h-64 min-w-0 overflow-x-auto font-mono text-xs"
+                />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-border bg-muted/30 p-6 lg:border-t-0 lg:border-l">
+          <div className="min-w-0 border-t border-border bg-muted/30 p-6 xl:max-h-[92vh] xl:overflow-y-auto xl:border-t-0 xl:border-l">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <h3 className="font-medium text-foreground">Your repo keys</h3>
                 <p className="text-sm text-muted-foreground">
                   Revoke any key instantly if a machine or agent configuration should lose access.
@@ -356,10 +362,10 @@ export function RepoMcpSetupDialog({
                   return (
                     <div
                       key={key.id}
-                      className="rounded-2xl border border-border bg-background p-4"
+                      className="min-w-0 rounded-2xl border border-border bg-background p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
+                        <div className="min-w-0 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium text-foreground">{key.name}</span>
                             <Badge variant={isRevoked ? "outline" : "secondary"}>

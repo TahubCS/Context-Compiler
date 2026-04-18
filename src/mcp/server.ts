@@ -37,6 +37,20 @@ type SearchResult = {
   score: number
   matchReason?: string | null
   declarationHint?: string | null
+  priorityTier?: string | null
+  selectionReason?: string | null
+}
+
+type TraceResponse = {
+  repository: SessionResponse["repository"]
+  query: string
+  entrypoint: string | null
+  orchestrationFiles: string[]
+  persistenceFiles: string[]
+  integrationFiles: string[]
+  readOrder: string[]
+  missingLinks: string[]
+  supportingResults: SearchResult[]
 }
 
 function requireEnv(name: string): string {
@@ -68,7 +82,8 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const data = text ? (JSON.parse(text) as T & { error?: string }) : ({} as T & { error?: string })
 
   if (!response.ok) {
-    const errorMessage = (data as { error?: string }).error ?? `Request failed with ${response.status}`
+    const errorMessage =
+      (data as { error?: string }).error ?? `Request failed with ${response.status}`
     throw new Error(errorMessage)
   }
 
@@ -134,15 +149,19 @@ async function ensureSession() {
   return session
 }
 
+function formatChunkRange(result: SearchResult) {
+  return `${result.contextStartChunkIndex ?? result.chunkIndex}-${result.contextEndChunkIndex ?? result.chunkIndex}`
+}
+
 const server = new McpServer({
   name: "context-compiler",
-  version: "0.5.0",
+  version: "0.5.2",
 })
 
 server.registerTool(
   "search_codebase",
   {
-    description: "Search the bound repository for relevant code context and likely declaration sites.",
+    description: "Search the bound repository for the best implementation and declaration context.",
     inputSchema: {
       query: z.string().min(1),
       language: z.string().optional(),
@@ -157,6 +176,10 @@ server.registerTool(
       const data = await requestJson<{
         repository: SessionResponse["repository"]
         results: SearchResult[]
+        bestMatch: SearchResult | null
+        declarationSite: SearchResult | null
+        relatedFiles: string[]
+        omittedDuplicateCount: number
       }>("/api/mcp/search", {
         method: "POST",
         body: JSON.stringify({
@@ -175,22 +198,58 @@ server.registerTool(
         "",
       ]
 
-      for (const group of groups) {
+      if (data.bestMatch) {
+        lines.push("## Best match")
+        lines.push(
+          `- ${data.bestMatch.filePath} | ${data.bestMatch.matchReason ?? "Semantic match"} | ${formatChunkRange(
+            data.bestMatch
+          )}`
+        )
+        if (data.bestMatch.selectionReason) {
+          lines.push(`  ${data.bestMatch.selectionReason}`)
+        }
+        lines.push("")
+      }
+
+      if (data.declarationSite && data.declarationSite.filePath !== data.bestMatch?.filePath) {
+        lines.push("## Likely declaration site")
+        lines.push(`- ${data.declarationSite.filePath} | ${formatChunkRange(data.declarationSite)}`)
+        lines.push("")
+      }
+
+      if (data.relatedFiles.length > 0) {
+        lines.push("## Read next")
+        lines.push(...data.relatedFiles.map((filePath) => `- ${filePath}`))
+        lines.push("")
+      }
+
+      for (const group of groups.slice(0, 5)) {
         lines.push(`## ${group.filePath}`)
         for (const result of group.results) {
           lines.push(
-            `- ${result.matchReason ?? "Semantic match"} | score ${result.score.toFixed(3)} | chunks ${
-              result.contextStartChunkIndex ?? result.chunkIndex
-            }-${result.contextEndChunkIndex ?? result.chunkIndex}`
+            `- ${result.matchReason ?? "Semantic match"} | ${result.priorityTier ?? "supporting"} | chunks ${formatChunkRange(
+              result
+            )}`
           )
+          if (result.selectionReason) {
+            lines.push(`  ${result.selectionReason}`)
+          }
         }
         lines.push("")
+      }
+
+      if (data.omittedDuplicateCount > 0) {
+        lines.push(`Suppressed ${data.omittedDuplicateCount} duplicate or low-priority snippet(s).`)
       }
 
       return textResult(lines.join("\n"), {
         repository: data.repository,
         query,
+        bestMatch: data.bestMatch,
+        declarationSite: data.declarationSite,
+        relatedFiles: data.relatedFiles,
         groups,
+        omittedDuplicateCount: data.omittedDuplicateCount,
       })
     } catch (error) {
       return errorResult(error instanceof Error ? error.message : "Search failed.")
@@ -201,7 +260,7 @@ server.registerTool(
 server.registerTool(
   "answer_repo_question",
   {
-    description: "Ask a repository-level question and get a grounded answer with supporting citations.",
+    description: "Ask a repository-level question and get a grounded answer with file-first trust signals.",
     inputSchema: {
       question: z.string().min(1),
       language: z.string().optional(),
@@ -216,6 +275,10 @@ server.registerTool(
         repository: SessionResponse["repository"]
         answer: string
         citations: SearchResult[]
+        selectedFiles: string[]
+        confidence: "high" | "medium" | "low"
+        missingContext: string[]
+        needsVerification: boolean
       }>("/api/mcp/answer", {
         method: "POST",
         body: JSON.stringify({
@@ -233,14 +296,29 @@ server.registerTool(
         "## Answer",
         data.answer,
         "",
+        `Confidence: ${data.confidence}`,
+      ]
+
+      if (data.selectedFiles.length > 0) {
+        lines.push("", "## Files used", ...data.selectedFiles.map((filePath) => `- ${filePath}`))
+      }
+
+      if (data.missingContext.length > 0) {
+        lines.push("", "## Missing context", ...data.missingContext.map((item) => `- ${item}`))
+      }
+
+      lines.push(
+        "",
         "## Citations",
         ...data.citations.map(
           (citation) =>
-            `- ${citation.filePath} (chunk ${citation.primaryChunkIndex ?? citation.chunkIndex}) - ${
-              citation.matchReason ?? "Semantic match"
-            }`
-        ),
-      ]
+            `- ${citation.filePath} (${formatChunkRange(citation)}) - ${citation.matchReason ?? "Semantic match"}`
+        )
+      )
+
+      if (data.needsVerification) {
+        lines.push("", "Verification recommended before editing.")
+      }
 
       return textResult(lines.join("\n"), data)
     } catch (error) {
@@ -280,7 +358,11 @@ server.registerTool(
         file: {
           filePath: string
           language: string | null
+          fileCategory: string | null
           content: string
+          startChunkIndex: number
+          endChunkIndex: number
+          totalChunkCount: number
           chunks: Array<{
             chunkIndex: number
             content: string
@@ -294,11 +376,15 @@ server.registerTool(
       const text = [
         `Repository: ${data.repository.fullName}`,
         `File: ${data.file.filePath}`,
+        `Chunk window: ${data.file.startChunkIndex}-${data.file.endChunkIndex} of ${data.file.totalChunkCount - 1}`,
+        data.file.fileCategory ? `Category: ${data.file.fileCategory}` : null,
         "",
         `\`\`\`${language}`,
         data.file.content,
         "```",
-      ].join("\n")
+      ]
+        .filter(Boolean)
+        .join("\n")
 
       return textResult(text, data)
     } catch (error) {
@@ -310,7 +396,7 @@ server.registerTool(
 server.registerTool(
   "build_context_pack",
   {
-    description: "Build a prompt-ready context pack for a task using the best repository snippets.",
+    description: "Build a prompt-ready, low-noise working set for a task in the bound repository.",
     inputSchema: {
       task: z.string().min(1),
       language: z.string().optional(),
@@ -325,6 +411,12 @@ server.registerTool(
         repository: SessionResponse["repository"]
         pack: string
         snippets: SearchResult[]
+        selectedFiles: string[]
+        startHereFiles: string[]
+        taskSummary: string
+        selectionReasons: string[]
+        omittedDuplicateCount: number
+        mode: string
       }>("/api/mcp/context-pack", {
         method: "POST",
         body: JSON.stringify({
@@ -336,9 +428,85 @@ server.registerTool(
         }),
       })
 
-      return textResult(data.pack, data)
+      const lines = [
+        `Repository: ${data.repository.fullName}`,
+        `Mode: ${data.mode}`,
+        "",
+        "## Start here",
+        ...data.startHereFiles.map((filePath) => `- ${filePath}`),
+      ]
+
+      if (data.selectionReasons.length > 0) {
+        lines.push("", "## Why these files", ...data.selectionReasons.map((reason) => `- ${reason}`))
+      }
+
+      lines.push("", data.pack)
+
+      if (data.omittedDuplicateCount > 0) {
+        lines.push("", `Suppressed ${data.omittedDuplicateCount} duplicate or low-value snippet(s).`)
+      }
+
+      return textResult(lines.join("\n"), data)
     } catch (error) {
       return errorResult(error instanceof Error ? error.message : "Context pack generation failed.")
+    }
+  }
+)
+
+server.registerTool(
+  "trace_feature_flow",
+  {
+    description: "Trace the likely feature flow through entrypoints, orchestration, persistence, and integrations.",
+    inputSchema: {
+      query: z.string().min(1),
+      language: z.string().optional(),
+      fileCategory: z.string().optional(),
+      pathPrefix: z.string().optional(),
+      mode: z.enum(["auto", "feature", "symbol", "route"]).optional(),
+    },
+  },
+  async ({ query, language, fileCategory, pathPrefix, mode }) => {
+    try {
+      const data = await requestJson<TraceResponse>("/api/mcp/trace", {
+        method: "POST",
+        body: JSON.stringify({
+          query,
+          language,
+          fileCategory,
+          pathPrefix,
+          mode,
+        }),
+      })
+
+      const lines = [
+        `Repository: ${data.repository.fullName}`,
+        `Query: ${data.query}`,
+        "",
+        data.entrypoint ? `Entrypoint: ${data.entrypoint}` : "Entrypoint: not identified",
+        "",
+        "## Read order",
+        ...data.readOrder.map((filePath) => `- ${filePath}`),
+      ]
+
+      if (data.orchestrationFiles.length > 0) {
+        lines.push("", "## Orchestration", ...data.orchestrationFiles.map((filePath) => `- ${filePath}`))
+      }
+
+      if (data.persistenceFiles.length > 0) {
+        lines.push("", "## Persistence", ...data.persistenceFiles.map((filePath) => `- ${filePath}`))
+      }
+
+      if (data.integrationFiles.length > 0) {
+        lines.push("", "## Integration", ...data.integrationFiles.map((filePath) => `- ${filePath}`))
+      }
+
+      if (data.missingLinks.length > 0) {
+        lines.push("", "## Missing links", ...data.missingLinks.map((item) => `- ${item}`))
+      }
+
+      return textResult(lines.join("\n"), data)
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Feature trace failed.")
     }
   }
 )

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { authenticateMcpRequest } from "@/lib/mcp-request"
-import { searchRepositoryContextForAgent } from "@/lib/repository-retrieval"
+import { traceRepositoryFeatureFlow, type RetrievalTraceMode } from "@/lib/repository-retrieval"
 
 type RetrievalFilters = {
   language?: string
@@ -14,9 +14,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let body: { query?: string; limit?: number } & RetrievalFilters
+  let body: { query?: string; mode?: RetrievalTraceMode } & RetrievalFilters
   try {
-    body = (await req.json()) as { query?: string; limit?: number } & RetrievalFilters
+    body = (await req.json()) as { query?: string; mode?: RetrievalTraceMode } & RetrievalFilters
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "query is required" }, { status: 400 })
   }
 
-  const search = await searchRepositoryContextForAgent(
+  const trace = await traceRepositoryFeatureFlow(
     apiKey.repository.id,
     query,
     {
@@ -34,16 +34,16 @@ export async function POST(req: Request) {
       fileCategory: body.fileCategory,
       pathPrefix: body.pathPrefix,
     },
-    typeof body.limit === "number" ? body.limit : 10
+    body.mode ?? "auto"
   )
 
-  if (!search.ok) {
-    return NextResponse.json({ error: search.error }, { status: search.status })
+  if (!trace.ok) {
+    return NextResponse.json({ error: trace.error }, { status: trace.status })
   }
 
   return NextResponse.json({
     repository: apiKey.repository,
-    results: search.data.results,
-    ...search.data.metadata,
+    query,
+    ...trace.data,
   })
 }

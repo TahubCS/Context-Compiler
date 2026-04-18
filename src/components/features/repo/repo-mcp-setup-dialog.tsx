@@ -67,7 +67,7 @@ const CLAUDE_STEPS = [
   },
   {
     title: "Verify with /mcp inside Claude Code",
-    body: "Open Claude Code (the desktop app or VS Code extension). Type /mcp and press Enter. You should see context-compiler listed as connected. The tools search_codebase, answer_repo_question, get_file_context, and build_context_pack are now available.",
+    body: "Open Claude Code (the desktop app or VS Code extension). Type /mcp and press Enter. You should see context-compiler listed as connected. The tools search_codebase, answer_repo_question, get_file_context, build_context_pack, and trace_feature_flow are now available.",
   },
 ]
 
@@ -86,7 +86,7 @@ const CODEX_STEPS = [
   },
   {
     title: "Restart Codex CLI",
-    body: "Close and reopen any Codex session. Run codex in your terminal. Context Compiler tools will appear automatically — you can ask Codex to search_codebase or answer_repo_question.",
+    body: "Close and reopen any Codex session. Run codex in your terminal. Context Compiler tools will appear automatically — you can ask Codex to search_codebase, trace_feature_flow, or answer_repo_question.",
   },
 ]
 
@@ -105,7 +105,7 @@ const OTHER_STEPS = [
   },
   {
     title: "Four read-only tools available",
-    body: "search_codebase, answer_repo_question, get_file_context, and build_context_pack — all scoped to this repository only.",
+    body: "search_codebase, answer_repo_question, get_file_context, build_context_pack, and trace_feature_flow — all scoped to this repository only.",
   },
 ]
 

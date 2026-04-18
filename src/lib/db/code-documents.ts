@@ -121,3 +121,17 @@ export async function getFileContextChunks(
     take: maxChunks,
   })
 }
+
+export async function getFileChunkCount(repositoryId: string, filePath: string): Promise<number> {
+  const normalizedPath = filePath.trim()
+  if (!normalizedPath) {
+    return 0
+  }
+
+  return prisma.codeDocument.count({
+    where: {
+      repositoryId,
+      filePath: normalizedPath,
+    },
+  })
+}

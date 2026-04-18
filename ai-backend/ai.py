@@ -100,7 +100,29 @@ def _generate_with_model_once(model: str, prompt: str) -> str:
     return (response.text or "").strip()
 
 
-def generate_grounded_answer(question: str, citations: list[dict]) -> str:
+def build_grounded_fallback_answer(question: str, citations: list[dict], selected_files: list[str]) -> str:
+    if not citations:
+        return (
+            "I could not find enough grounded repository context to answer confidently yet. "
+            "Try a narrower question or inspect the most relevant implementation files directly."
+        )
+
+    lead_file = citations[0]["filePath"]
+    files = selected_files or [citation["filePath"] for citation in citations[:4]]
+    unique_files: list[str] = []
+    for file_path in files:
+        if file_path not in unique_files:
+            unique_files.append(file_path)
+
+    return (
+        f'I found grounded repository context for "{question}" and the most relevant implementation '
+        f"starts in {lead_file}. Review these files first: {', '.join(unique_files[:4])}."
+    )
+
+
+def generate_grounded_answer(
+    question: str, citations: list[dict], selected_files: list[str] | None = None
+) -> str:
     """
     Generate a concise answer using the retrieved repository context only.
     """
@@ -115,12 +137,20 @@ def generate_grounded_answer(question: str, citations: list[dict]) -> str:
             )
         )
 
+    selected_files = selected_files or []
     prompt = "\n\n".join(
         [
             "You answer questions about a code repository.",
             "Use only the supplied repository context.",
             "If the context is incomplete, say what is missing instead of inventing details.",
             "Keep the answer concise, high-signal, and reference file paths when useful.",
+            "Prefer concrete implementation details over high-level guesses.",
+            "If you can, mention the key files you relied on.",
+            (
+                "Selected files:\n" + "\n".join(f"- {file_path}" for file_path in selected_files)
+                if selected_files
+                else "Selected files:\n- None explicitly selected"
+            ),
             f"Question:\n{question}",
             "Repository context:",
             "\n\n".join(context_blocks),

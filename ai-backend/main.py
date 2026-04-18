@@ -5,7 +5,7 @@ Context Compiler AI Backend - FastAPI application entry point.
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
-from ai import embed_text, generate_grounded_answer
+from ai import build_grounded_fallback_answer, embed_text, generate_grounded_answer
 from config import logger
 from scanner import run_scan
 from vector_store import get_connection, search_similar_chunks
@@ -36,6 +36,8 @@ class AnswerRequest(BaseModel):
     language: str | None = None
     file_category: str | None = None
     path_prefix: str | None = None
+    citations: list[dict] | None = None
+    selected_files: list[str] | None = None
 
 
 class SearchRequest(BaseModel):
@@ -112,24 +114,26 @@ async def answer_question(body: AnswerRequest):
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
 
-    embedding = embed_text(question)
+    citations = body.citations or []
+    if not citations:
+        embedding = embed_text(question)
 
-    try:
-        with get_connection() as conn:
-            citations = search_similar_chunks(
-                conn,
-                repository_id=body.repository_id,
-                query=question,
-                query_vector=embedding,
-                limit=max(1, min(body.limit, 12)),
-                language=body.language,
-                file_category=body.file_category,
-                path_prefix=body.path_prefix,
-            )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve repository context"
-        ) from exc
+        try:
+            with get_connection() as conn:
+                citations = search_similar_chunks(
+                    conn,
+                    repository_id=body.repository_id,
+                    query=question,
+                    query_vector=embedding,
+                    limit=max(1, min(body.limit, 12)),
+                    language=body.language,
+                    file_category=body.file_category,
+                    path_prefix=body.path_prefix,
+                )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500, detail="Failed to retrieve repository context"
+            ) from exc
 
     if not citations:
         return {
@@ -140,21 +144,22 @@ async def answer_question(body: AnswerRequest):
             "citations": [],
         }
 
+    degraded = False
     try:
-        answer = generate_grounded_answer(question, citations)
+        answer = generate_grounded_answer(question, citations, body.selected_files)
     except Exception as exc:
         logger.warning("Answer generation unavailable after fallback chain: %s", exc)
-        answer = (
-            "I found relevant repository context, but answer generation is temporarily "
-            "unavailable. Review the citations below or try again shortly."
-        )
+        answer = build_grounded_fallback_answer(question, citations, body.selected_files or [])
+        degraded = True
 
     if not answer:
-        answer = "I found relevant context, but could not synthesize a reliable answer from it."
+        answer = build_grounded_fallback_answer(question, citations, body.selected_files or [])
+        degraded = True
 
     return {
         "answer": answer,
         "citations": citations,
+        "degraded": degraded,
     }
 
 

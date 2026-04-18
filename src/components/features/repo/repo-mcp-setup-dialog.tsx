@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import {
   Bot,
   Copy,
@@ -59,15 +59,15 @@ const CLAUDE_STEPS = [
   },
   {
     title: "Enter your local path above",
-    body: "Type the absolute path to your clone in the field above. This sets cwd in the config so the MCP process starts from the right directory.",
+    body: "Type the absolute path to your clone (e.g. C:\\Users\\you\\context-compiler on Windows or /Users/you/context-compiler on Mac). This fills in cwd in the generated command.",
   },
   {
-    title: "Paste into ~/.claude.json",
-    body: "Copy the JSON snippet and open ~/.claude.json. Add the mcpServers block — or merge it if you already have other servers. For project-only scope, paste into .mcp.json at your project root instead.",
+    title: "Run the CLI command in PowerShell or Terminal",
+    body: "Open PowerShell (Windows) or Terminal (Mac/Linux) — not the Claude app, a regular terminal. Paste the single-line command and press Enter. It writes directly into ~/.claude/settings.json with no manual file editing.",
   },
   {
-    title: "Verify with /mcp in Claude Code",
-    body: "Open Claude Code and run /mcp. You should see context-compiler (connected). The tools search_codebase, answer_repo_question, get_file_context, and build_context_pack are now available in every conversation.",
+    title: "Verify with /mcp inside Claude Code",
+    body: "Open Claude Code (the desktop app or VS Code extension). Type /mcp and press Enter. You should see context-compiler listed as connected. The tools search_codebase, answer_repo_question, get_file_context, and build_context_pack are now available.",
   },
 ]
 
@@ -78,15 +78,15 @@ const CODEX_STEPS = [
   },
   {
     title: "Enter your local path above",
-    body: "Type the absolute path to your clone. This sets cwd so the server starts from the correct directory.",
+    body: "Type the absolute path to your context-compiler clone. On Windows use forward slashes or double backslashes (e.g. C:\\\\Users\\\\you\\\\context-compiler).",
   },
   {
-    title: "Add to your Codex config",
-    body: "Copy the snippet and paste it under mcpServers in your Codex config (typically ~/.codex/config.json). Check your Codex version docs if the path differs.",
+    title: "Open ~/.codex/config.toml in a text editor",
+    body: "On Windows this is C:\\Users\\you\\.codex\\config.toml. On Mac/Linux it is ~/.codex/config.toml. Create the file if it does not exist. Paste the TOML snippet at the bottom.",
   },
   {
-    title: "Restart Codex",
-    body: "The MCP server starts automatically on the next session. Context Compiler tools will appear in your Codex conversations.",
+    title: "Restart Codex CLI",
+    body: "Close and reopen any Codex session. Run codex in your terminal. Context Compiler tools will appear automatically — you can ask Codex to search_codebase or answer_repo_question.",
   },
 ]
 
@@ -141,14 +141,14 @@ export function RepoMcpSetupDialog({
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null)
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null)
   const [localProjectPath, setLocalProjectPath] = useState("")
-  const [clientOrigin, setClientOrigin] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (appBaseUrl) return
-    setClientOrigin(window.location.origin)
-  }, [appBaseUrl])
-
-  const resolvedBaseUrl = appBaseUrl ?? clientOrigin ?? "https://your-context-compiler-url"
+  // NEXT_PUBLIC_URL is inlined at build time — always correct even when running the
+  // app locally, so snippets never show localhost as the server URL.
+  const resolvedBaseUrl = (
+    appBaseUrl ??
+    process.env.NEXT_PUBLIC_URL?.replace(/\/+$/, "") ??
+    "https://your-context-compiler-url"
+  )
   const keyValue = plaintextKey || "<paste-your-repo-key>"
   const cwd = localProjectPath.trim() || "<path-to-context-compiler>"
 
@@ -180,6 +180,28 @@ export function RepoMcpSetupDialog({
     [cwd, resolvedBaseUrl, keyValue]
   )
 
+  // Claude Code: single-line CLI command — works on PowerShell, bash, and zsh
+  const claudeCliSnippet = useMemo(
+    () =>
+      `claude mcp add context-compiler -s user -e CONTEXT_COMPILER_BASE_URL="${resolvedBaseUrl}" -e CONTEXT_COMPILER_MCP_KEY="${keyValue}" -- bun run --cwd "${cwd}" mcp:stdio`,
+    [cwd, resolvedBaseUrl, keyValue]
+  )
+
+  // Codex uses TOML, not JSON
+  const codexTomlSnippet = useMemo(() => {
+    const escapedCwd = cwd.replace(/\\/g, "\\\\")
+    return [
+      `[mcp_servers.context-compiler]`,
+      `command = "bun"`,
+      `args = ["run", "mcp:stdio"]`,
+      `cwd = "${escapedCwd}"`,
+      ``,
+      `[mcp_servers.context-compiler.env]`,
+      `CONTEXT_COMPILER_BASE_URL = "${resolvedBaseUrl}"`,
+      `CONTEXT_COMPILER_MCP_KEY = "${keyValue}"`,
+    ].join("\n")
+  }, [cwd, resolvedBaseUrl, keyValue])
+
   const loadKeys = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -196,11 +218,6 @@ export function RepoMcpSetupDialog({
       setIsLoading(false)
     }
   }, [repoId])
-
-  useEffect(() => {
-    if (!open) return
-    void loadKeys()
-  }, [loadKeys, open])
 
   async function handleCreateKey() {
     setIsSubmitting(true)
@@ -268,7 +285,9 @@ export function RepoMcpSetupDialog({
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) {
+    if (next) {
+      void loadKeys()
+    } else {
       setPlaintextKey("")
       setRevealedKeyId(null)
     }
@@ -429,33 +448,62 @@ export function RepoMcpSetupDialog({
                 {/* ── Claude Code ── */}
                 <TabsContent value="claude" className="mt-5">
                   <div className="grid min-w-0 gap-6 lg:grid-cols-2">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          Config for{" "}
-                          <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">
-                            ~/.claude.json
-                          </code>
+                    <div className="min-w-0 space-y-4">
+                      {/* Primary: CLI command */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            CLI command{" "}
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                              recommended
+                            </span>
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyText(claudeCliSnippet, "CLI command copied.")}
+                          >
+                            <Copy />
+                            Copy
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={claudeCliSnippet}
+                          readOnly
+                          className="min-h-28 min-w-0 font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Run this in <strong>PowerShell</strong> (Windows) or <strong>Terminal</strong> (Mac/Linux) — not inside the Claude app itself.
+                          It writes the server config into{" "}
+                          <code className="rounded-sm bg-muted px-1 py-0.5">~/.claude/settings.json</code>{" "}
+                          automatically. Restart Claude Code after running it.
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyText(mcpServersSnippet, "Config copied.")}
-                        >
-                          <Copy />
-                          Copy
-                        </Button>
                       </div>
-                      <Textarea
-                        value={mcpServersSnippet}
-                        readOnly
-                        className="min-h-56 min-w-0 font-mono text-xs"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        For project-only scope, paste into{" "}
-                        <code className="rounded-sm bg-muted px-1 py-0.5">.mcp.json</code> at your
-                        project root instead of the global file.
-                      </p>
+                      {/* Secondary: manual JSON */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            Or edit{" "}
+                            <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">
+                              ~/.claude/settings.json
+                            </code>{" "}
+                            manually
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyText(mcpServersSnippet, "Config copied.")}
+                          >
+                            <Copy />
+                            Copy
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={mcpServersSnippet}
+                          readOnly
+                          className="min-h-44 min-w-0 font-mono text-xs"
+                        />
+                      </div>
                     </div>
                     <StepList steps={CLAUDE_STEPS} />
                   </div>
@@ -467,27 +515,28 @@ export function RepoMcpSetupDialog({
                     <div className="min-w-0 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">
-                          Config for{" "}
+                          Paste into{" "}
                           <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">
-                            ~/.codex/config.json
+                            ~/.codex/config.toml
                           </code>
                         </p>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => copyText(mcpServersSnippet, "Config copied.")}
+                          onClick={() => copyText(codexTomlSnippet, "Config copied.")}
                         >
                           <Copy />
                           Copy
                         </Button>
                       </div>
                       <Textarea
-                        value={mcpServersSnippet}
+                        value={codexTomlSnippet}
                         readOnly
-                        className="min-h-56 min-w-0 font-mono text-xs"
+                        className="min-h-48 min-w-0 font-mono text-xs"
                       />
                       <p className="text-xs text-muted-foreground">
-                        The exact config path may vary by Codex version — check your docs if needed.
+                        Codex uses TOML format. Create the file if it doesn&apos;t exist yet. Backslashes
+                        in Windows paths are doubled automatically.
                       </p>
                     </div>
                     <StepList steps={CODEX_STEPS} />

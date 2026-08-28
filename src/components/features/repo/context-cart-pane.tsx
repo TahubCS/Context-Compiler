@@ -72,8 +72,9 @@ export function ContextCartPane({ repoId, repositoryName }: ContextCartPaneProps
   }, [repoId])
 
   useEffect(() => {
-    void loadSavedCarts()
-  }, [repoId, loadSavedCarts])
+    const loadTimer = window.setTimeout(() => void loadSavedCarts(), 0)
+    return () => window.clearTimeout(loadTimer)
+  }, [loadSavedCarts])
 
   function copyAll() {
     const text = formatContextPack(

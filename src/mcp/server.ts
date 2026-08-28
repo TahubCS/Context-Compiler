@@ -53,7 +53,7 @@ type TraceResponse = {
   supportingResults: SearchResult[]
 }
 
-function requireEnv(name: string): string {
+export function requireEnv(name: string): string {
   const value = process.env[name]?.trim()
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`)
@@ -61,29 +61,59 @@ function requireEnv(name: string): string {
   return value
 }
 
-const BASE_URL = requireEnv("CONTEXT_COMPILER_BASE_URL").replace(/\/+$/, "")
-const MCP_KEY = requireEnv("CONTEXT_COMPILER_MCP_KEY")
+type RuntimeConfig = { baseUrl: string; mcpKey: string; timeoutMs: number }
+
+let runtimeConfig: RuntimeConfig | null = null
+
+export function loadRuntimeConfig(env: Record<string, string | undefined> = process.env): RuntimeConfig {
+  const baseUrlValue = env.CONTEXT_COMPILER_BASE_URL?.trim()
+  const mcpKey = env.CONTEXT_COMPILER_MCP_KEY?.trim()
+  if (!baseUrlValue) throw new Error("Missing CONTEXT_COMPILER_BASE_URL. Set it to the Context Compiler web app origin (for example, https://context.example.com).")
+  if (!mcpKey) throw new Error("Missing CONTEXT_COMPILER_MCP_KEY. Create a repository-bound key in Context Compiler, then provide it to the MCP process.")
+
+  let baseUrl: URL
+  try { baseUrl = new URL(baseUrlValue) } catch { throw new Error("CONTEXT_COMPILER_BASE_URL must be an absolute http(s) URL.") }
+  if (!['http:', 'https:'].includes(baseUrl.protocol)) throw new Error("CONTEXT_COMPILER_BASE_URL must use http or https.")
+  if (baseUrl.username || baseUrl.password) throw new Error("CONTEXT_COMPILER_BASE_URL must not contain credentials.")
+
+  const timeoutMs = Number(env.CONTEXT_COMPILER_TIMEOUT_MS ?? "15000")
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) {
+    throw new Error("CONTEXT_COMPILER_TIMEOUT_MS must be an integer between 1000 and 120000.")
+  }
+  return { baseUrl: baseUrlValue.replace(/\/+$/, ""), mcpKey, timeoutMs }
+}
 
 let session: SessionResponse | null = null
 let sessionFetchedAt = 0
 const SESSION_TTL_MS = 5 * 60 * 1000
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const config = runtimeConfig ?? loadRuntimeConfig()
+  const response = await fetch(`${config.baseUrl}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${MCP_KEY}`,
+      Authorization: `Bearer ${config.mcpKey}`,
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
+    signal: init?.signal ?? AbortSignal.timeout(config.timeoutMs),
+  }).catch((error: unknown) => {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error(`Context Compiler did not respond within ${config.timeoutMs}ms. Check CONTEXT_COMPILER_BASE_URL and service availability.`)
+    }
+    throw new Error(`Could not reach Context Compiler at ${config.baseUrl}. Check the URL, network, and TLS configuration.`, { cause: error })
   })
 
   const text = await response.text()
-  const data = text ? (JSON.parse(text) as T & { error?: string }) : ({} as T & { error?: string })
+  let data: T & { error?: string }
+  try {
+    data = text ? (JSON.parse(text) as T & { error?: string }) : ({} as T & { error?: string })
+  } catch {
+    throw new Error(`Context Compiler returned a non-JSON response (HTTP ${response.status}). Check that the base URL points to the web app, not the AI backend.`)
+  }
 
   if (!response.ok) {
-    const errorMessage =
-      (data as { error?: string }).error ?? `Request failed with ${response.status}`
+    const errorMessage = data.error ?? `Request failed with HTTP ${response.status}`
     throw new Error(errorMessage)
   }
 
@@ -512,15 +542,30 @@ server.registerTool(
 )
 
 async function main() {
+  const command = process.argv[2]
+  if (command === "--help" || command === "-h" || command === "help") {
+    console.log(`Context Compiler MCP (stdio)\n\nUsage:\n  bun run mcp:stdio\n  bun run mcp:doctor\n\nRequired environment:\n  CONTEXT_COMPILER_BASE_URL  Context Compiler web app origin\n  CONTEXT_COMPILER_MCP_KEY   Repository-bound key (ccmcp_...)\n\nOptional environment:\n  CONTEXT_COMPILER_TIMEOUT_MS Request timeout, 1000-120000 (default: 15000)\n\nThe server uses MCP stdio; stdout is reserved for protocol messages.`)
+    return
+  }
+  runtimeConfig = loadRuntimeConfig()
+  if (command === "doctor") {
+    const currentSession = await ensureSession()
+    console.log(`OK: authenticated to ${currentSession.repository.fullName}; scan status: ${currentSession.repository.scanStatus}`)
+    return
+  }
+  if (command) throw new Error(`Unknown command: ${command}. Run with --help for usage.`)
   const currentSession = await ensureSession()
   const transport = new StdioServerTransport()
   await server.connect(transport)
+  const shutdown = async () => { await transport.close(); process.exit(0) }
+  process.once("SIGINT", shutdown)
+  process.once("SIGTERM", shutdown)
   console.error(
     `Context Compiler MCP ready for ${currentSession.repository.fullName} (${currentSession.workspace.name}).`
   )
 }
 
-main().catch((error) => {
+if (process.argv[1]?.replaceAll("\\", "/").endsWith("/src/mcp/server.ts")) main().catch((error) => {
   console.error("Context Compiler MCP failed to start:", error)
   process.exit(1)
 })

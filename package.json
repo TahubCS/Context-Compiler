@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "mcp:stdio": "bun ./src/mcp/server.ts",
+    "mcp:doctor": "bun ./src/mcp/server.ts doctor",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "postinstall": "prisma generate"
   },
   "dependencies": {

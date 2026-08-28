@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
+import { getOAuthCallbackUrl } from "@/lib/auth-urls"
 
 type ReconnectGitHubButtonProps = {
   redirectPath?: string
@@ -20,13 +21,10 @@ export function ReconnectGitHubButton({
       setErrorMessage(null)
 
       const supabase = createClient()
-      const redirectUrl = new URL("/auth/callback", window.location.origin)
-      redirectUrl.searchParams.set("next", redirectPath)
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
-          redirectTo: redirectUrl.toString(),
+          redirectTo: getOAuthCallbackUrl(window.location.origin, redirectPath),
           skipBrowserRedirect: true,
         },
       })

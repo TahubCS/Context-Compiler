@@ -22,7 +22,19 @@ import { Button } from "@/components/ui/button"
 import { AlertTriangle, CreditCard, Settings2, User, Users } from "lucide-react"
 import { LuGithub } from "react-icons/lu"
 
-export default async function SettingsPage() {
+const githubAppStatusMessages: Record<string, string> = {
+  connected: "GitHub App connected and repository synchronization completed.",
+  invalid_state: "The GitHub installation response could not be verified. Start the connection again.",
+  missing_callback_params: "GitHub did not return a complete installation response. Start the connection again.",
+  workspace_not_found: "That workspace is no longer available to your account.",
+  connection_failed: "The GitHub App was installed, but Context Compiler could not link or synchronize it. Verify the App credentials and try again.",
+}
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ github_app?: string }>
+}) {
   const { user, workspace, isPlatformAdmin } = await getAuthenticatedAppContext()
   if (!user || !workspace) return null
 
@@ -65,9 +77,17 @@ export default async function SettingsPage() {
   const teamFeaturesEnabled =
     workspace.subscriptionTier === "TEAM" || workspace.subscriptionTier === "ENTERPRISE"
   const hasGitHubApp = !!workspaceGitHubConnection?.githubInstallationId
+  const githubAppStatus = (await searchParams).github_app
+  const githubAppStatusMessage = githubAppStatus ? githubAppStatusMessages[githubAppStatus] : null
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      {githubAppStatusMessage ? (
+        <Alert variant={githubAppStatus === "connected" ? "default" : "destructive"}>
+          <AlertTriangle className="size-4" />
+          <AlertDescription>{githubAppStatusMessage}</AlertDescription>
+        </Alert>
+      ) : null}
       <AutoReconcileRepositories
         enabled={hasGitHubApp}
         lastRepoSyncAt={workspaceGitHubConnection?.lastRepoSyncAt?.toISOString() ?? null}

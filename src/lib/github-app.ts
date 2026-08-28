@@ -84,11 +84,14 @@ async function githubAppFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-export function getGitHubAppInstallUrl(workspaceId: string) {
+export function getGitHubAppInstallUrl(state: string) {
   const explicitInstallUrl = process.env.GITHUB_APP_INSTALL_URL
   if (explicitInstallUrl) {
     const installUrl = new URL(explicitInstallUrl)
-    installUrl.searchParams.set("state", workspaceId)
+    if (!['https:'].includes(installUrl.protocol) || installUrl.hostname !== "github.com") {
+      throw new Error("GITHUB_APP_INSTALL_URL must be an https://github.com URL.")
+    }
+    installUrl.searchParams.set("state", state)
     return installUrl.toString()
   }
 
@@ -98,7 +101,7 @@ export function getGitHubAppInstallUrl(workspaceId: string) {
   }
 
   const installUrl = new URL(`https://github.com/apps/${slug}/installations/select_target`)
-  installUrl.searchParams.set("state", workspaceId)
+  installUrl.searchParams.set("state", state)
   return installUrl.toString()
 }
 

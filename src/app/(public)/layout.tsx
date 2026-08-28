@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Code2 } from "lucide-react"
+import { GitHubSignInButton } from "@/components/features/github-sign-in-button"
 
 export default function PublicLayout({
   children,
@@ -21,12 +22,7 @@ export default function PublicLayout({
             >
               Pricing
             </Link>
-            <Link
-              href="/"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Sign in
-            </Link>
+            <GitHubSignInButton label="Sign in" size="sm" />
           </nav>
         </div>
       </header>

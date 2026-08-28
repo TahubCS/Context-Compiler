@@ -118,8 +118,9 @@ export function SearchPane({ repoId, repositoryName, indexOutdated }: SearchPane
   }, [repoId])
 
   useEffect(() => {
-    void loadSavedAnswers()
-  }, [repoId, loadSavedAnswers])
+    const loadTimer = window.setTimeout(() => void loadSavedAnswers(), 0)
+    return () => window.clearTimeout(loadTimer)
+  }, [loadSavedAnswers])
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()

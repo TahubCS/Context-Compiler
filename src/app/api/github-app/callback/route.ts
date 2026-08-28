@@ -4,7 +4,7 @@ import { syncWorkspaceGithubInstallation } from "@/lib/github-repo-sync"
 import { setActiveWorkspaceForUser } from "@/lib/db"
 import {
   clearPendingGitHubAppWorkspaceCookie,
-  getPendingGitHubAppWorkspaceCookie,
+  getPendingGitHubAppInstallation,
 } from "@/lib/workspace-session"
 
 export async function GET(req: Request) {
@@ -15,14 +15,21 @@ export async function GET(req: Request) {
 
   const requestUrl = new URL(req.url)
   const installationId = requestUrl.searchParams.get("installation_id")?.trim()
-  const workspaceId =
-    requestUrl.searchParams.get("state")?.trim() ??
-    (await getPendingGitHubAppWorkspaceCookie())
+  const returnedState = requestUrl.searchParams.get("state")?.trim()
+  const pending = await getPendingGitHubAppInstallation()
 
-  if (!installationId || !workspaceId) {
+  if (!installationId || !/^\d+$/.test(installationId) || !returnedState || !pending) {
     await clearPendingGitHubAppWorkspaceCookie()
     return NextResponse.redirect(new URL("/settings?github_app=missing_callback_params", req.url))
   }
+
+  if (returnedState !== pending.state) {
+    await clearPendingGitHubAppWorkspaceCookie()
+    console.warn("Rejected GitHub App callback", { category: "invalid_installation_state" })
+    return NextResponse.redirect(new URL("/settings?github_app=invalid_state", req.url))
+  }
+
+  const workspaceId = pending.workspaceId
 
   try {
     const allowed = await setActiveWorkspaceForUser(user.id, workspaceId)
@@ -34,7 +41,11 @@ export async function GET(req: Request) {
     await syncWorkspaceGithubInstallation(user.id, workspaceId, installationId)
     await clearPendingGitHubAppWorkspaceCookie()
     return NextResponse.redirect(new URL("/settings?github_app=connected", req.url))
-  } catch {
+  } catch (error) {
+    console.error("GitHub App callback failed", {
+      category: "installation_sync",
+      errorName: error instanceof Error ? error.name : "unknown",
+    })
     await clearPendingGitHubAppWorkspaceCookie()
     return NextResponse.redirect(new URL("/settings?github_app=connection_failed", req.url))
   }

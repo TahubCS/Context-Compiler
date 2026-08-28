@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/utils/supabase/client"
+import { GitHubSignInButton } from "@/components/features/github-sign-in-button"
 import {
   Search,
   MessageSquare,
@@ -11,7 +10,6 @@ import {
   Zap,
   GitBranch,
   Users,
-  ArrowRight,
 } from "lucide-react"
 
 const features = [
@@ -75,35 +73,6 @@ const steps = [
 ]
 
 export default function Home() {
-  const [isSigningIn, setIsSigningIn] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
-
-  const handleLogin = async () => {
-    try {
-      setIsSigningIn(true)
-      setAuthError(null)
-
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: true,
-        },
-      })
-
-      if (error) throw error
-      if (!data.url) throw new Error("GitHub sign-in URL was not returned by Supabase.")
-
-      window.location.assign(data.url)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to start GitHub sign-in."
-      setAuthError(message)
-      setIsSigningIn(false)
-    }
-  }
-
   return (
     <div className="flex flex-col">
       {/* Hero */}
@@ -122,10 +91,7 @@ export default function Home() {
           snippets for Claude, Cursor, or any AI assistant.
         </p>
         <div className="flex flex-col items-center gap-3">
-          <Button size="lg" className="min-w-48" onClick={handleLogin} disabled={isSigningIn}>
-            {isSigningIn ? "Redirecting to GitHub..." : "Get started free"}
-            {!isSigningIn && <ArrowRight className="ml-2 size-4" />}
-          </Button>
+          <GitHubSignInButton label="Get started free" size="lg" className="min-w-48" showArrow />
           <Link
             href="/pricing"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -133,7 +99,6 @@ export default function Home() {
             View pricing →
           </Link>
         </div>
-        {authError ? <p className="text-sm text-destructive">{authError}</p> : null}
       </section>
 
       {/* Features */}
@@ -190,9 +155,7 @@ export default function Home() {
           more.
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Button size="lg" onClick={handleLogin} disabled={isSigningIn}>
-            {isSigningIn ? "Redirecting..." : "Get started free"}
-          </Button>
+          <GitHubSignInButton label="Get started free" size="lg" />
           <Button variant="outline" size="lg" asChild>
             <Link href="/pricing">See all plans</Link>
           </Button>

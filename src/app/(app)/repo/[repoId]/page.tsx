@@ -29,7 +29,7 @@ export default async function RepoPage({ params, searchParams }: RepoPageProps) 
   const { user, workspace } = await getAuthenticatedAppContext()
   if (!user || !workspace) return null
 
-  await failStaleScanJobForRepository(repoId)
+  await failStaleScanJobForRepository(repoId, workspace.id)
 
   const [repository, onboardingState] = await Promise.all([
     getRepository(repoId, workspace.id),

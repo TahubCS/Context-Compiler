@@ -2,8 +2,33 @@ import { Prisma, RepositoryScanStatus, ScanJobStatus } from "@prisma/client"
 import { prisma } from "./client"
 
 const STALE_SCAN_TIMEOUT_MS = 10 * 60 * 1000
-const STALE_SCAN_ERROR_MESSAGE =
+const STALE_QUEUED_SCAN_ERROR_MESSAGE =
+  "Scan was queued but never started sending progress updates. It was marked as failed so it can be retried."
+const STALE_SCANNING_SCAN_ERROR_MESSAGE =
   "Scan stopped sending progress updates and was marked as failed. Retry the scan if it does not resume."
+
+type ScanJobStalenessCandidate = {
+  status: ScanJobStatus
+  createdAt: Date
+  startedAt: Date | null
+  lastHeartbeatAt: Date | null
+}
+
+export function isScanJobStale(
+  scanJob: ScanJobStalenessCandidate,
+  now: Date = new Date()
+): boolean {
+  if (scanJob.status !== ScanJobStatus.QUEUED && scanJob.status !== ScanJobStatus.SCANNING) {
+    return false
+  }
+
+  const lastActivityAt =
+    scanJob.status === ScanJobStatus.QUEUED
+      ? scanJob.createdAt
+      : (scanJob.lastHeartbeatAt ?? scanJob.startedAt ?? scanJob.createdAt)
+
+  return lastActivityAt.getTime() < now.getTime() - STALE_SCAN_TIMEOUT_MS
+}
 
 const SCAN_JOB_SELECT = {
   id: true,
@@ -182,56 +207,78 @@ export async function updateScanJobStatus(
 }
 
 export async function failStaleScanJobForRepository(
-  repositoryId: string
+  repositoryId: string,
+  workspaceId: string
 ): Promise<{ scanJobId: string } | null> {
-  const staleBefore = new Date(Date.now() - STALE_SCAN_TIMEOUT_MS)
-
   return prisma.$transaction(async (tx) => {
-    const staleScanJob = await tx.scanJob.findFirst({
+    const repository = await tx.repository.findFirst({
       where: {
-        repositoryId,
-        status: ScanJobStatus.SCANNING,
-        OR: [
-          { lastHeartbeatAt: { lt: staleBefore } },
-          { lastHeartbeatAt: null, startedAt: { lt: staleBefore } },
-        ],
+        id: repositoryId,
+        workspaceId,
       },
-      select: {
-        id: true,
-      },
-      orderBy: [{ startedAt: "asc" }],
-    })
-
-    if (!staleScanJob) {
-      return null
-    }
-
-    const repository = await tx.repository.findUnique({
-      where: { id: repositoryId },
       select: { activeScanJobId: true },
     })
 
-    await tx.scanJob.update({
-      where: { id: staleScanJob.id },
+    if (!repository?.activeScanJobId) {
+      return null
+    }
+
+    const activeScanJob = await tx.scanJob.findFirst({
+      where: {
+        id: repository.activeScanJobId,
+        repositoryId,
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        startedAt: true,
+        lastHeartbeatAt: true,
+      },
+    })
+
+    if (!activeScanJob || !isScanJobStale(activeScanJob)) {
+      return null
+    }
+
+    const errorMessage =
+      activeScanJob.status === ScanJobStatus.QUEUED
+        ? STALE_QUEUED_SCAN_ERROR_MESSAGE
+        : STALE_SCANNING_SCAN_ERROR_MESSAGE
+
+    const failedScanJob = await tx.scanJob.updateMany({
+      where: {
+        id: activeScanJob.id,
+        repositoryId,
+        status: activeScanJob.status,
+        updatedAt: activeScanJob.updatedAt,
+      },
       data: {
         status: ScanJobStatus.FAILED,
-        errorMessage: STALE_SCAN_ERROR_MESSAGE,
+        errorMessage,
         completedAt: new Date(),
       },
     })
 
-    if (repository?.activeScanJobId === staleScanJob.id) {
-      await tx.repository.update({
-        where: { id: repositoryId },
-        data: {
-          scanStatus: RepositoryScanStatus.FAILED,
-          errorMessage: STALE_SCAN_ERROR_MESSAGE,
-          activeScanJobId: null,
-        },
-      })
+    if (failedScanJob.count === 0) {
+      return null
     }
 
-    return { scanJobId: staleScanJob.id }
+    await tx.repository.updateMany({
+      where: {
+        id: repositoryId,
+        workspaceId,
+        activeScanJobId: activeScanJob.id,
+      },
+      data: {
+        scanStatus: RepositoryScanStatus.FAILED,
+        errorMessage,
+        activeScanJobId: null,
+      },
+    })
+
+    return { scanJobId: activeScanJob.id }
   })
 }
 

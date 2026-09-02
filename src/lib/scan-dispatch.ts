@@ -36,7 +36,7 @@ export async function dispatchRepositoryScan(input: {
   } = input
 
   try {
-    await failStaleScanJobForRepository(repoId)
+    await failStaleScanJobForRepository(repoId, workspaceId)
   } catch (error) {
     if (isPrismaConnectivityError(error)) {
       return { status: "backend_unavailable", error: "Database unavailable" }

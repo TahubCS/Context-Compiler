@@ -10,10 +10,7 @@ type AutoReconcileRepositoriesProps = {
 
 const REPO_RECONCILE_STALE_MS = 15 * 60 * 1000
 
-export function AutoReconcileRepositories({
-  enabled,
-  lastRepoSyncAt,
-}: AutoReconcileRepositoriesProps) {
+export function AutoReconcileRepositories({enabled, lastRepoSyncAt,}: AutoReconcileRepositoriesProps) {
   const router = useRouter()
   const hasStartedRef = useRef(false)
 

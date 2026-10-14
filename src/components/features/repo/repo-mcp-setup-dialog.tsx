@@ -35,11 +35,23 @@ import { Textarea } from "@/components/ui/textarea"
 type McpKeyItem = {
   id: string
   repositoryId: string | null
+  canRequestScan?: boolean
   name: string
   keyPrefix: string
   lastUsedAt: string | null
   revokedAt: string | null
   createdAt: string
+  usage?: { calls: number; failures: number; packTokens: number; packFullFileTokens: number } | null
+}
+
+function formatUsage(usage: McpKeyItem["usage"]) {
+  if (!usage || usage.calls === 0) return "No calls in the last 7 days"
+  const failures = usage.failures > 0 ? `, ${usage.failures} failed` : ""
+  const savings =
+    usage.packFullFileTokens > usage.packTokens
+      ? `; context packs used ~${usage.packTokens.toLocaleString()} tokens instead of ~${usage.packFullFileTokens.toLocaleString()} for the full files`
+      : ""
+  return `${usage.calls} call${usage.calls === 1 ? "" : "s"} in the last 7 days${failures}${savings}`
 }
 
 type RepoMcpSetupDialogProps = {
@@ -208,6 +220,7 @@ export function RepoMcpSetupDialog({
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null)
   const [localProjectPath, setLocalProjectPath] = useState("")
   const [workspaceScope, setWorkspaceScope] = useState(false)
+  const [allowRescan, setAllowRescan] = useState(false)
 
   // Prefer the configured public URL (inlined at build time) so snippets point at the
   // deployed app even when this page is served from a local dev server.
@@ -307,7 +320,11 @@ export function RepoMcpSetupDialog({
       const response = await fetch(`/api/repo/${repoId}/mcp-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), scope: workspaceScope ? "workspace" : "repository" }),
+        body: JSON.stringify({
+          name: name.trim(),
+          scope: workspaceScope ? "workspace" : "repository",
+          canRequestScan: allowRescan,
+        }),
       })
       const data = (await response.json()) as {
         key?: McpKeyItem
@@ -469,6 +486,15 @@ export function RepoMcpSetupDialog({
                       {workspaceScope
                         ? "One key and one registration for all your repositories. The agent picks the repository it is working in on each call."
                         : `The key authenticates as you, but only for ${repositoryName}.`}
+                    </span>
+                  </Label>
+                </div>
+                <div className="mt-4 flex items-start gap-3">
+                  <Switch id="mcp-key-allow-rescan" checked={allowRescan} onCheckedChange={setAllowRescan} />
+                  <Label htmlFor="mcp-key-allow-rescan" className="block space-y-1 font-normal">
+                    <span className="block text-sm font-medium text-foreground">Let agents request re-scans</span>
+                    <span className="block text-sm leading-6 text-muted-foreground">
+                      Allows the request_rescan tool, so an agent can refresh a stale index. Everything else stays read-only.
                     </span>
                   </Label>
                 </div>
@@ -690,6 +716,7 @@ export function RepoMcpSetupDialog({
                               {isRevoked ? "Revoked" : "Active"}
                             </Badge>
                             {key.repositoryId === null ? <Badge variant="outline">Workspace</Badge> : null}
+                            {key.canRequestScan ? <Badge variant="outline">Can re-scan</Badge> : null}
                             {isFreshlyCreated ? <Badge>Just created</Badge> : null}
                           </div>
                           <p className="font-mono text-xs text-muted-foreground">
@@ -710,6 +737,9 @@ export function RepoMcpSetupDialog({
                         <div>Created {formatTimestamp(key.createdAt)}</div>
                         <div>Last used {formatTimestamp(key.lastUsedAt)}</div>
                       </div>
+                      {!isRevoked ? (
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{formatUsage(key.usage)}</p>
+                      ) : null}
                     </div>
                   )
                 })

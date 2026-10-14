@@ -5,6 +5,7 @@ import { prisma } from "./client"
 const MCP_API_KEY_LIST_SELECT = {
   id: true,
   repositoryId: true,
+  canRequestScan: true,
   name: true,
   keyPrefix: true,
   lastUsedAt: true,
@@ -27,6 +28,7 @@ export type McpRepository = Prisma.RepositoryGetPayload<{ select: typeof MCP_REP
 const MCP_API_KEY_RESOLVE_SELECT = {
   id: true,
   name: true,
+  canRequestScan: true,
   keyPrefix: true,
   lastUsedAt: true,
   createdAt: true,
@@ -42,6 +44,7 @@ const MCP_API_KEY_RESOLVE_SELECT = {
       id: true,
       name: true,
       slug: true,
+      githubInstallationId: true,
     },
   },
   repository: {
@@ -78,7 +81,8 @@ export async function createMcpApiKeyForRepository(
   repositoryId: string | null,
   workspaceId: string,
   userId: string,
-  name: string
+  name: string,
+  options: { canRequestScan?: boolean } = {}
 ): Promise<{ apiKey: McpApiKeyListItem; plaintextKey: string }> {
   const { plaintextKey, keyPrefix } = generateMcpApiKey()
   const keyHash = hashMcpApiKey(plaintextKey)
@@ -91,6 +95,7 @@ export async function createMcpApiKeyForRepository(
       name,
       keyPrefix,
       keyHash,
+      canRequestScan: options.canRequestScan ?? false,
     },
     select: MCP_API_KEY_LIST_SELECT,
   })

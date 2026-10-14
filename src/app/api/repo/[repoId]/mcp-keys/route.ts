@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import {
   createMcpApiKeyForRepository,
+  getMcpKeyUsage,
   getRepository,
   isPrismaConnectivityError,
   isPrismaMissingTableError,
@@ -60,7 +61,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
     }
 
     const keys = await listMcpApiKeysForRepository(repoId, workspace.id, user.id)
-    return NextResponse.json({ keys })
+    const usage = await getMcpKeyUsage(keys.map((key) => key.id)).catch(() => new Map())
+    return NextResponse.json({
+      keys: keys.map((key) => ({ ...key, usage: usage.get(key.id) ?? null })),
+    })
   } catch (error) {
     return getMcpRouteErrorResponse(error)
   }
@@ -79,9 +83,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Repository not found" }, { status: 404 })
     }
 
-    let body: { name?: string; scope?: string }
+    let body: { name?: string; scope?: string; canRequestScan?: boolean }
     try {
-      body = (await req.json()) as { name?: string; scope?: string }
+      body = (await req.json()) as { name?: string; scope?: string; canRequestScan?: boolean }
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
@@ -89,7 +93,9 @@ export async function POST(req: Request, { params }: RouteParams) {
     const name = body.name?.trim() || "Local agent key"
     // A workspace key reads every repository in the workspace; agents pick one per call.
     const keyRepositoryId = body.scope === "workspace" ? null : repoId
-    const created = await createMcpApiKeyForRepository(keyRepositoryId, workspace.id, user.id, name)
+    const created = await createMcpApiKeyForRepository(keyRepositoryId, workspace.id, user.id, name, {
+      canRequestScan: body.canRequestScan === true,
+    })
 
     return NextResponse.json({
       key: created.apiKey,

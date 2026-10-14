@@ -156,3 +156,13 @@ export async function getIndexedFileSizes(
     rows.map((row) => [row.filePath, { chars: Number(row.chars), lines: Number(row.lines), count: Number(row.count) }])
   )
 }
+
+/** Every indexed file of a repository with its language. */
+export async function listIndexedFiles(repositoryId: string): Promise<Array<{ filePath: string; language: string | null }>> {
+  return prisma.codeDocument.findMany({
+    where: { repositoryId },
+    select: { filePath: true, language: true },
+    distinct: ["filePath"],
+    orderBy: { filePath: "asc" },
+  })
+}

@@ -1,6 +1,6 @@
 # MCP reference
 
-Context Compiler serves MCP two ways, with the same tools (defined in `src/mcp/tools.ts`): a remote **Streamable HTTP** endpoint at `<base-url>/api/mcp` (`src/app/api/mcp/route.ts`, stateless, JSON responses) and a local **stdio** bridge (`src/mcp/server.ts`). Both are read-only. There are no MCP resources or prompts in this release; repository access is exposed through the six tools below. All tools return MCP text content plus `structuredContent`; failures return `isError: true` with an actionable message.
+Context Compiler serves MCP two ways, with the same tools (defined in `src/mcp/tools.ts`): a remote **Streamable HTTP** endpoint at `<base-url>/api/mcp` (`src/app/api/mcp/route.ts`, stateless, JSON responses) and a local **stdio** bridge (`src/mcp/server.ts`). Both are read-only. repository access is exposed through the tools below, one resource template, and one prompt. All tools return MCP text content plus `structuredContent`; failures return `isError: true` with an actionable message.
 
 ## Keys and repository selection
 
@@ -14,7 +14,7 @@ Every request needs a key: an `Authorization: Bearer ccmcp_...` header for the r
 
   Otherwise the tool returns an error listing the available repositories.
 
-Every repository tool takes the optional `repository` argument plus the filters `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful scan. All tools carry `readOnlyHint: true`.
+Every repository tool takes the optional `repository` argument plus the filters `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful scan. Every tool except `request_rescan` carries `readOnlyHint: true`.
 
 ## Freshness
 
@@ -90,3 +90,19 @@ Output: repository/query, possible entrypoint, categorized files, read order, mi
 ## Protocol and errors
 
 The remote endpoint authenticates each request and returns 401 with `WWW-Authenticate: Bearer` when the key is missing or revoked; tool failures are returned as `isError` results. The stdio bridge connects immediately and calls the corresponding authenticated web route per tool (`/api/mcp/search`, `/answer`, `/file`, `/context-pack`, `/trace`, `/repositories`), sending its detected default repository as `X-Context-Compiler-Repository`; `doctor` calls `GET /api/mcp/session` and prints the key's scope and repositories. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 60 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.
+
+## `request_rescan`
+
+Re-indexes a repository from its default branch. Input: optional `repository`. Works only with keys created with **Let agents request re-scans**; other keys get a 403-style tool error. Returns `queued` (with the scan job), `up_to_date`, or `already_scanning`; the scan runs in the background and `list_repositories` shows when it completes. Not read-only (`readOnlyHint: false`, `idempotentHint: true`).
+
+## Resource: `context-compiler://{owner}/{name}/overview`
+
+Markdown map of an indexed repository: file count and commit, languages, top-level layout (two levels for monorepo folders such as `packages/`), likely entrypoints, data layer, integrations, and guide files. Listed once per repository the key can read. Inferred from file paths.
+
+## Prompt: `plan-change`
+
+Arguments: `task` (required), `repository` (optional). Returns a message that asks the agent to call `build_context_pack`, then `trace_feature_flow` if the change crosses layers, to prefer files marked `(changed locally)` from disk, and to produce a plan (files, edit order, tests, risks) before editing.
+
+## Usage log
+
+Each repository tool call is recorded per key (tool, repository, success, latency, result count, and tokens returned; for context packs also the estimated full-file tokens). The setup dialog shows each key's calls over the last seven days and, for context packs, tokens used versus reading the files whole.

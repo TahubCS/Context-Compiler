@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   return operationResponse(
-    await withRepository(apiKey, requestedRepository(req, url.searchParams.get("repository")), (repository) =>
+    await withRepository(apiKey, "get_file_context", requestedRepository(req, url.searchParams.get("repository")), (repository) =>
       runFileContext(repository, {
         filePath: url.searchParams.get("filePath") ?? undefined,
         startChunkIndex: integerParam(url.searchParams.get("startChunkIndex")),

@@ -20,6 +20,6 @@ export async function POST(req: Request) {
   }
 
   return operationResponse(
-    await withRepository(apiKey, requestedRepository(req, body.repository), (repository) => runTrace(repository, body))
+    await withRepository(apiKey, "trace_feature_flow", requestedRepository(req, body.repository), (repository) => runTrace(repository, body))
   )
 }

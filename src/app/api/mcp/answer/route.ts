@@ -20,6 +20,6 @@ export async function POST(req: Request) {
   }
 
   return operationResponse(
-    await withRepository(apiKey, requestedRepository(req, body.repository), (repository) => runAnswer(repository, body))
+    await withRepository(apiKey, "answer_repo_question", requestedRepository(req, body.repository), (repository) => runAnswer(repository, body))
   )
 }

@@ -20,6 +20,6 @@ export async function POST(req: Request) {
   }
 
   return operationResponse(
-    await withRepository(apiKey, requestedRepository(req, body.repository), (repository) => runSearch(repository, body))
+    await withRepository(apiKey, "search_codebase", requestedRepository(req, body.repository), (repository) => runSearch(repository, body))
   )
 }

@@ -6,12 +6,15 @@ import {
   runContextPack,
   runFileContext,
   runListRepositories,
+  runRepositoryOverview,
+  runRequestRescan,
   runSearch,
   runTrace,
   withRepository,
   type McpOperationResult,
 } from "@/lib/mcp-operations"
 import { authenticateMcpRequest, DEFAULT_REPOSITORY_HEADER, mcpUnauthorizedResponse } from "@/lib/mcp-request"
+import { getAppBaseUrl } from "@/lib/runtime-urls"
 import {
   MCP_SERVER_NAME,
   MCP_SERVER_VERSION,
@@ -41,20 +44,32 @@ function unwrap<T>(result: McpOperationResult<T>): T {
   return result.data
 }
 
-function createDirectBackend(apiKey: ResolvedMcpApiKey, defaultRepository: string | null): ToolBackend {
+function createDirectBackend(
+  apiKey: ResolvedMcpApiKey,
+  defaultRepository: string | null,
+  appBaseUrl: string
+): ToolBackend {
   const scope = (requested: string | undefined) => requested ?? defaultRepository
   return {
     search: async (input) =>
-      unwrap(await withRepository(apiKey, scope(input.repository), (repository) => runSearch(repository, input))),
+      unwrap(await withRepository(apiKey, "search_codebase", scope(input.repository), (repository) => runSearch(repository, input))),
     answer: async (input) =>
-      unwrap(await withRepository(apiKey, scope(input.repository), (repository) => runAnswer(repository, input))),
+      unwrap(await withRepository(apiKey, "answer_repo_question", scope(input.repository), (repository) => runAnswer(repository, input))),
     file: async (input) =>
-      unwrap(await withRepository(apiKey, scope(input.repository), (repository) => runFileContext(repository, input))),
+      unwrap(await withRepository(apiKey, "get_file_context", scope(input.repository), (repository) => runFileContext(repository, input))),
     contextPack: async (input) =>
-      unwrap(await withRepository(apiKey, scope(input.repository), (repository) => runContextPack(repository, input))),
+      unwrap(await withRepository(apiKey, "build_context_pack", scope(input.repository), (repository) => runContextPack(repository, input))),
     trace: async (input) =>
-      unwrap(await withRepository(apiKey, scope(input.repository), (repository) => runTrace(repository, input))),
+      unwrap(await withRepository(apiKey, "trace_feature_flow", scope(input.repository), (repository) => runTrace(repository, input))),
     listRepositories: async () => unwrap(await runListRepositories(apiKey)),
+    overview: async (input) =>
+      unwrap(await withRepository(apiKey, "repository_overview", scope(input.repository), runRepositoryOverview)),
+    requestRescan: async (input) =>
+      unwrap(
+        await withRepository(apiKey, "request_rescan", scope(input.repository), (repository) =>
+          runRequestRescan(apiKey, repository, appBaseUrl)
+        )
+      ),
   }
 }
 
@@ -65,7 +80,10 @@ async function handle(req: Request): Promise<Response> {
   }
 
   const server = new McpServer({ name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION })
-  registerContextCompilerTools(server, createDirectBackend(apiKey, req.headers.get(DEFAULT_REPOSITORY_HEADER)))
+  registerContextCompilerTools(
+    server,
+    createDirectBackend(apiKey, req.headers.get(DEFAULT_REPOSITORY_HEADER), getAppBaseUrl(req))
+  )
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

@@ -1,4 +1,6 @@
-import { listMcpRepositories, type McpRepository, type ResolvedMcpApiKey } from "@/lib/db"
+import { listIndexedFiles, listMcpRepositories, recordMcpToolCall, type McpRepository, type ResolvedMcpApiKey } from "@/lib/db"
+import { classifyFile } from "@/lib/file-roles"
+import { dispatchRepositoryScan } from "@/lib/scan-dispatch"
 import {
   answerRepositoryQuestion,
   buildRepositoryContextPack,
@@ -247,12 +249,220 @@ export async function runTrace(
   return { ok: true as const, data: { repository, query, ...trace.data } }
 }
 
-/** Resolves the call's repository, then runs the operation against it. */
+export type McpToolName =
+  | "search_codebase"
+  | "answer_repo_question"
+  | "get_file_context"
+  | "build_context_pack"
+  | "trace_feature_flow"
+  | "request_rescan"
+  | "repository_overview"
+
+/**
+ * Result size of a successful call, for the usage log. responseTokens counts the code and
+ * prose the tool's text output gives the agent (search and trace list files, not code).
+ */
+function usageOf(tool: McpToolName, data: unknown) {
+  const value = data as Record<string, unknown>
+  const count = (items: unknown) => (items as unknown[]).length
+  switch (tool) {
+    case "search_codebase":
+      return { resultCount: count(value.results) }
+    case "answer_repo_question":
+      return { resultCount: count(value.citations), responseTokens: Math.ceil(String(value.answer ?? "").length / 4) }
+    case "get_file_context": {
+      const file = value.file as { content: string; chunks: unknown[] }
+      return { resultCount: file.chunks.length, responseTokens: Math.ceil(file.content.length / 4) }
+    }
+    case "build_context_pack": {
+      const tokens = value.tokens as { used: number; fullFiles: number }
+      return { resultCount: count(value.snippets), responseTokens: tokens.used, fullFileTokens: tokens.fullFiles }
+    }
+    case "trace_feature_flow":
+      return { resultCount: count(value.supportingResults) }
+    case "request_rescan":
+      return {}
+    case "repository_overview":
+      return { resultCount: (value.fileCount as number) ?? null, responseTokens: Math.ceil(String(value.text ?? "").length / 4) }
+  }
+}
+
+/** Resolves the call's repository, runs the operation against it, and logs the call. */
 export async function withRepository<T>(
   apiKey: ResolvedMcpApiKey,
+  tool: McpToolName,
   requested: string | null | undefined,
   run: (repository: McpRepository) => Promise<McpOperationResult<T>>
 ): Promise<McpOperationResult<T>> {
+  const started = Date.now()
   const resolved = await resolveRepository(apiKey, requested)
-  return resolved.ok ? run(resolved.data) : resolved
+  const result = resolved.ok ? await run(resolved.data) : resolved
+  let usage: ReturnType<typeof usageOf> | null = null
+  if (result.ok) {
+    try {
+      usage = usageOf(tool, result.data)
+    } catch {
+      usage = null
+    }
+  }
+  recordMcpToolCall({
+    apiKeyId: apiKey.id,
+    repositoryId: resolved.ok ? resolved.data.id : null,
+    tool,
+    ok: result.ok,
+    durationMs: Date.now() - started,
+    ...usage,
+  })
+  return result
+}
+
+/**
+ * Starts a re-scan of the repository's default branch. Only keys created with the scan
+ * permission may do this; the scan runs in the background.
+ */
+export type RescanResult = {
+  repository: McpRepository
+  status: "queued" | "up_to_date" | "already_scanning"
+  scanJobId?: string
+  message: string
+}
+
+export async function runRequestRescan(
+  apiKey: ResolvedMcpApiKey,
+  repository: McpRepository,
+  appBaseUrl: string
+): Promise<McpOperationResult<RescanResult>> {
+  if (!apiKey.canRequestScan) {
+    return {
+      ok: false as const,
+      status: 403,
+      error:
+        "This key cannot start scans. Create a key with \"Let agents request re-scans\" turned on, or start the scan from the repository page.",
+    }
+  }
+
+  const result = await dispatchRepositoryScan({
+    repoId: repository.id,
+    workspaceId: apiKey.workspace.id,
+    workspaceGitHubInstallationId: apiKey.workspace.githubInstallationId,
+    triggeredByUserId: apiKey.user.id,
+    appBaseUrl,
+  })
+
+  switch (result.status) {
+    case "dispatched":
+      return {
+        ok: true as const,
+        data: {
+          repository,
+          status: "queued",
+          scanJobId: result.scanJobId,
+          message: `Scan of ${repository.fullName} started. It runs in the background; call list_repositories to see when it completes.`,
+        },
+      }
+    case "up_to_date":
+      return {
+        ok: true as const,
+        data: {
+          repository,
+          status: "up_to_date",
+          message: `${repository.fullName} is already indexed at the latest commit (${result.sha.slice(0, 7)}).`,
+        },
+      }
+    case "already_scanning":
+      return {
+        ok: true as const,
+        data: { repository, status: "already_scanning", message: `A scan of ${repository.fullName} is already running.` },
+      }
+    case "repo_not_found":
+      return { ok: false as const, status: 404, error: "Repository not found." }
+    case "credential_missing":
+      return { ok: false as const, status: 400, error: result.error }
+    case "backend_unavailable":
+      return { ok: false as const, status: 503, error: result.error }
+  }
+}
+
+// Folders that hold several projects; the overview groups by their second level.
+const MONOREPO_ROOTS = new Set(["packages", "apps", "services", "libs", "modules", "internal", "cmd", "crates", "projects"])
+
+function topDirectory(filePath: string): string {
+  const parts = filePath.split("/")
+  if (parts.length === 1) return "(root)"
+  return MONOREPO_ROOTS.has(parts[0]) && parts.length > 2 ? `${parts[0]}/${parts[1]}` : parts[0]
+}
+
+function countBy<T>(items: T[], key: (item: T) => string | null) {
+  const counts = new Map<string, number>()
+  for (const item of items) {
+    const value = key(item)
+    if (value) counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])
+}
+
+/**
+ * A map of the repository for an agent starting work in it: languages, layout, and the
+ * files that look like entrypoints, data layer and integrations. Built from the index.
+ */
+export async function runRepositoryOverview(repository: McpRepository) {
+  const files = await listIndexedFiles(repository.id)
+  const classified = files.map((file) => ({ ...file, ...classifyFile(file.filePath) }))
+  const source = classified.filter((file) => file.kind === "source")
+  const pick = (role: string, limit = 12) =>
+    source
+      .filter((file) => file.role === role)
+      .map((file) => file.filePath)
+      // Barrel files (index.ts) re-export rather than handle requests, so list them last.
+      .sort(
+        (a, b) =>
+          Number(/(?:^|\/)index\.[a-z]+$/.test(a)) - Number(/(?:^|\/)index\.[a-z]+$/.test(b)) ||
+          a.split("/").length - b.split("/").length ||
+          a.localeCompare(b)
+      )
+      .slice(0, limit)
+
+  const languages = countBy(classified, (file) => file.language).slice(0, 8)
+  const directories = countBy(classified, (file) => topDirectory(file.filePath)).slice(0, 12)
+  const entrypoints = pick("entrypoint")
+  const persistence = pick("persistence")
+  const integrations = pick("integration", 8)
+  const docs = classified
+    .filter((file) => /(?:^|\/)(?:readme|agents|claude|contributing)(?:\.[^/]*)?$/i.test(file.filePath))
+    .map((file) => file.filePath)
+    .slice(0, 6)
+
+  const list = (items: string[]) => (items.length ? items.map((item) => `- ${item}`) : ["- none found"])
+  const text = [
+    `# ${repository.fullName}`,
+    "",
+    `${files.length} indexed files at commit ${repository.lastIndexedCommitSha?.slice(0, 7) ?? "(not indexed)"}${
+      repository.defaultBranch ? ` on ${repository.defaultBranch}` : ""
+    }.`,
+    "",
+    "## Languages",
+    ...languages.map(([language, count]) => `- ${language}: ${count} files`),
+    "",
+    "## Layout",
+    ...directories.map(([directory, count]) => `- ${directory}/: ${count} files`),
+    "",
+    "## Likely entrypoints (routes, handlers, controllers, main)",
+    ...list(entrypoints),
+    "",
+    "## Data layer (models, schemas, repositories)",
+    ...list(persistence),
+    "",
+    "## Integrations (external services and clients)",
+    ...list(integrations),
+    "",
+    "## Guides",
+    ...list(docs),
+    "",
+    "Inferred from file paths. Use search_codebase or build_context_pack for a specific task.",
+  ].join("\n")
+
+  return {
+    ok: true as const,
+    data: { repository, fileCount: files.length, languages, directories, entrypoints, persistence, integrations, docs, text },
+  }
 }

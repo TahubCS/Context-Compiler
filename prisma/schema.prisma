@@ -236,6 +236,8 @@ model McpApiKey {
   name         String
   keyPrefix    String
   keyHash      String     @unique
+  /// Lets agents call request_rescan; every other tool is read-only.
+  canRequestScan Boolean  @default(false)
   lastUsedAt   DateTime?
   revokedAt    DateTime?
   createdAt    DateTime   @default(now())
@@ -411,4 +413,23 @@ model CliAuthRequest {
   createdAt  DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+/// One MCP tool call, for per-key usage and token-savings reporting.
+model McpToolCall {
+  id             String   @id @default(uuid()) @db.Uuid
+  apiKeyId       String   @db.Uuid
+  repositoryId   String?  @db.Uuid
+  tool           String
+  ok             Boolean
+  durationMs     Int
+  resultCount    Int?
+  /// Estimated tokens returned to the agent.
+  responseTokens Int?
+  /// For context packs: estimated tokens of reading the selected files whole.
+  fullFileTokens Int?
+  createdAt      DateTime @default(now())
+
+  @@index([apiKeyId, createdAt])
+  @@index([repositoryId, createdAt])
 }

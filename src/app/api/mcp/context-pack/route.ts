@@ -20,6 +20,6 @@ export async function POST(req: Request) {
   }
 
   return operationResponse(
-    await withRepository(apiKey, requestedRepository(req, body.repository), (repository) => runContextPack(repository, body))
+    await withRepository(apiKey, "build_context_pack", requestedRepository(req, body.repository), (repository) => runContextPack(repository, body))
   )
 }

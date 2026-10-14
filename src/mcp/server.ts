@@ -10,8 +10,10 @@ import {
   type ContextPackResponse,
   type FileResponse,
   type LocalChanges,
+  type OverviewResponse,
   type RepositoriesResponse,
   type RepositoryInfo,
+  type RescanResponse,
   type SearchResponse,
   type SessionResponse,
   type ToolBackend,
@@ -192,6 +194,12 @@ export function createHttpBackend(
     contextPack: (input) => post<ContextPackResponse>("/api/mcp/context-pack", input),
     trace: (input) => post<TraceResponse>("/api/mcp/trace", input),
     listRepositories: () => requestJson<RepositoriesResponse>("/api/mcp/repositories", { method: "GET" }),
+    requestRescan: (input) => post<RescanResponse>("/api/mcp/rescan", input),
+    overview: ({ repository }) =>
+      requestJson<OverviewResponse>(
+        `/api/mcp/overview${repository ? `?repository=${encodeURIComponent(repository)}` : ""}`,
+        { method: "GET" }
+      ),
     ...(localChanges ? { localChanges } : {}),
     file: ({ repository, filePath, startChunkIndex, maxChunks }) => {
       const params = new URLSearchParams({ filePath })

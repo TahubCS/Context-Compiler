@@ -41,6 +41,8 @@ const backend: ToolBackend = {
   file: async () => failing(),
   contextPack: async () => failing(),
   trace: async () => failing(),
+  requestRescan: async () => failing(),
+  overview: async () => ({ repository, fileCount: 2, text: "# acme/demo overview" }),
   listRepositories: async () => ({
     scope: "workspace",
     workspace: { id: "w1", name: "Acme", slug: "acme" },
@@ -67,10 +69,12 @@ describe("Context Compiler MCP tools", () => {
       "build_context_pack",
       "get_file_context",
       "list_repositories",
+      "request_rescan",
       "search_codebase",
       "trace_feature_flow",
     ])
-    expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true)
+    // Everything is read-only except request_rescan, which is gated by a key permission.
+    expect(tools.filter((tool) => tool.annotations?.readOnlyHint !== true).map((tool) => tool.name)).toEqual(["request_rescan"])
   })
 
   test("formats search results as text plus structured content", async () => {
@@ -103,6 +107,16 @@ describe("Context Compiler MCP tools", () => {
     const text = (response.content as Array<{ text: string }>)[0].text
     expect(text).toContain("Acme (workspace key)")
     expect(text).toContain("acme/demo: completed, indexed at abc123")
+  })
+
+  test("serves a repository overview resource and a plan-change prompt", async () => {
+    const client = await connect()
+    const { resources } = await client.listResources()
+    expect(resources.map((resource) => resource.uri)).toEqual(["context-compiler://acme/demo/overview"])
+    const read = await client.readResource({ uri: "context-compiler://acme/demo/overview" })
+    expect((read.contents[0] as { text: string }).text).toBe("# acme/demo overview")
+    const prompt = await client.getPrompt({ name: "plan-change", arguments: { task: "Add rate limits" } })
+    expect((prompt.messages[0].content as { text: string }).text).toContain("Plan this change: Add rate limits")
   })
 
   test("reports the package version", () => {

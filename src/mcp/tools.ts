@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { ResourceTemplate, type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 
 /**
@@ -149,6 +149,20 @@ export type TraceResponse = {
 
 export type TraceMode = "auto" | "feature" | "symbol" | "route"
 
+export type OverviewResponse = {
+  repository: RepositoryInfo
+  fileCount: number
+  /** Markdown summary of languages, layout, entrypoints, data layer and integrations. */
+  text: string
+}
+
+export type RescanResponse = {
+  repository: RepositoryInfo
+  status: "queued" | "up_to_date" | "already_scanning"
+  scanJobId?: string
+  message: string
+}
+
 /** Each method resolves with the response or throws an Error whose message is shown to the agent. */
 export type ToolBackend = {
   search(input: Filters & { query: string; limit?: number }): Promise<SearchResponse>
@@ -157,6 +171,8 @@ export type ToolBackend = {
   contextPack(input: Filters & { task: string; maxSnippets?: number; maxTokens?: number }): Promise<ContextPackResponse>
   trace(input: Filters & { query: string; mode?: TraceMode }): Promise<TraceResponse>
   listRepositories(): Promise<RepositoriesResponse>
+  requestRescan(input: { repository?: string }): Promise<RescanResponse>
+  overview(input: { repository?: string }): Promise<OverviewResponse>
   /** Optional: compare the indexed commit with the agent's local checkout. */
   localChanges?(repository: RepositoryInfo): LocalChanges | null
 }
@@ -335,13 +351,20 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
           lines.push(`Suppressed ${data.omittedDuplicateCount} duplicate or low-priority snippet(s).`)
         }
 
+        // Structured results carry locations and reasons, not code: the agent reads code with
+        // get_file_context or build_context_pack, so search stays cheap in tokens.
+        const withoutContent = (result: SearchResult): Omit<SearchResult, "content"> => {
+          const rest: Partial<SearchResult> = { ...result }
+          delete rest.content
+          return rest as Omit<SearchResult, "content">
+        }
         return textResult(lines.join("\n"), {
           repository: data.repository,
           query,
-          bestMatch: data.bestMatch,
-          declarationSite: data.declarationSite,
+          bestMatch: data.bestMatch ? withoutContent(data.bestMatch) : null,
+          declarationSite: data.declarationSite ? withoutContent(data.declarationSite) : null,
           relatedFiles: data.relatedFiles,
-          groups,
+          groups: groups.map((group) => ({ filePath: group.filePath, results: group.results.map(withoutContent) })),
           omittedDuplicateCount: data.omittedDuplicateCount,
         })
       } catch (error) {
@@ -573,6 +596,88 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
         return textResult(lines.join("\n"), data)
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : "Listing repositories failed.")
+      }
+    }
+  )
+
+
+  server.registerTool(
+    "request_rescan",
+    {
+      description:
+        "Re-index a repository from its default branch when results look out of date (for example, after a merge). Needs a key created with re-scans allowed. The scan runs in the background for a few minutes; list_repositories shows when it completes.",
+      inputSchema: { repository: repositorySchema },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ repository }) => {
+      try {
+        const data = await backend.requestRescan({ repository })
+        return textResult(data.message, data)
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : "Could not start a scan.")
+      }
+    }
+  )
+
+
+  // A map of each repository, readable as a resource (e.g. @-mentioned in Claude Code).
+  server.registerResource(
+    "repository-overview",
+    new ResourceTemplate("context-compiler://{owner}/{name}/overview", {
+      list: async () => {
+        const { repositories } = await backend.listRepositories()
+        return {
+          resources: repositories.map((repository) => ({
+            uri: `context-compiler://${repository.fullName}/overview`,
+            name: `${repository.fullName} overview`,
+            description: "Languages, layout, entrypoints, data layer and integrations of the indexed repository.",
+            mimeType: "text/markdown",
+          })),
+        }
+      },
+    }),
+    {
+      title: "Repository overview",
+      description: "Languages, layout, entrypoints, data layer and integrations of an indexed repository.",
+      mimeType: "text/markdown",
+    },
+    async (uri, variables) => {
+      const repository = `${variables.owner}/${variables.name}`
+      const data = await backend.overview({ repository })
+      return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: data.text }] }
+    }
+  )
+
+  server.registerPrompt(
+    "plan-change",
+    {
+      title: "Plan a change",
+      description: "Gather the right code with Context Compiler, then plan a change before editing.",
+      argsSchema: {
+        task: z.string().min(1).describe("The change to make"),
+        repository: z.string().optional().describe("owner/name, if your key covers several repositories"),
+      },
+    },
+    ({ task, repository }) => {
+      const repo = repository ? ` (repository: ${repository})` : ""
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: {
+              type: "text" as const,
+              text: [
+                `Plan this change${repo}: ${task}`,
+                "",
+                "1. Call build_context_pack with this task to get the most relevant code.",
+                "2. If the change crosses layers, call trace_feature_flow to see how the flow connects.",
+                "3. Read any file marked (changed locally) from disk rather than trusting the index.",
+                "4. Then list the files to change and why, the edits in order, the tests to add or update, and the risks.",
+                "Do not edit files until the plan is agreed.",
+              ].join("\n"),
+            },
+          },
+        ],
       }
     }
   )

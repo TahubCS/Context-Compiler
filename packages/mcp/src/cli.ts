@@ -14,7 +14,9 @@ import os from "node:os"
 import path from "node:path"
 import {
   createHttpBackend,
+  createLocalChangesReader,
   detectDefaultRepository,
+  detectLocalCheckout,
   loadRuntimeConfig,
   startStdioServer,
 } from "../../../src/mcp/server"
@@ -237,8 +239,12 @@ async function serve() {
     CONTEXT_COMPILER_BASE_URL: process.env.CONTEXT_COMPILER_BASE_URL || config?.baseUrl,
     CONTEXT_COMPILER_MCP_KEY: process.env.CONTEXT_COMPILER_MCP_KEY || config?.key,
   }
-  const defaultRepository = detectDefaultRepository(env)
-  await startStdioServer(createHttpBackend(() => loadRuntimeConfig(env), defaultRepository), defaultRepository)
+  const checkout = detectLocalCheckout(env)
+  const defaultRepository = checkout?.repository ?? null
+  await startStdioServer(
+    createHttpBackend(() => loadRuntimeConfig(env), defaultRepository, createLocalChangesReader(checkout)),
+    defaultRepository
+  )
 }
 
 async function main() {

@@ -27,6 +27,8 @@ describe("classifyFile", () => {
     ["src/app/routes/auth/user-request.d.ts", "types"],
     ["app/views/articles/_article.json.jbuilder", "template"],
     ["packages/lib/translations/en/web.po", "locale"],
+    ["api/Conduit.postman_collection.json", "data"],
+    ["fixtures/users.csv", "example"],
     ["src/locales/fr.json", "locale"],
     ["packages/email/.gitignore", "config"],
     ["packages/trpc/server/envelope-router/download-envelope-certificate-pdf.types.ts", "types"],

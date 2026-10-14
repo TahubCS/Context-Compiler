@@ -9,7 +9,9 @@ import {
   type AnswerResponse,
   type ContextPackResponse,
   type FileResponse,
+  type LocalChanges,
   type RepositoriesResponse,
+  type RepositoryInfo,
   type SearchResponse,
   type SessionResponse,
   type ToolBackend,
@@ -37,32 +39,84 @@ export function repositoryFromRemote(remote: string): string | null {
   return match ? match[1] : null
 }
 
+function git(dir: string, args: string[]): string | null {
+  try {
+    return execFileSync("git", ["-C", dir, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 3000,
+    }).trim()
+  } catch {
+    return null
+  }
+}
+
+export type LocalCheckout = { repository: string; dir: string | null }
+
 /**
  * The repository the agent is working in: CONTEXT_COMPILER_REPOSITORY, else the origin
  * remote of the directory the client started us from. Used as the default `repository`
- * for workspace keys; repository keys ignore it.
+ * for workspace keys (repository keys ignore it) and to compare the index with local code.
  */
-export function detectDefaultRepository(env: Record<string, string | undefined> = process.env): string | null {
-  const explicit = env.CONTEXT_COMPILER_REPOSITORY?.trim()
-  if (explicit) return explicit
-
+export function detectLocalCheckout(env: Record<string, string | undefined> = process.env): LocalCheckout | null {
   const candidates = [env.INIT_CWD, env.PWD, process.cwd()].filter(
     (dir): dir is string => Boolean(dir) && path.resolve(dir as string) !== BRIDGE_ROOT
   )
+  const explicit = env.CONTEXT_COMPILER_REPOSITORY?.trim()
   for (const dir of new Set(candidates)) {
-    try {
-      const remote = execFileSync("git", ["-C", dir, "remote", "get-url", "origin"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-        timeout: 2000,
-      })
-      const repository = repositoryFromRemote(remote)
-      if (repository) return repository
-    } catch {
-      // Not a git checkout, or no origin remote.
+    const remote = git(dir, ["remote", "get-url", "origin"])
+    const repository = remote ? repositoryFromRemote(remote) : null
+    if (repository && (!explicit || repository.toLowerCase() === explicit.toLowerCase())) {
+      return { repository: explicit ?? repository, dir: git(dir, ["rev-parse", "--show-toplevel"]) ?? dir }
     }
   }
-  return null
+  return explicit ? { repository: explicit, dir: null } : null
+}
+
+export function detectDefaultRepository(env: Record<string, string | undefined> = process.env): string | null {
+  return detectLocalCheckout(env)?.repository ?? null
+}
+
+const LOCAL_CHANGES_TTL_MS = 30_000
+
+/**
+ * Compares the agent's checkout with the commit a repository was indexed at: files changed
+ * since that commit plus uncommitted edits. Null when the checkout is not that repository.
+ */
+export function createLocalChangesReader(checkout: LocalCheckout | null) {
+  const cache = new Map<string, { at: number; value: LocalChanges | null }>()
+  return (repository: RepositoryInfo): LocalChanges | null => {
+    const indexed = repository.lastIndexedCommitSha
+    if (!checkout?.dir || !indexed || checkout.repository.toLowerCase() !== repository.fullName.toLowerCase()) {
+      return null
+    }
+    const cached = cache.get(indexed)
+    if (cached && Date.now() - cached.at < LOCAL_CHANGES_TTL_MS) return cached.value
+
+    const dir = checkout.dir
+    const headSha = git(dir, ["rev-parse", "HEAD"])
+    let value: LocalChanges | null = null
+    if (headSha) {
+      const hasIndexed = git(dir, ["cat-file", "-e", `${indexed}^{commit}`]) !== null
+      const changed = new Set<string>()
+      if (hasIndexed) {
+        // Working tree against the indexed commit: committed and uncommitted changes.
+        for (const file of (git(dir, ["diff", "--name-only", indexed]) ?? "").split("\n")) if (file) changed.add(file)
+      }
+      // Uncommitted edits to tracked files (already covered above when the indexed commit
+      // exists locally) and new untracked files.
+      for (const file of (git(dir, ["diff", "--name-only", "HEAD"]) ?? "").split("\n")) if (file) changed.add(file)
+      for (const file of (git(dir, ["ls-files", "--others", "--exclude-standard"]) ?? "").split("\n")) if (file) changed.add(file)
+      const behind = hasIndexed ? Number(git(dir, ["rev-list", "--count", `${indexed}..HEAD`])) : NaN
+      value = {
+        headSha,
+        commitsBehind: Number.isFinite(behind) ? behind : null,
+        changedFiles: [...changed].sort(),
+      }
+    }
+    cache.set(indexed, { at: Date.now(), value })
+    return value
+  }
 }
 
 export function loadRuntimeConfig(env: Record<string, string | undefined> = process.env): RuntimeConfig {
@@ -90,7 +144,8 @@ export function loadRuntimeConfig(env: Record<string, string | undefined> = proc
  */
 export function createHttpBackend(
   getConfig: () => RuntimeConfig,
-  defaultRepository: string | null = null
+  defaultRepository: string | null = null,
+  localChanges?: (repository: RepositoryInfo) => LocalChanges | null
 ): ToolBackend & {
   session(): Promise<SessionResponse>
 } {
@@ -137,6 +192,7 @@ export function createHttpBackend(
     contextPack: (input) => post<ContextPackResponse>("/api/mcp/context-pack", input),
     trace: (input) => post<TraceResponse>("/api/mcp/trace", input),
     listRepositories: () => requestJson<RepositoriesResponse>("/api/mcp/repositories", { method: "GET" }),
+    ...(localChanges ? { localChanges } : {}),
     file: ({ repository, filePath, startChunkIndex, maxChunks }) => {
       const params = new URLSearchParams({ filePath })
       if (repository) params.set("repository", repository)
@@ -178,8 +234,9 @@ async function main() {
 
   // Configuration is read per request, so a missing variable becomes a tool error the
   // agent can show, instead of a process that exits before the client can connect.
-  const defaultRepository = detectDefaultRepository()
-  const backend = createHttpBackend(() => loadRuntimeConfig(), defaultRepository)
+  const checkout = detectLocalCheckout()
+  const defaultRepository = checkout?.repository ?? null
+  const backend = createHttpBackend(() => loadRuntimeConfig(), defaultRepository, createLocalChangesReader(checkout))
 
   if (command === "doctor") {
     const session = await backend.session()

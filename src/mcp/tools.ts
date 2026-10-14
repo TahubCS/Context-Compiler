@@ -19,6 +19,16 @@ export type RepositoryInfo = {
   scanStatus: string
   lastIndexedCommitSha: string | null
   indexFormatVersion: number | null
+  lastScannedAt?: string | Date | null
+}
+
+/** How the agent's local checkout differs from the indexed commit (stdio bridge only). */
+export type LocalChanges = {
+  headSha: string
+  /** Commits on the checkout since the indexed commit; null if that commit is not available locally. */
+  commitsBehind: number | null
+  /** Files that differ from the indexed commit, including uncommitted changes. */
+  changedFiles: string[]
 }
 
 export type SessionResponse = {
@@ -116,6 +126,13 @@ export type ContextPackResponse = {
   selectionReasons: string[]
   omittedDuplicateCount: number
   mode: string
+  tokens?: {
+    used: number
+    budget: number
+    fullFiles: number
+    omittedForBudget: number
+    truncated: boolean
+  }
 }
 
 export type TraceResponse = {
@@ -137,9 +154,11 @@ export type ToolBackend = {
   search(input: Filters & { query: string; limit?: number }): Promise<SearchResponse>
   answer(input: Filters & { question: string; limit?: number }): Promise<AnswerResponse>
   file(input: { repository?: string; filePath: string; startChunkIndex?: number; maxChunks?: number }): Promise<FileResponse>
-  contextPack(input: Filters & { task: string; maxSnippets?: number }): Promise<ContextPackResponse>
+  contextPack(input: Filters & { task: string; maxSnippets?: number; maxTokens?: number }): Promise<ContextPackResponse>
   trace(input: Filters & { query: string; mode?: TraceMode }): Promise<TraceResponse>
   listRepositories(): Promise<RepositoriesResponse>
+  /** Optional: compare the indexed commit with the agent's local checkout. */
+  localChanges?(repository: RepositoryInfo): LocalChanges | null
 }
 
 export function groupResultsByFile(results: SearchResult[]) {
@@ -212,11 +231,51 @@ const filterSchema = {
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const
 
+function age(value: string | Date | null | undefined): string | null {
+  if (!value) return null
+  const ms = Date.now() - new Date(value).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return null
+  const minutes = Math.round(ms / 60000)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 48) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
+type Freshness = { lines: string[]; changed: Set<string> }
+
+/**
+ * States which commit the answer comes from and, when the backend can see the agent's
+ * checkout, which files differ from it, so the agent reads those from disk instead.
+ */
+function freshness(backend: ToolBackend, repository: RepositoryInfo): Freshness {
+  const sha = repository.lastIndexedCommitSha?.slice(0, 7)
+  const scanned = age(repository.lastScannedAt)
+  const lines = [`Index: ${sha ? `commit ${sha}` : "not indexed yet"}${scanned ? `, scanned ${scanned}` : ""}`]
+  const local = sha ? backend.localChanges?.(repository) ?? null : null
+  if (!local || local.changedFiles.length === 0) {
+    if (local) lines.push("Your checkout matches the index.")
+    return { lines, changed: new Set() }
+  }
+  const commits = local.commitsBehind ? ` (${local.commitsBehind} commit(s) since the indexed one)` : ""
+  const shown = local.changedFiles.slice(0, 8).join(", ")
+  const more = local.changedFiles.length > 8 ? ` and ${local.changedFiles.length - 8} more` : ""
+  lines.push(
+    `Your checkout differs from the index in ${local.changedFiles.length} file(s)${commits}: ${shown}${more}. Read those from disk; results marked (changed locally) may be out of date.`
+  )
+  return { lines, changed: new Set(local.changedFiles) }
+}
+
+function mark(filePath: string, fresh: Freshness) {
+  return fresh.changed.has(filePath) ? `${filePath} (changed locally)` : filePath
+}
+
 export function registerContextCompilerTools(server: McpServer, backend: ToolBackend) {
   server.registerTool(
     "search_codebase",
     {
-      description: "Search the bound repository for the best implementation and declaration context.",
+      description:
+        "Find where something is implemented: ranked files and code chunks with the likely declaration site. Use it before opening files when you do not know where code lives. Accepts questions (\"where are JWT tokens validated?\") or identifiers (\"AuthMiddleware\"). Reflects the last indexed commit.",
       inputSchema: {
         query: z.string().min(1),
         ...filterSchema,
@@ -229,12 +288,13 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
         const data = await backend.search({ query, repository, language, fileCategory, pathPrefix, limit })
 
         const groups = groupResultsByFile(data.results)
-        const lines = [`Repository: ${data.repository.fullName}`, `Query: ${query}`, ""]
+        const fresh = freshness(backend, data.repository)
+        const lines = [`Repository: ${data.repository.fullName}`, ...fresh.lines, `Query: ${query}`, ""]
 
         if (data.bestMatch) {
           lines.push("## Best match")
           lines.push(
-            `- ${data.bestMatch.filePath} | ${data.bestMatch.matchReason ?? "Semantic match"} | ${formatChunkRange(
+            `- ${mark(data.bestMatch.filePath, fresh)} | ${data.bestMatch.matchReason ?? "Semantic match"} | ${formatChunkRange(
               data.bestMatch
             )}`
           )
@@ -252,12 +312,12 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
 
         if (data.relatedFiles.length > 0) {
           lines.push("## Read next")
-          lines.push(...data.relatedFiles.map((filePath) => `- ${filePath}`))
+          lines.push(...data.relatedFiles.map((filePath) => `- ${mark(filePath, fresh)}`))
           lines.push("")
         }
 
         for (const group of groups.slice(0, 5)) {
-          lines.push(`## ${group.filePath}`)
+          lines.push(`## ${mark(group.filePath, fresh)}`)
           for (const result of group.results) {
             lines.push(
               `- ${result.matchReason ?? "Semantic match"} | ${result.priorityTier ?? "supporting"} | chunks ${formatChunkRange(
@@ -293,7 +353,8 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
   server.registerTool(
     "answer_repo_question",
     {
-      description: "Ask a repository-level question and get a grounded answer with file-first trust signals.",
+      description:
+        "Explain how something in the repository works, answered from retrieved code with citations and a confidence level. Use for questions like \"how does login work?\"; to find code to edit, prefer search_codebase or build_context_pack. Slower, because it calls a language model.",
       inputSchema: {
         question: z.string().min(1),
         ...filterSchema,
@@ -305,8 +366,10 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       try {
         const data = await backend.answer({ question, repository, language, fileCategory, pathPrefix, limit })
 
+        const fresh = freshness(backend, data.repository)
         const lines = [
           `Repository: ${data.repository.fullName}`,
+          ...fresh.lines,
           "",
           "## Answer",
           data.answer,
@@ -315,7 +378,7 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
         ]
 
         if (data.selectedFiles.length > 0) {
-          lines.push("", "## Files used", ...data.selectedFiles.map((filePath) => `- ${filePath}`))
+          lines.push("", "## Files used", ...data.selectedFiles.map((filePath) => `- ${mark(filePath, fresh)}`))
         }
 
         if (data.missingContext.length > 0) {
@@ -345,7 +408,8 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
   server.registerTool(
     "get_file_context",
     {
-      description: "Retrieve stitched indexed context for a specific file path in the bound repository.",
+      description:
+        "Read an indexed file by repository-relative path, whole or as a window of chunks, as of the last indexed commit. Use after search_codebase to read more of a file. If the file changed in your checkout, read it from disk instead.",
       inputSchema: {
         filePath: z
           .string()
@@ -365,9 +429,11 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
         const data = await backend.file({ repository, filePath, startChunkIndex, maxChunks })
 
         const language = data.file.language ?? ""
+        const fresh = freshness(backend, data.repository)
         const text = [
           `Repository: ${data.repository.fullName}`,
-          `File: ${data.file.filePath}`,
+          ...fresh.lines,
+          `File: ${mark(data.file.filePath, fresh)}`,
           `Chunk window: ${data.file.startChunkIndex}-${data.file.endChunkIndex} of ${data.file.totalChunkCount - 1}`,
           data.file.fileCategory ? `Category: ${data.file.fileCategory}` : null,
           "",
@@ -388,28 +454,32 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
   server.registerTool(
     "build_context_pack",
     {
-      description: "Build a prompt-ready, low-noise working set for a task in the bound repository.",
+      description:
+        "Get the smallest set of code needed for a task, packed into a token budget (default 6000 tokens): ranked snippets, each with why it was chosen. Use at the start of a change in unfamiliar code instead of opening many files.",
       inputSchema: {
         task: z.string().min(1),
         ...filterSchema,
         maxSnippets: z.number().int().min(1).max(10).optional(),
+        maxTokens: z
+          .number()
+          .int()
+          .min(500)
+          .max(30000)
+          .optional()
+          .describe("Token budget for the pack (default 6000). The most relevant code is packed first."),
       },
       annotations: READ_ONLY,
     },
-    async ({ task, repository, language, fileCategory, pathPrefix, maxSnippets }) => {
+    async ({ task, repository, language, fileCategory, pathPrefix, maxSnippets, maxTokens }) => {
       try {
-        const data = await backend.contextPack({ task, repository, language, fileCategory, pathPrefix, maxSnippets })
+        const data = await backend.contextPack({ task, repository, language, fileCategory, pathPrefix, maxSnippets, maxTokens })
 
-        const lines = [
-          `Repository: ${data.repository.fullName}`,
-          `Mode: ${data.mode}`,
-          "",
-          "## Start here",
-          ...data.startHereFiles.map((filePath) => `- ${filePath}`),
-        ]
-
-        if (data.selectionReasons.length > 0) {
-          lines.push("", "## Why these files", ...data.selectionReasons.map((reason) => `- ${reason}`))
+        const fresh = freshness(backend, data.repository)
+        const lines = [...fresh.lines]
+        if (data.tokens) {
+          const saved = data.tokens.fullFiles > data.tokens.used ? `; reading these files in full would be ~${data.tokens.fullFiles}` : ""
+          const left = data.tokens.omittedForBudget > 0 ? `, ${data.tokens.omittedForBudget} lower-ranked snippet(s) left out` : ""
+          lines.push(`Tokens: ~${data.tokens.used} of ${data.tokens.budget} budget${saved}${left}${data.tokens.truncated ? ", last snippet cut" : ""}.`)
         }
 
         lines.push("", data.pack)
@@ -428,7 +498,8 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
   server.registerTool(
     "trace_feature_flow",
     {
-      description: "Trace the likely feature flow through entrypoints, orchestration, persistence, and integrations.",
+      description:
+        "Suggest a read order for how a feature flows through the code (entrypoint, logic, data, integrations) and list the links it could not resolve. Use to understand a flow end to end before changing it. Inferred from search results, so verify it.",
       inputSchema: {
         query: z.string().min(1),
         ...filterSchema,
@@ -440,14 +511,16 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       try {
         const data = await backend.trace({ query, repository, language, fileCategory, pathPrefix, mode })
 
+        const fresh = freshness(backend, data.repository)
         const lines = [
           `Repository: ${data.repository.fullName}`,
+          ...fresh.lines,
           `Query: ${data.query}`,
           "",
-          data.entrypoint ? `Entrypoint: ${data.entrypoint}` : "Entrypoint: not identified",
+          data.entrypoint ? `Entrypoint: ${mark(data.entrypoint, fresh)}` : "Entrypoint: not identified",
           "",
           "## Read order",
-          ...data.readOrder.map((filePath) => `- ${filePath}`),
+          ...data.readOrder.map((filePath) => `- ${mark(filePath, fresh)}`),
         ]
 
         if (data.orchestrationFiles.length > 0) {

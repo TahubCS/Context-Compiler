@@ -135,3 +135,24 @@ export async function getFileChunkCount(repositoryId: string, filePath: string):
     },
   })
 }
+
+/** Character, line and chunk totals per indexed file, for estimating whole-file token counts. */
+export async function getIndexedFileSizes(
+  repositoryId: string,
+  filePaths: string[]
+): Promise<Map<string, { chars: number; lines: number; count: number }>> {
+  if (filePaths.length === 0) return new Map()
+  const rows = await prisma.$queryRaw<Array<{ filePath: string; chars: bigint; lines: bigint; count: bigint }>>`
+    SELECT
+      "filePath",
+      sum(length(content))::bigint AS chars,
+      sum(length(content) - length(replace(content, E'\n', '')))::bigint AS lines,
+      count(*)::bigint AS count
+    FROM "CodeDocument"
+    WHERE "repositoryId" = ${repositoryId}::uuid AND "filePath" = ANY(${filePaths})
+    GROUP BY "filePath"
+  `
+  return new Map(
+    rows.map((row) => [row.filePath, { chars: Number(row.chars), lines: Number(row.lines), count: Number(row.count) }])
+  )
+}

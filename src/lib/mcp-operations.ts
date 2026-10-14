@@ -2,6 +2,7 @@ import { listMcpRepositories, type McpRepository, type ResolvedMcpApiKey } from 
 import {
   answerRepositoryQuestion,
   buildRepositoryContextPack,
+  DEFAULT_PACK_TOKEN_BUDGET,
   getRepositoryFileContext,
   searchRepositoryContextForAgent,
   traceRepositoryFeatureFlow,
@@ -210,7 +211,7 @@ export async function runFileContext(
 
 export async function runContextPack(
   repository: McpRepository,
-  input: McpFilters & { task?: string; maxSnippets?: number }
+  input: McpFilters & { task?: string; maxSnippets?: number; maxTokens?: number }
 ) {
   const task = text(input.task)?.trim()
   if (!task) return invalid("task is required")
@@ -220,7 +221,8 @@ export async function runContextPack(
     repository.fullName,
     task,
     filtersFrom(input),
-    optionalInteger(input.maxSnippets) ?? 6
+    optionalInteger(input.maxSnippets) ?? 6,
+    Math.min(Math.max(optionalInteger(input.maxTokens) ?? DEFAULT_PACK_TOKEN_BUDGET, 500), 30000)
   )
   if (!pack.ok) return pack
 

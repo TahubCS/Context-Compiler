@@ -16,6 +16,10 @@ Every request needs a key: an `Authorization: Bearer ccmcp_...` header for the r
 
 Every repository tool takes the optional `repository` argument plus the filters `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful scan. All tools carry `readOnlyHint: true`.
 
+## Freshness
+
+Every repository tool's text output starts with the commit the index was built from and when it was scanned. The stdio bridge, which runs in the agent's checkout, also compares that commit with the working tree (committed changes since the indexed commit, uncommitted edits, and untracked files). It lists the files that differ and marks them `(changed locally)` in results, so the agent reads those from disk. The remote endpoint cannot see the checkout and reports only the indexed commit.
+
 ## `list_repositories`
 
 No input. Returns the key's scope (`repository` or `workspace`), the workspace, and each repository with its scan status and last indexed commit. Agents use it to find the `repository` value for other tools.
@@ -64,9 +68,12 @@ Build a prompt-ready, ranked working set for a task.
 |---|---|---|
 | `task` | string | Required; at least 1 character. |
 | `language`, `fileCategory`, `pathPrefix` | string | Optional filters. |
-| `maxSnippets` | integer | Optional; 1–10. |
+| `maxSnippets` | integer | Optional; 1–10 (default 6). |
+| `maxTokens` | integer | Optional; 500–30000 (default 6000). Token budget for the pack. |
 
-Output: formatted pack, snippets, selected/start-here files, task summary, selection reasons, duplicate count, and retrieval mode. Example: `{"task":"Add request timeouts to the MCP bridge","maxSnippets":6}`. Output is bounded by indexed chunks, not an entire-file guarantee.
+The pack is filled in rank order: whole snippets first, then the next one cut at a line boundary if at least 150 tokens remain, so it never exceeds the budget. Snippets whose chunks are already in the pack are skipped. Tokens are estimated at four characters each.
+
+Output: formatted pack, the snippets that fit, selected/start-here files, task summary, selection reasons, duplicate count, retrieval mode, and `tokens` (`used`, `budget`, `fullFiles`: the estimated cost of reading the selected files whole, `omittedForBudget`, `truncated`). Example: `{"task":"Add request timeouts to the MCP bridge","maxTokens":4000}`.
 
 ## `trace_feature_flow`
 

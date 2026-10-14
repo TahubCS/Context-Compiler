@@ -18,6 +18,7 @@ export type FileKind =
   | "types"
   | "template"
   | "locale"
+  | "data"
 
 export type FileRole = "entrypoint" | "orchestration" | "persistence" | "integration" | "supporting"
 
@@ -30,6 +31,9 @@ const TEST_RE =
 const MIGRATION_RE =
   /(?:^|\/)(?:migrations?|migrate|alembic\/versions|db\/migrate|flyway|liquibase)\/|(?:^|\/)\d{4,}[_-][^/]*\.(?:sql|rb|py|ts|js)$/i
 const EXAMPLE_RE = /(?:^|\/)(?:examples?|demos?|samples?|fixtures?|mocks?|stories|storybook|playground)\//i
+// Data files (fixtures, API collections, exports). JSON that configures tools is matched by
+// CONFIG_RE first.
+const DATA_RE = /\.(?:json|jsonl|ndjson|csv|tsv|xml|har|geojson)$/i
 const DOCS_RE =
   /\.(?:md|mdx|rst|adoc|txt)$|(?:^|\/)(?:docs?|documentation)\/|(?:^|\/)(?:readme|changelog|license|contributing|agents|claude|code_of_conduct)(?:\.[^/]*)?$/i
 const TYPES_RE = /\.d\.ts$|\.types\.[cm]?tsx?$|(?:^|\/)(?:types|typings|@types)\/[^/]+\.[cm]?tsx?$/i
@@ -94,6 +98,7 @@ export function classifyFile(filePath: string): FileClassification {
   else if (TYPES_RE.test(path)) kind = "types"
   else if (TEMPLATE_RE.test(path)) kind = "template"
   else if (CONFIG_RE.test(path) && roleFor(path) !== "entrypoint") kind = "config"
+  else if (DATA_RE.test(path)) kind = "data"
 
   let role: FileRole = "supporting"
   if (kind === "source" || kind === "template") {
@@ -115,6 +120,7 @@ const KIND_INTENT: Partial<Record<FileKind, RegExp>> = {
   types: /\b(?:types?|typings?|declarations?|interface)\b/i,
   template: /\b(?:templates?|views?|render\w*|json|html|markup)\b/i,
   locale: /\b(?:translat\w*|locali[sz]\w*|locales?|i18n|l10n|languages?)\b/i,
+  data: /\b(?:json|csv|xml|data|dataset|fixtures?|collections?|exports?|samples?|payloads?)\b/i,
 }
 
 /** Score adjustment for a file's kind given the query (0 for source files). */
@@ -139,5 +145,7 @@ export function kindAdjustment(kind: FileKind, query: string): number {
       return wanted ? 5 : -10
     case "locale":
       return wanted ? 5 : -90
+    case "data":
+      return wanted ? 5 : -50
   }
 }

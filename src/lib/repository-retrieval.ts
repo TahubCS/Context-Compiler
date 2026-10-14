@@ -1,8 +1,10 @@
 import {
   getFileChunkCount,
   getFileContextChunks,
+  getIndexedFileSizes,
   type FileContextChunk,
 } from "@/lib/db"
+import { estimateFileTokens, estimateTokens } from "@/lib/tokens"
 import { classifyFile, kindAdjustment, type FileRole } from "@/lib/file-roles"
 import { formatContextPack } from "@/lib/prompt-packs"
 import { getAiBackendHeaders, getAiBackendUrl } from "@/lib/runtime-urls"
@@ -69,7 +71,19 @@ export type RetrievalContextPackResult = {
   selectionReasons: string[]
   omittedDuplicateCount: number
   mode: RetrievalTaskMode
+  tokens: {
+    /** Estimated tokens of `pack`. */
+    used: number
+    budget: number
+    /** Estimated tokens of reading every selected file in full instead. */
+    fullFiles: number
+    /** Ranked snippets left out, and whether the last one was cut, to fit the budget. */
+    omittedForBudget: number
+    truncated: boolean
+  }
 }
+
+export const DEFAULT_PACK_TOKEN_BUDGET = 6000
 
 export type RetrievalTraceResult = {
   entrypoint: string | null
@@ -386,25 +400,34 @@ function buildTaskSummary(task: string, mode: RetrievalTaskMode) {
   }
 }
 
-function buildContextPackText(
+function packSection(snippet: RetrievalSearchResult, content: string) {
+  return [
+    `--- FILE: ${snippet.filePath} (chunks ${snippet.contextStartChunkIndex ?? snippet.chunkIndex}-${
+      snippet.contextEndChunkIndex ?? snippet.chunkIndex
+    }) ---`,
+    `Why: ${snippet.selectionReason ?? "Selected as relevant context."}`,
+    `\`\`\`${snippet.language ?? ""}`,
+    content,
+    "```",
+  ].join("\n")
+}
+
+/** Smallest snippet worth including after cutting it to fit what is left of the budget. */
+const MIN_TRUNCATED_SNIPPET_TOKENS = 150
+
+/**
+ * Packs ranked snippets into a token budget: whole snippets in rank order, then the next
+ * one cut at a line boundary if enough budget is left, so the most relevant code comes
+ * first and the pack never exceeds the budget.
+ */
+function buildBudgetedPack(
   repositoryName: string,
   taskSummary: string,
   snippets: RetrievalSearchResult[],
   startHereFiles: string[],
-  selectionReasons: string[]
+  budget: number
 ) {
-  const sections = snippets.map((snippet) => {
-    const language = snippet.language ?? ""
-    return [
-      `--- FILE: ${snippet.filePath} (chunk ${snippet.primaryChunkIndex ?? snippet.chunkIndex}) ---`,
-      `Reason: ${snippet.selectionReason ?? "Selected as relevant context."}`,
-      `\`\`\`${language}`,
-      snippet.content,
-      "```",
-    ].join("\n")
-  })
-
-  return [
+  const header = [
     "# Context Pack",
     `Repository: ${repositoryName}`,
     "",
@@ -413,12 +436,54 @@ function buildContextPackText(
     "",
     "## Start Here",
     ...startHereFiles.map((filePath) => `- ${filePath}`),
-    ...(selectionReasons.length > 0
-      ? ["", "## Why These Files", ...selectionReasons.map((reason) => `- ${reason}`)]
-      : []),
     "",
-    ...sections,
   ].join("\n")
+
+  let remaining = budget - estimateTokens(header)
+  const sections: string[] = []
+  const included: RetrievalSearchResult[] = []
+  let truncated = false
+
+  const covered = new Map<string, Array<[number, number]>>()
+  const rangeOf = (snippet: RetrievalSearchResult): [number, number] => [
+    snippet.contextStartChunkIndex ?? snippet.chunkIndex,
+    snippet.contextEndChunkIndex ?? snippet.chunkIndex,
+  ]
+
+  for (const snippet of snippets) {
+    // Neighbouring chunks are stitched into each snippet, so two hits in one file can carry
+    // the same code; skip a snippet whose chunks are already in the pack.
+    const [start, end] = rangeOf(snippet)
+    if ((covered.get(snippet.filePath) ?? []).some(([from, to]) => from <= start && end <= to)) continue
+
+    const section = packSection(snippet, snippet.content)
+    const cost = estimateTokens(section) + 1
+    if (cost <= remaining) {
+      sections.push(section)
+      included.push(snippet)
+      covered.set(snippet.filePath, [...(covered.get(snippet.filePath) ?? []), [start, end]])
+      remaining -= cost
+      continue
+    }
+    if (remaining >= MIN_TRUNCATED_SNIPPET_TOKENS) {
+      const note = "\n… (cut to fit the token budget; call get_file_context for the rest)"
+      const overhead = estimateTokens(packSection(snippet, note)) + 1
+      const keepChars = Math.max(0, (remaining - overhead) * 4)
+      const cut = snippet.content.slice(0, keepChars)
+      const content = `${cut.slice(0, Math.max(cut.lastIndexOf("\n"), 0)) || cut}${note}`
+      sections.push(packSection(snippet, content))
+      included.push(snippet)
+      truncated = true
+    }
+    break
+  }
+
+  return {
+    text: [header, ...sections].join("\n"),
+    included,
+    truncated,
+    omitted: snippets.length - included.length,
+  }
 }
 
 function buildTraceResult(selection: AgentSearchSelection): RetrievalTraceResult {
@@ -697,7 +762,8 @@ export async function buildRepositoryContextPack(
   repositoryName: string,
   task: string,
   filters: RetrievalFilters = {},
-  maxSnippets = 6
+  maxSnippets = 6,
+  maxTokens = DEFAULT_PACK_TOKEN_BUDGET
 ): Promise<RetrievalSuccess<RetrievalContextPackResult> | RetrievalFailure> {
   const mode = inferTaskMode(task)
   const search = await searchRepositoryContext(repositoryId, task, filters, RERANK_CANDIDATES)
@@ -706,29 +772,42 @@ export async function buildRepositoryContextPack(
   }
 
   const selection = prepareAgentSearchResults(search.data, task, Math.max(1, maxSnippets), mode)
-  const snippets = selection.results.slice(0, Math.max(1, maxSnippets))
-  const startHereFiles = Array.from(new Set(snippets.map((snippet) => snippet.filePath))).slice(0, 4)
+  const ranked = selection.results.slice(0, Math.max(1, maxSnippets))
   const taskSummary = buildTaskSummary(task, mode)
+  const startHereFiles = Array.from(new Set(ranked.map((snippet) => snippet.filePath))).slice(0, 4)
+  const budgeted = buildBudgetedPack(repositoryName, taskSummary, ranked, startHereFiles, maxTokens)
+  const snippets = budgeted.included
+  const selectedFiles = Array.from(new Set(snippets.map((snippet) => snippet.filePath)))
   const selectionReasons = Array.from(
     new Set(snippets.map((snippet) => `${snippet.filePath}: ${snippet.selectionReason ?? "Relevant context."}`))
   )
 
-  const pack =
-    snippets.length > 0
-      ? buildContextPackText(repositoryName, taskSummary, snippets, startHereFiles, selectionReasons)
-      : formatContextPack(repositoryName, [], task.trim())
+  const fileSizes = await getIndexedFileSizes(repositoryId, selectedFiles).catch(() => new Map())
+  const fullFiles = selectedFiles.reduce((total, filePath) => {
+    const size = fileSizes.get(filePath)
+    return total + (size ? estimateFileTokens(size) : 0)
+  }, 0)
+
+  const pack = snippets.length > 0 ? budgeted.text : formatContextPack(repositoryName, [], task.trim())
 
   return {
     ok: true,
     data: {
       pack,
       snippets,
-      selectedFiles: selection.selectedFiles,
+      selectedFiles,
       startHereFiles,
       taskSummary,
       selectionReasons,
       omittedDuplicateCount: selection.omittedDuplicateCount,
       mode,
+      tokens: {
+        used: estimateTokens(pack),
+        budget: maxTokens,
+        fullFiles,
+        omittedForBudget: budgeted.omitted,
+        truncated: budgeted.truncated,
+      },
     },
   }
 }

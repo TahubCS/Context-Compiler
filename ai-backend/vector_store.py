@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import psycopg
 
 from config import DATABASE_URL, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL
+from text_tokens import query_terms
 
 logger = logging.getLogger("context-compiler.vector_store")
 
@@ -178,6 +179,11 @@ def mark_file_chunks_seen(
     )
 
 
+def _escape_like(value: str) -> str:
+    """Escape LIKE wildcards so user input matches literally (backslash is Postgres' default escape)."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _normalize_optional_filter(value: str | None) -> str | None:
     if value is None:
         return None
@@ -220,7 +226,7 @@ def _semantic_candidates(
     limit: int,
 ) -> list[dict]:
     vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
-    like_path = f"{path_prefix}%" if path_prefix else None
+    like_path = f"{_escape_like(path_prefix)}%" if path_prefix else None
     rows = conn.execute(
         """
         SELECT
@@ -285,13 +291,13 @@ def _lexical_candidates(
     if not normalized_query:
         return []
 
-    like_path_prefix = f"{path_prefix}%" if path_prefix else None
+    like_path_prefix = f"{_escape_like(path_prefix)}%" if path_prefix else None
     is_symbol_style = _is_symbol_style_query(normalized_query)
 
     if is_symbol_style:
         symbol = _extract_symbol_token(normalized_query)
         exact_symbol_re, declaration_re = _compile_symbol_patterns(symbol)
-        token_like = f"%{symbol.lower()}%"
+        token_like = f"%{_escape_like(symbol.lower())}%"
 
         rows = conn.execute(
             """
@@ -351,39 +357,44 @@ def _lexical_candidates(
             )
         return results
 
-    tokens = [token.lower() for token in re.findall(r"[A-Za-z_][\w$-]{2,}", normalized_query)[:4]]
-    if not tokens:
+    terms = query_terms(normalized_query)
+    if not terms:
         return []
 
-    path_patterns = [f"%{token}%" for token in tokens]
+    # Graded matching: count how many distinct query terms each chunk's path and content
+    # contain, so a chunk that matches every term outranks one that shares a single word.
+    patterns = [f"%{_escape_like(term)}%" for term in terms]
     rows = conn.execute(
         """
-        SELECT
-            id::text,
-            "filePath",
-            "chunkIndex",
-            language,
-            "fileCategory",
-            "chunkType",
-            "pathBucket",
-            content,
-            CASE WHEN lower("filePath") LIKE ANY(%s) THEN 1 ELSE 0 END AS path_match,
-            CASE WHEN lower(content) LIKE ANY(%s) THEN 1 ELSE 0 END AS content_match
-        FROM "CodeDocument"
-        WHERE "repositoryId" = %s::uuid
-          AND (%s::text IS NULL OR language = %s)
-          AND (%s::text IS NULL OR "fileCategory" = %s)
-          AND (%s::text IS NULL OR "filePath" ILIKE %s)
-          AND (
-            lower("filePath") LIKE ANY(%s)
-            OR lower(content) LIKE ANY(%s)
-          )
-        ORDER BY path_match DESC, content_match DESC, "chunkIndex" ASC
+        WITH matched AS (
+            SELECT
+                id::text AS id,
+                "filePath",
+                "chunkIndex",
+                language,
+                "fileCategory",
+                "chunkType",
+                "pathBucket",
+                content,
+                (SELECT count(*) FROM unnest(%s::text[]) AS p WHERE lower("filePath") LIKE p) AS path_hits,
+                (SELECT count(*) FROM unnest(%s::text[]) AS p WHERE lower(content) LIKE p) AS content_hits
+            FROM "CodeDocument"
+            WHERE "repositoryId" = %s::uuid
+              AND (%s::text IS NULL OR language = %s)
+              AND (%s::text IS NULL OR "fileCategory" = %s)
+              AND (%s::text IS NULL OR "filePath" ILIKE %s)
+              AND (
+                lower("filePath") LIKE ANY(%s)
+                OR lower(content) LIKE ANY(%s)
+              )
+        )
+        SELECT * FROM matched
+        ORDER BY content_hits + 2 * path_hits DESC, "chunkIndex" ASC
         LIMIT %s
         """,
         (
-            path_patterns,
-            path_patterns,
+            patterns,
+            patterns,
             repository_id,
             language,
             language,
@@ -391,12 +402,13 @@ def _lexical_candidates(
             file_category,
             like_path_prefix,
             like_path_prefix,
-            path_patterns,
-            path_patterns,
+            patterns,
+            patterns,
             limit,
         ),
     ).fetchall()
 
+    term_count = len(terms)
     return [
         {
             "id": row[0],
@@ -407,8 +419,10 @@ def _lexical_candidates(
             "chunkType": row[5],
             "pathBucket": row[6],
             "content": row[7],
-            "pathMatch": bool(row[8]),
-            "contentMatch": bool(row[9]),
+            "pathMatch": int(row[8]) > 0,
+            "contentMatch": int(row[9]) > 0,
+            "pathHitRatio": int(row[8]) / term_count,
+            "contentHitRatio": int(row[9]) / term_count,
         }
         for row in rows
     ]
@@ -462,6 +476,8 @@ def _merge_candidate(candidate_map: dict[str, dict], raw: dict, is_symbol_query:
             "symbolMatch": False,
             "declarationMatch": False,
             "contentMatch": False,
+            "pathHitRatio": 0.0,
+            "contentHitRatio": 0.0,
         },
     )
 
@@ -471,16 +487,21 @@ def _merge_candidate(candidate_map: dict[str, dict], raw: dict, is_symbol_query:
     candidate["symbolMatch"] = candidate["symbolMatch"] or raw.get("symbolMatch", False)
     candidate["declarationMatch"] = candidate["declarationMatch"] or raw.get("declarationMatch", False)
     candidate["contentMatch"] = candidate["contentMatch"] or raw.get("contentMatch", False)
+    candidate["pathHitRatio"] = max(candidate.get("pathHitRatio", 0.0), raw.get("pathHitRatio", 0.0))
+    candidate["contentHitRatio"] = max(candidate.get("contentHitRatio", 0.0), raw.get("contentHitRatio", 0.0))
 
     score = candidate["semanticScore"]
-    if candidate["pathMatch"]:
-        score += 0.22 if is_symbol_query else 0.12
+    if is_symbol_query:
+        if candidate["pathMatch"]:
+            score += 0.22
+    else:
+        # Scaled by the share of query terms matched (0..1).
+        score += 0.15 * candidate["pathHitRatio"]
+        score += 0.35 * candidate["contentHitRatio"]
     if candidate["symbolMatch"]:
         score += 0.42
     if candidate["declarationMatch"]:
         score += 0.38
-    if candidate["contentMatch"] and not is_symbol_query:
-        score += 0.08
     if is_symbol_query and candidate.get("fileCategory") == "source":
         score += 0.08
 

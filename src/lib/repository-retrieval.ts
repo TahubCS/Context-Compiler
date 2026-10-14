@@ -215,7 +215,8 @@ function scoreResult(result: RetrievalSearchResult, query: string, mode: Retriev
       score += 80
       break
     case "Path match":
-      score += 45
+      // The backend already scores path matches by how many query terms they share.
+      score += 15
       break
     default:
       break

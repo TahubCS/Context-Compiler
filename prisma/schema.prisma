@@ -291,6 +291,9 @@ model CodeDocument {
   @@index([repositoryId, fileCategory])
   @@index([repositoryId, pathBucket])
   @@index([repositoryId, lastSeenScanJobId])
+  // Prisma cannot express pgvector's HNSW index, so `db push` creates a btree here, which
+  // rejects 768-dim vectors. `bun run db:setup` replaces it with HNSW; keeping this line
+  // stops later `db push` runs from dropping that index.
   @@index([embedding], map: "idx_code_documents_embedding")
 }
 

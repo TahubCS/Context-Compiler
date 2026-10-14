@@ -68,12 +68,14 @@ The response contains repository metadata, a best match, related files, grouped 
 bun install --frozen-lockfile
 cp .env.example .env.local
 bunx prisma generate
-bunx prisma db push       # development database; review migrations for production
+bun run db:setup          # enables pgvector, runs prisma db push, builds the HNSW vector index
 python -m venv ai-backend/.venv
 ai-backend/.venv/bin/pip install -r ai-backend/requirements.txt
 ```
 
-Fill placeholders in `.env.local`; never paste or commit a complete environment file. The variable inventory is in [`.env.example`](.env.example). At minimum, the web app needs database/Supabase settings. Repository import needs GitHub settings, scanning needs `AI_BACKEND_URL`, `AI_CALLBACK_SECRET`, and the AI service settings, and MCP key issuance needs `MCP_API_KEY_SECRET`.
+`db:setup` is safe to re-run. On an existing database, run `bun ./scripts/ensure-vector-index.ts` once: databases created with plain `prisma db push` have a btree index on the embedding column that rejects every embedding insert.
+
+Fill placeholders in `.env.local`; never paste or commit a complete environment file. The variable inventory is in [`.env.example`](.env.example). At minimum, the web app needs database/Supabase settings. Repository import needs GitHub settings, scanning needs `AI_BACKEND_URL`, `AI_CALLBACK_SECRET`, `AI_BACKEND_SECRET` (the same value on both services), and the AI service settings, and MCP key issuance needs `MCP_API_KEY_SECRET`.
 
 Generate independent high-entropy secrets for callback, webhook, encryption, and MCP-key encryption purposes. `GITHUB_TOKEN_ENCRYPTION_KEY` and `MCP_API_KEY_SECRET` must meet the 32-byte base64 requirements enforced by their implementations.
 
@@ -110,7 +112,7 @@ bun run mcp:doctor
 bun run mcp:stdio
 ```
 
-`mcp:stdio` is normally spawned by a client, not typed interactively. It reserves stdout for MCP protocol frames and sends startup diagnostics to stderr. Required client-process variables are `CONTEXT_COMPILER_BASE_URL` and `CONTEXT_COMPILER_MCP_KEY`; optional `CONTEXT_COMPILER_TIMEOUT_MS` defaults to 15000 and accepts 1000–120000.
+`mcp:stdio` is normally spawned by a client, not typed interactively. It reserves stdout for MCP protocol frames and sends startup diagnostics to stderr. Required client-process variables are `CONTEXT_COMPILER_BASE_URL` and `CONTEXT_COMPILER_MCP_KEY`; optional `CONTEXT_COMPILER_TIMEOUT_MS` defaults to 60000 and accepts 1000–120000.
 
 ## Configuration and security
 
@@ -120,6 +122,7 @@ bun run mcp:stdio
 - Do not put credentials in `CONTEXT_COMPILER_BASE_URL`; the bridge rejects credential-bearing URLs. Keep TLS verification enabled and use HTTPS outside local development.
 - Grant the GitHub App only the repository access and permissions needed for content indexing and webhook events.
 - The scanner sends a short-lived repository credential to the private AI service to clone the repository. Secure that network path and do not expose the AI service publicly without additional controls.
+- Every AI backend route except `/health` requires `Authorization: Bearer $AI_BACKEND_SECRET`, and the service refuses to start without a secret of at least 32 characters. Scans only clone from `ALLOWED_GIT_HOSTS` (default `github.com`), and when `APP_BASE_URL` is set, scan callbacks may only target that origin.
 
 ## Troubleshooting
 

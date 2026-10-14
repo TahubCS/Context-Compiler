@@ -18,22 +18,37 @@ function getPrismaConnectionString() {
   return connectionString
 }
 
-const pool =
-  globalForPrisma.prismaPool ??
-  new Pool({
-    connectionString: getPrismaConnectionString(),
-  })
+function getPrismaClient(): PrismaClient {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma
+  }
 
-const adapter = new PrismaPg(pool)
+  const pool =
+    globalForPrisma.prismaPool ??
+    new Pool({
+      connectionString: getPrismaConnectionString(),
+    })
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter,
+  const client = new PrismaClient({
+    adapter: new PrismaPg(pool),
     log: process.env.NODE_ENV === "development" ? ["warn"] : [],
   })
 
-if (process.env.NODE_ENV !== "production") {
+  // Cached globally in every environment so the lazy client is created once per process
+  // (and survives hot reloads in development).
   globalForPrisma.prismaPool = pool
-  globalForPrisma.prisma = prisma
+  globalForPrisma.prisma = client
+  return client
 }
+
+/**
+ * The client is created on first use rather than at import, so modules that only
+ * import types or pure helpers (and their tests) do not require a database URL.
+ */
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = getPrismaClient()
+    const value = Reflect.get(client, property, client)
+    return typeof value === "function" ? value.bind(client) : value
+  },
+})

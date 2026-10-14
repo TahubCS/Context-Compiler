@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process"
+import path from "node:path"
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
@@ -7,6 +9,7 @@ import {
   type AnswerResponse,
   type ContextPackResponse,
   type FileResponse,
+  type RepositoriesResponse,
   type SearchResponse,
   type SessionResponse,
   type ToolBackend,
@@ -22,6 +25,45 @@ export function requireEnv(name: string): string {
 }
 
 type RuntimeConfig = { baseUrl: string; mcpKey: string; timeoutMs: number }
+
+const DEFAULT_REPOSITORY_HEADER = "X-Context-Compiler-Repository"
+// This bridge's own checkout: `bun run --cwd <clone> mcp:stdio` makes it the process cwd,
+// and its git remote is never the repository the agent is working on.
+const BRIDGE_ROOT = path.resolve(import.meta.dirname ?? __dirname, "..", "..")
+
+/** "owner/name" from a git remote URL (https or ssh), or null. */
+export function repositoryFromRemote(remote: string): string | null {
+  const match = remote.trim().match(/(?:[:/])([^/:\s]+\/[^/\s]+?)(?:\.git)?\/?$/)
+  return match ? match[1] : null
+}
+
+/**
+ * The repository the agent is working in: CONTEXT_COMPILER_REPOSITORY, else the origin
+ * remote of the directory the client started us from. Used as the default `repository`
+ * for workspace keys; repository keys ignore it.
+ */
+export function detectDefaultRepository(env: Record<string, string | undefined> = process.env): string | null {
+  const explicit = env.CONTEXT_COMPILER_REPOSITORY?.trim()
+  if (explicit) return explicit
+
+  const candidates = [env.INIT_CWD, env.PWD, process.cwd()].filter(
+    (dir): dir is string => Boolean(dir) && path.resolve(dir as string) !== BRIDGE_ROOT
+  )
+  for (const dir of new Set(candidates)) {
+    try {
+      const remote = execFileSync("git", ["-C", dir, "remote", "get-url", "origin"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 2000,
+      })
+      const repository = repositoryFromRemote(remote)
+      if (repository) return repository
+    } catch {
+      // Not a git checkout, or no origin remote.
+    }
+  }
+  return null
+}
 
 export function loadRuntimeConfig(env: Record<string, string | undefined> = process.env): RuntimeConfig {
   const baseUrlValue = env.CONTEXT_COMPILER_BASE_URL?.trim()
@@ -46,7 +88,10 @@ export function loadRuntimeConfig(env: Record<string, string | undefined> = proc
  * failures surface as thrown errors, which each tool turns into a readable tool error,
  * so the MCP process stays connected even when the app is unreachable.
  */
-export function createHttpBackend(getConfig: () => RuntimeConfig): ToolBackend & {
+export function createHttpBackend(
+  getConfig: () => RuntimeConfig,
+  defaultRepository: string | null = null
+): ToolBackend & {
   session(): Promise<SessionResponse>
 } {
   async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -56,6 +101,7 @@ export function createHttpBackend(getConfig: () => RuntimeConfig): ToolBackend &
       headers: {
         Authorization: `Bearer ${config.mcpKey}`,
         "Content-Type": "application/json",
+        ...(defaultRepository ? { [DEFAULT_REPOSITORY_HEADER]: defaultRepository } : {}),
         ...(init?.headers ?? {}),
       },
       signal: init?.signal ?? AbortSignal.timeout(config.timeoutMs),
@@ -90,8 +136,10 @@ export function createHttpBackend(getConfig: () => RuntimeConfig): ToolBackend &
     answer: (input) => post<AnswerResponse>("/api/mcp/answer", input),
     contextPack: (input) => post<ContextPackResponse>("/api/mcp/context-pack", input),
     trace: (input) => post<TraceResponse>("/api/mcp/trace", input),
-    file: ({ filePath, startChunkIndex, maxChunks }) => {
+    listRepositories: () => requestJson<RepositoriesResponse>("/api/mcp/repositories", { method: "GET" }),
+    file: ({ repository, filePath, startChunkIndex, maxChunks }) => {
       const params = new URLSearchParams({ filePath })
+      if (repository) params.set("repository", repository)
       if (typeof startChunkIndex === "number") params.set("startChunkIndex", String(startChunkIndex))
       if (typeof maxChunks === "number") params.set("maxChunks", String(maxChunks))
       return requestJson<FileResponse>(`/api/mcp/file?${params.toString()}`, { method: "GET" })
@@ -107,10 +155,12 @@ Usage:
 
 Required environment:
   CONTEXT_COMPILER_BASE_URL  Context Compiler web app origin
-  CONTEXT_COMPILER_MCP_KEY   Repository-bound key (ccmcp_...)
+  CONTEXT_COMPILER_MCP_KEY   Repository or workspace key (ccmcp_...)
 
 Optional environment:
   CONTEXT_COMPILER_TIMEOUT_MS Request timeout, 1000-120000 (default: 60000)
+  CONTEXT_COMPILER_REPOSITORY Default owner/name for workspace keys (default: the
+                              origin remote of the directory the client starts in)
 
 The server uses MCP stdio; stdout is reserved for protocol messages.
 Clients that support remote MCP servers can skip this bridge and connect to
@@ -128,11 +178,20 @@ async function main() {
 
   // Configuration is read per request, so a missing variable becomes a tool error the
   // agent can show, instead of a process that exits before the client can connect.
-  const backend = createHttpBackend(() => loadRuntimeConfig())
+  const defaultRepository = detectDefaultRepository()
+  const backend = createHttpBackend(() => loadRuntimeConfig(), defaultRepository)
 
   if (command === "doctor") {
     const session = await backend.session()
-    console.log(`OK: authenticated to ${session.repository.fullName}; scan status: ${session.repository.scanStatus}`)
+    if (session.repository) {
+      console.log(`OK: repository key for ${session.repository.fullName}; scan status: ${session.repository.scanStatus.toLowerCase()}`)
+    } else {
+      console.log(`OK: workspace key for ${session.workspace.name} (${session.repositories.length} repositories)`)
+      for (const repository of session.repositories) {
+        console.log(`  - ${repository.fullName}: ${repository.scanStatus.toLowerCase()}`)
+      }
+      console.log(defaultRepository ? `Default repository here: ${defaultRepository}` : "No default repository detected here; tools need `repository`.")
+    }
     return
   }
 
@@ -148,7 +207,8 @@ async function main() {
   backend
     .session()
     .then((session) => {
-      console.error(`Context Compiler MCP ready for ${session.repository.fullName} (${session.workspace.name}).`)
+      const target = session.repository?.fullName ?? defaultRepository ?? `${session.repositories.length} repositories`
+      console.error(`Context Compiler MCP ready for ${target} (${session.workspace.name}).`)
     })
     .catch((error: unknown) => {
       console.error(

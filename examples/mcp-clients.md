@@ -58,13 +58,13 @@ gemini mcp add --transport http context-compiler https://your-context-compiler.e
 
 ## Local stdio bridge (only for clients without remote server support)
 
-Requires a clone of this repository with `bun install` run inside it.
+Requires a clone of this repository with `bun install` run inside it. Point the client at the bridge file itself rather than `bun run --cwd … mcp:stdio`: the bridge then starts in your project folder and, with a workspace key, uses that folder's `origin` remote as the default repository (override with `CONTEXT_COMPILER_REPOSITORY`).
 
 ```bash
 claude mcp add context-compiler \
   -e CONTEXT_COMPILER_BASE_URL="https://your-context-compiler.example" \
   -e CONTEXT_COMPILER_MCP_KEY="ccmcp_REPLACE_ME" \
-  -- bun run --cwd "/absolute/path/to/Context-Compiler" mcp:stdio
+  -- bun "/absolute/path/to/Context-Compiler/src/mcp/server.ts"
 ```
 
 ```json
@@ -72,7 +72,7 @@ claude mcp add context-compiler \
   "mcpServers": {
     "context-compiler": {
       "command": "bun",
-      "args": ["run", "--cwd", "/absolute/path/to/Context-Compiler", "mcp:stdio"],
+      "args": ["/absolute/path/to/Context-Compiler/src/mcp/server.ts"],
       "env": {
         "CONTEXT_COMPILER_BASE_URL": "https://your-context-compiler.example",
         "CONTEXT_COMPILER_MCP_KEY": "ccmcp_REPLACE_ME"

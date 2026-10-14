@@ -41,6 +41,11 @@ const backend: ToolBackend = {
   file: async () => failing(),
   contextPack: async () => failing(),
   trace: async () => failing(),
+  listRepositories: async () => ({
+    scope: "workspace",
+    workspace: { id: "w1", name: "Acme", slug: "acme" },
+    repositories: [repository],
+  }),
 }
 
 async function connect() {
@@ -54,13 +59,14 @@ async function connect() {
 }
 
 describe("Context Compiler MCP tools", () => {
-  test("registers the five read-only tools", async () => {
+  test("registers the read-only tools", async () => {
     const client = await connect()
     const { tools } = await client.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "answer_repo_question",
       "build_context_pack",
       "get_file_context",
+      "list_repositories",
       "search_codebase",
       "trace_feature_flow",
     ])
@@ -89,6 +95,14 @@ describe("Context Compiler MCP tools", () => {
     const client = await connect()
     const response = await client.callTool({ name: "get_file_context", arguments: { filePath: "../secrets.env" } })
     expect(response.isError).toBe(true)
+  })
+
+  test("lists repositories with their index state", async () => {
+    const client = await connect()
+    const response = await client.callTool({ name: "list_repositories", arguments: {} })
+    const text = (response.content as Array<{ text: string }>)[0].text
+    expect(text).toContain("Acme (workspace key)")
+    expect(text).toContain("acme/demo: completed, indexed at abc123")
   })
 
   test("reports the package version", () => {

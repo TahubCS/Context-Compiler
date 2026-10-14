@@ -28,11 +28,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 type McpKeyItem = {
   id: string
+  repositoryId: string | null
   name: string
   keyPrefix: string
   lastUsedAt: string | null
@@ -56,19 +58,24 @@ function formatTimestamp(value: string | null) {
 
 type Step = { title: string; body: string }
 
-function claudeSteps(repositoryName: string): Step[] {
+function claudeSteps(repositoryName: string, workspaceScope: boolean): Step[] {
   return [
-    {
-      title: `Open a terminal in your checkout of ${repositoryName}`,
-      body: "Use PowerShell (Windows) or Terminal (Mac/Linux), not the Claude app. The key only works for this repository, and running the command there keeps the server scoped to this project.",
-    },
+    workspaceScope
+      ? {
+          title: "Open any terminal",
+          body: "Use PowerShell (Windows) or Terminal (Mac/Linux), not the Claude app. The -s user flag registers the server for every project, and the agent passes the repository it is working in on each call.",
+        }
+      : {
+          title: `Open a terminal in your checkout of ${repositoryName}`,
+          body: "Use PowerShell (Windows) or Terminal (Mac/Linux), not the Claude app. The key only works for this repository, and running the command there keeps the server scoped to this project.",
+        },
     {
       title: "Run the command",
-      body: "It registers the remote server in Claude Code's config (~/.claude.json). Nothing to clone or install. Add -s user if you want the server in every project.",
+      body: "It registers the remote server in Claude Code's config (~/.claude.json). Nothing to clone or install.",
     },
     {
       title: "Check it with /mcp",
-      body: "Start claude in the same folder and type /mcp. context-compiler should show as connected with five tools: search_codebase, answer_repo_question, get_file_context, build_context_pack and trace_feature_flow.",
+      body: "Start claude and type /mcp. context-compiler should show as connected with its tools: search_codebase, answer_repo_question, get_file_context, build_context_pack, trace_feature_flow and list_repositories.",
     },
   ]
 }
@@ -84,7 +91,7 @@ const CODEX_STEPS: Step[] = [
   },
   {
     title: "Restart Codex",
-    body: "Start a new Codex session and run /mcp to see context-compiler and its five tools.",
+    body: "Start a new Codex session and run /mcp to see context-compiler and its tools.",
   },
 ]
 
@@ -95,7 +102,7 @@ const GEMINI_STEPS: Step[] = [
   },
   {
     title: "Check it",
-    body: "Run gemini mcp list, or type /mcp inside Gemini CLI. context-compiler should list five tools.",
+    body: "Run gemini mcp list, or type /mcp inside Gemini CLI. context-compiler should list its tools.",
   },
 ]
 
@@ -182,6 +189,7 @@ export function RepoMcpSetupDialog({
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null)
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null)
   const [localProjectPath, setLocalProjectPath] = useState("")
+  const [workspaceScope, setWorkspaceScope] = useState(false)
 
   // Prefer the configured public URL (inlined at build time) so snippets point at the
   // deployed app even when this page is served from a local dev server.
@@ -194,9 +202,13 @@ export function RepoMcpSetupDialog({
   ).replace(/\/+$/, "")
   const mcpUrl = `${resolvedBaseUrl}/api/mcp`
   const keyValue = plaintextKey || "<paste-your-repo-key>"
-  const cwd = localProjectPath.trim() || "<path-to-context-compiler>"
+  const cwd = (localProjectPath.trim() || "<path-to-context-compiler>").replace(/[\\/]+$/, "")
+  // Run the bridge file directly (not `bun run --cwd`), so it starts in the agent's project
+  // folder and can read that folder's git remote to pick the repository.
+  const bridgeScript = `${cwd}/src/mcp/server.ts`
 
-  const claudeRemoteSnippet = `claude mcp add --transport http context-compiler ${mcpUrl} --header "Authorization: Bearer ${keyValue}"`
+  // A workspace key works in every project, so register it for the user rather than one folder.
+  const claudeRemoteSnippet = `claude mcp add --transport http${workspaceScope ? " -s user" : ""} context-compiler ${mcpUrl} --header "Authorization: Bearer ${keyValue}"`
 
   const codexRemoteSnippet = [
     `export CONTEXT_COMPILER_MCP_KEY="${keyValue}"`,
@@ -236,7 +248,7 @@ export function RepoMcpSetupDialog({
           mcpServers: {
             "context-compiler": {
               command: "bun",
-              args: ["run", "--cwd", cwd, "mcp:stdio"],
+              args: [bridgeScript],
               env: {
                 CONTEXT_COMPILER_BASE_URL: resolvedBaseUrl,
                 CONTEXT_COMPILER_MCP_KEY: keyValue,
@@ -247,10 +259,10 @@ export function RepoMcpSetupDialog({
         null,
         2
       ),
-    [cwd, resolvedBaseUrl, keyValue]
+    [bridgeScript, resolvedBaseUrl, keyValue]
   )
 
-  const claudeStdioSnippet = `claude mcp add context-compiler -e CONTEXT_COMPILER_BASE_URL="${resolvedBaseUrl}" -e CONTEXT_COMPILER_MCP_KEY="${keyValue}" -- bun run --cwd "${cwd}" mcp:stdio`
+  const claudeStdioSnippet = `claude mcp add context-compiler -e CONTEXT_COMPILER_BASE_URL="${resolvedBaseUrl}" -e CONTEXT_COMPILER_MCP_KEY="${keyValue}" -- bun "${bridgeScript}"`
 
   const loadKeys = useCallback(async () => {
     setIsLoading(true)
@@ -275,7 +287,7 @@ export function RepoMcpSetupDialog({
       const response = await fetch(`/api/repo/${repoId}/mcp-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), scope: workspaceScope ? "workspace" : "repository" }),
       })
       const data = (await response.json()) as {
         key?: McpKeyItem
@@ -423,9 +435,23 @@ export function RepoMcpSetupDialog({
                     {isSubmitting ? "Creating..." : "Create Repo Key"}
                   </Button>
                 </div>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  The key authenticates as you, but only for this repository.
-                </p>
+                <div className="mt-4 flex items-start gap-3">
+                  <Switch
+                    id="mcp-key-workspace-scope"
+                    checked={workspaceScope}
+                    onCheckedChange={setWorkspaceScope}
+                  />
+                  <Label htmlFor="mcp-key-workspace-scope" className="block space-y-1 font-normal">
+                    <span className="block text-sm font-medium text-foreground">
+                      Every repository in this workspace
+                    </span>
+                    <span className="block text-sm leading-6 text-muted-foreground">
+                      {workspaceScope
+                        ? "One key and one registration for all your repositories. The agent picks the repository it is working in on each call."
+                        : `The key authenticates as you, but only for ${repositoryName}.`}
+                    </span>
+                  </Label>
+                </div>
               </div>
 
               {/* Inline plaintext reveal */}
@@ -501,7 +527,7 @@ export function RepoMcpSetupDialog({
                       onCopy={copyText}
                       minHeight="min-h-28"
                     />
-                    <StepList steps={claudeSteps(repositoryName)} />
+                    <StepList steps={claudeSteps(repositoryName, workspaceScope)} />
                   </div>
                 </TabsContent>
 
@@ -623,6 +649,7 @@ export function RepoMcpSetupDialog({
                             <Badge variant={isRevoked ? "outline" : "secondary"}>
                               {isRevoked ? "Revoked" : "Active"}
                             </Badge>
+                            {key.repositoryId === null ? <Badge variant="outline">Workspace</Badge> : null}
                             {isFreshlyCreated ? <Badge>Just created</Badge> : null}
                           </div>
                           <p className="font-mono text-xs text-muted-foreground">

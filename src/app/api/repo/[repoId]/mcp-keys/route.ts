@@ -79,15 +79,17 @@ export async function POST(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Repository not found" }, { status: 404 })
     }
 
-    let body: { name?: string }
+    let body: { name?: string; scope?: string }
     try {
-      body = (await req.json()) as { name?: string }
+      body = (await req.json()) as { name?: string; scope?: string }
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
 
     const name = body.name?.trim() || "Local agent key"
-    const created = await createMcpApiKeyForRepository(repoId, workspace.id, user.id, name)
+    // A workspace key reads every repository in the workspace; agents pick one per call.
+    const keyRepositoryId = body.scope === "workspace" ? null : repoId
+    const created = await createMcpApiKeyForRepository(keyRepositoryId, workspace.id, user.id, name)
 
     return NextResponse.json({
       key: created.apiKey,

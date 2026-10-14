@@ -231,7 +231,8 @@ model McpApiKey {
   id           String     @id @default(uuid()) @db.Uuid
   userId       String     @db.Uuid
   workspaceId  String     @db.Uuid
-  repositoryId String     @db.Uuid
+  /// Null for a workspace key, which can read every repository in the workspace.
+  repositoryId String?    @db.Uuid
   name         String
   keyPrefix    String
   keyHash      String     @unique
@@ -240,7 +241,7 @@ model McpApiKey {
   createdAt    DateTime   @default(now())
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   Repository? @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   @@index([userId, repositoryId, createdAt])
   @@index([workspaceId, repositoryId, createdAt])

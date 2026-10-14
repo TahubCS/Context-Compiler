@@ -1,5 +1,10 @@
-import { authenticateMcpRequest, mcpUnauthorizedResponse, operationResponse } from "@/lib/mcp-request"
-import { runFileContext } from "@/lib/mcp-operations"
+import {
+  authenticateMcpRequest,
+  mcpUnauthorizedResponse,
+  operationResponse,
+  requestedRepository,
+} from "@/lib/mcp-request"
+import { runFileContext, withRepository } from "@/lib/mcp-operations"
 
 function integerParam(value: string | null): number | null {
   if (value === null) return null
@@ -15,10 +20,12 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   return operationResponse(
-    await runFileContext(apiKey.repository, {
-      filePath: url.searchParams.get("filePath") ?? undefined,
-      startChunkIndex: integerParam(url.searchParams.get("startChunkIndex")),
-      maxChunks: integerParam(url.searchParams.get("maxChunks")),
-    })
+    await withRepository(apiKey, requestedRepository(req, url.searchParams.get("repository")), (repository) =>
+      runFileContext(repository, {
+        filePath: url.searchParams.get("filePath") ?? undefined,
+        startChunkIndex: integerParam(url.searchParams.get("startChunkIndex")),
+        maxChunks: integerParam(url.searchParams.get("maxChunks")),
+      })
+    )
   )
 }

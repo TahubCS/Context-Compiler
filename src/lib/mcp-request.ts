@@ -42,3 +42,12 @@ export function operationResponse<T>(result: McpOperationResult<T>) {
     ? NextResponse.json(result.data)
     : NextResponse.json({ error: result.error }, { status: result.status })
 }
+
+/** Clients can set a default repository for workspace keys, e.g. per project. */
+export const DEFAULT_REPOSITORY_HEADER = "x-context-compiler-repository"
+
+/** The repository a request asks for: the explicit argument, else the client's default header. */
+export function requestedRepository(req: Request, explicit?: unknown): string | null {
+  if (typeof explicit === "string" && explicit.trim()) return explicit
+  return req.headers.get(DEFAULT_REPOSITORY_HEADER)
+}

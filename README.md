@@ -7,13 +7,14 @@ Context Compiler turns a GitHub repository into a searchable, repository-bound c
 ## Verified capabilities
 
 - Hybrid semantic and lexical repository search with language, category, and path filters.
+- Repository keys (one repository) or workspace keys (every repository in a workspace; the agent picks one per call, or the stdio bridge picks the checkout it starts in).
 - Grounded repository answers with citations and a non-generative fallback.
 - Prompt-ready context packs and indexed file chunk retrieval.
 - Retrieval-based feature-flow/read-order suggestions.
 - Incremental GitHub scans, GitHub App reconciliation/webhooks, repository-bound MCP API keys, workspaces, saved carts/answers, notifications, and optional Stripe billing.
 - Two MCP transports: a remote **Streamable HTTP** endpoint at `/api/mcp` (nothing to install on the client) and an optional local **stdio** bridge that forwards to the same app.
 
-Context Compiler currently registers five MCP tools. It registers no MCP resources or prompts. See the complete [MCP reference](docs/MCP_REFERENCE.md).
+Context Compiler currently registers six MCP tools. It registers no MCP resources or prompts. See the complete [MCP reference](docs/MCP_REFERENCE.md).
 
 ## Architecture
 
@@ -150,7 +151,7 @@ For Python dependency-isolated work, create the virtual environment above and ad
 
 ## Current limitations and follow-up work
 
-- Each MCP key is bound to one repository, so each repository needs its own registration. Workspace-wide keys and an `npx` installer are planned in [docs/PLAN.md](docs/PLAN.md).
+- Connecting still means copying a key into each agent's command; an `npx` installer that signs in through the browser and registers every installed agent is planned in [docs/PLAN.md](docs/PLAN.md).
 - The MCP surface has tools only—no resources, prompts, subscriptions, or write operations.
 - Full self-hosting is operationally involved and lacks a single compose file, automated environment doctor for every web/AI integration, and end-to-end tests with ephemeral PostgreSQL/pgvector.
 - Indexed content can be stale until a scan completes. Feature-flow and Q&A outputs are retrieval/model-assisted and should be verified before edits.

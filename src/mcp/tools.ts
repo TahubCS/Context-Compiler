@@ -22,12 +22,15 @@ export type RepositoryInfo = {
 }
 
 export type SessionResponse = {
+  key: { scope: "repository" | "workspace" }
   workspace: {
     id: string
     name: string
     slug: string
   }
-  repository: RepositoryInfo
+  /** Set for repository keys; null for workspace keys. */
+  repository: RepositoryInfo | null
+  repositories: RepositoryInfo[]
   user: {
     id: string
     email: string
@@ -54,9 +57,17 @@ export type SearchResult = {
 }
 
 export type Filters = {
+  /** owner/name; defaults to the key's repository or the client's default. */
+  repository?: string
   language?: string
   fileCategory?: string
   pathPrefix?: string
+}
+
+export type RepositoriesResponse = {
+  scope: "repository" | "workspace"
+  workspace: { id: string; name: string; slug: string }
+  repositories: Array<RepositoryInfo & { lastScannedAt?: string | Date | null }>
 }
 
 export type SearchResponse = {
@@ -125,9 +136,10 @@ export type TraceMode = "auto" | "feature" | "symbol" | "route"
 export type ToolBackend = {
   search(input: Filters & { query: string; limit?: number }): Promise<SearchResponse>
   answer(input: Filters & { question: string; limit?: number }): Promise<AnswerResponse>
-  file(input: { filePath: string; startChunkIndex?: number; maxChunks?: number }): Promise<FileResponse>
+  file(input: { repository?: string; filePath: string; startChunkIndex?: number; maxChunks?: number }): Promise<FileResponse>
   contextPack(input: Filters & { task: string; maxSnippets?: number }): Promise<ContextPackResponse>
   trace(input: Filters & { query: string; mode?: TraceMode }): Promise<TraceResponse>
+  listRepositories(): Promise<RepositoriesResponse>
 }
 
 export function groupResultsByFile(results: SearchResult[]) {
@@ -183,7 +195,16 @@ function formatChunkRange(result: SearchResult) {
   return `${result.contextStartChunkIndex ?? result.chunkIndex}-${result.contextEndChunkIndex ?? result.chunkIndex}`
 }
 
+const repositorySchema = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    "GitHub owner/name of the repository to use (git remote get-url origin shows it). Needed only with a workspace key that covers several repositories."
+  )
+
 const filterSchema = {
+  repository: repositorySchema,
   language: z.string().min(1).optional().describe("Only search files in this language, e.g. typescript or python."),
   fileCategory: z.string().min(1).optional().describe("Only search this file category, e.g. source, docs, config, test."),
   pathPrefix: z.string().min(1).optional().describe("Only search under this repository-relative path, e.g. src/auth/."),
@@ -203,9 +224,9 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       },
       annotations: READ_ONLY,
     },
-    async ({ query, language, fileCategory, pathPrefix, limit }) => {
+    async ({ query, repository, language, fileCategory, pathPrefix, limit }) => {
       try {
-        const data = await backend.search({ query, language, fileCategory, pathPrefix, limit })
+        const data = await backend.search({ query, repository, language, fileCategory, pathPrefix, limit })
 
         const groups = groupResultsByFile(data.results)
         const lines = [`Repository: ${data.repository.fullName}`, `Query: ${query}`, ""]
@@ -280,9 +301,9 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       },
       annotations: READ_ONLY,
     },
-    async ({ question, language, fileCategory, pathPrefix, limit }) => {
+    async ({ question, repository, language, fileCategory, pathPrefix, limit }) => {
       try {
-        const data = await backend.answer({ question, language, fileCategory, pathPrefix, limit })
+        const data = await backend.answer({ question, repository, language, fileCategory, pathPrefix, limit })
 
         const lines = [
           `Repository: ${data.repository.fullName}`,
@@ -335,12 +356,13 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
           }),
         startChunkIndex: z.number().int().min(0).optional(),
         maxChunks: z.number().int().min(1).max(24).optional(),
+        repository: repositorySchema,
       },
       annotations: READ_ONLY,
     },
-    async ({ filePath, startChunkIndex, maxChunks }) => {
+    async ({ filePath, startChunkIndex, maxChunks, repository }) => {
       try {
-        const data = await backend.file({ filePath, startChunkIndex, maxChunks })
+        const data = await backend.file({ repository, filePath, startChunkIndex, maxChunks })
 
         const language = data.file.language ?? ""
         const text = [
@@ -374,9 +396,9 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       },
       annotations: READ_ONLY,
     },
-    async ({ task, language, fileCategory, pathPrefix, maxSnippets }) => {
+    async ({ task, repository, language, fileCategory, pathPrefix, maxSnippets }) => {
       try {
-        const data = await backend.contextPack({ task, language, fileCategory, pathPrefix, maxSnippets })
+        const data = await backend.contextPack({ task, repository, language, fileCategory, pathPrefix, maxSnippets })
 
         const lines = [
           `Repository: ${data.repository.fullName}`,
@@ -414,9 +436,9 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       },
       annotations: READ_ONLY,
     },
-    async ({ query, language, fileCategory, pathPrefix, mode }) => {
+    async ({ query, repository, language, fileCategory, pathPrefix, mode }) => {
       try {
-        const data = await backend.trace({ query, language, fileCategory, pathPrefix, mode })
+        const data = await backend.trace({ query, repository, language, fileCategory, pathPrefix, mode })
 
         const lines = [
           `Repository: ${data.repository.fullName}`,
@@ -450,4 +472,36 @@ export function registerContextCompilerTools(server: McpServer, backend: ToolBac
       }
     }
   )
+
+  server.registerTool(
+    "list_repositories",
+    {
+      description:
+        "List the repositories this key can search, with each one's scan status and indexed commit. Use it to find the `repository` value for other tools.",
+      inputSchema: {},
+      annotations: READ_ONLY,
+    },
+    async () => {
+      try {
+        const data = await backend.listRepositories()
+        const lines = [
+          `Workspace: ${data.workspace.name} (${data.scope} key)`,
+          "",
+          ...data.repositories.map(
+            (repository) =>
+              `- ${repository.fullName}: ${repository.scanStatus.toLowerCase()}${
+                repository.lastIndexedCommitSha ? `, indexed at ${repository.lastIndexedCommitSha.slice(0, 7)}` : ", not indexed yet"
+              }`
+          ),
+        ]
+        if (data.repositories.length === 0) {
+          lines.push("No repositories yet. Import and scan one in Context Compiler.")
+        }
+        return textResult(lines.join("\n"), data)
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : "Listing repositories failed.")
+      }
+    }
+  )
+
 }

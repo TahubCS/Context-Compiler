@@ -1,4 +1,4 @@
-import type { ResolvedMcpApiKey } from "@/lib/db"
+import { listMcpRepositories, type McpRepository, type ResolvedMcpApiKey } from "@/lib/db"
 import {
   answerRepositoryQuestion,
   buildRepositoryContextPack,
@@ -13,7 +13,7 @@ import {
  * and the remote Streamable HTTP endpoint at /api/mcp.
  */
 
-export type McpRepository = ResolvedMcpApiKey["repository"]
+export type { McpRepository }
 
 export type McpOperationResult<T> =
   | { ok: true; data: T }
@@ -48,7 +48,82 @@ function optionalInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) ? value : null
 }
 
-export function describeSession(apiKey: ResolvedMcpApiKey) {
+/**
+ * Normalizes the ways an agent may name a repository ("owner/name", a GitHub URL, or an
+ * SSH remote such as git@github.com:owner/name.git) to a lowercase "owner/name".
+ */
+export function normalizeRepositoryRef(ref: string): string {
+  return ref
+    .trim()
+    .replace(/^git@[^:]+:/i, "")
+    .replace(/^(?:https?|ssh|git):\/\/(?:[^@/]+@)?[^/]+\//i, "")
+    .replace(/\.git$/i, "")
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase()
+}
+
+function repositoryChoices(repositories: McpRepository[]) {
+  return repositories.map((repository) => repository.fullName).join(", ")
+}
+
+/**
+ * Picks the repository a tool call is about. A repository key always uses its own
+ * repository; a workspace key uses the requested one (from the tool's `repository`
+ * argument or the client's default header), or the only repository in the workspace.
+ */
+export async function resolveRepository(
+  apiKey: ResolvedMcpApiKey,
+  requested: string | null | undefined
+): Promise<McpOperationResult<McpRepository>> {
+  const wanted = requested?.trim() ? normalizeRepositoryRef(requested) : null
+
+  if (apiKey.repository) {
+    if (wanted && wanted !== apiKey.repository.fullName.toLowerCase()) {
+      return {
+        ok: false,
+        status: 403,
+        error: `This key only covers ${apiKey.repository.fullName}, not ${requested}. Use a workspace key or a key for that repository.`,
+      }
+    }
+    return { ok: true, data: apiKey.repository }
+  }
+
+  const repositories = await listMcpRepositories(apiKey)
+  if (wanted) {
+    const match = repositories.find((repository) => repository.fullName.toLowerCase() === wanted)
+    if (match) return { ok: true, data: match }
+    return {
+      ok: false,
+      status: 404,
+      error: `${requested} is not in the ${apiKey.workspace.name} workspace. Available: ${repositoryChoices(repositories) || "none yet"}.`,
+    }
+  }
+  if (repositories.length === 1) {
+    return { ok: true, data: repositories[0] }
+  }
+  return {
+    ok: false,
+    status: 400,
+    error:
+      repositories.length === 0
+        ? `The ${apiKey.workspace.name} workspace has no repositories yet. Import and scan one in Context Compiler first.`
+        : `This workspace key covers several repositories, so pass \`repository\` as owner/name (in a checkout, \`git remote get-url origin\` shows it). Available: ${repositoryChoices(repositories)}.`,
+  }
+}
+
+export async function runListRepositories(apiKey: ResolvedMcpApiKey) {
+  const repositories = await listMcpRepositories(apiKey)
+  return {
+    ok: true as const,
+    data: {
+      scope: apiKey.repository ? ("repository" as const) : ("workspace" as const),
+      workspace: apiKey.workspace,
+      repositories,
+    },
+  }
+}
+
+export async function describeSession(apiKey: ResolvedMcpApiKey) {
   return {
     key: {
       id: apiKey.id,
@@ -56,9 +131,11 @@ export function describeSession(apiKey: ResolvedMcpApiKey) {
       keyPrefix: apiKey.keyPrefix,
       createdAt: apiKey.createdAt,
       lastUsedAt: apiKey.lastUsedAt,
+      scope: apiKey.repository ? ("repository" as const) : ("workspace" as const),
     },
     workspace: apiKey.workspace,
     repository: apiKey.repository,
+    repositories: await listMcpRepositories(apiKey),
     user: apiKey.user,
   }
 }
@@ -166,4 +243,14 @@ export async function runTrace(
   if (!trace.ok) return trace
 
   return { ok: true as const, data: { repository, query, ...trace.data } }
+}
+
+/** Resolves the call's repository, then runs the operation against it. */
+export async function withRepository<T>(
+  apiKey: ResolvedMcpApiKey,
+  requested: string | null | undefined,
+  run: (repository: McpRepository) => Promise<McpOperationResult<T>>
+): Promise<McpOperationResult<T>> {
+  const resolved = await resolveRepository(apiKey, requested)
+  return resolved.ok ? run(resolved.data) : resolved
 }

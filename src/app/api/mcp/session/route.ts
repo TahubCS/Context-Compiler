@@ -8,5 +8,5 @@ export async function GET(req: Request) {
     return mcpUnauthorizedResponse()
   }
 
-  return NextResponse.json(describeSession(apiKey))
+  return NextResponse.json(await describeSession(apiKey))
 }

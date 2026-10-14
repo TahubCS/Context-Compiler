@@ -114,13 +114,18 @@ export async function resolveRepository(
   }
 }
 
+/** The workspace fields agents see (the key record also carries internal GitHub settings). */
+function publicWorkspace(apiKey: ResolvedMcpApiKey) {
+  return { id: apiKey.workspace.id, name: apiKey.workspace.name, slug: apiKey.workspace.slug }
+}
+
 export async function runListRepositories(apiKey: ResolvedMcpApiKey) {
   const repositories = await listMcpRepositories(apiKey)
   return {
     ok: true as const,
     data: {
       scope: apiKey.repository ? ("repository" as const) : ("workspace" as const),
-      workspace: apiKey.workspace,
+      workspace: publicWorkspace(apiKey),
       repositories,
     },
   }
@@ -136,7 +141,7 @@ export async function describeSession(apiKey: ResolvedMcpApiKey) {
       lastUsedAt: apiKey.lastUsedAt,
       scope: apiKey.repository ? ("repository" as const) : ("workspace" as const),
     },
-    workspace: apiKey.workspace,
+    workspace: publicWorkspace(apiKey),
     repository: apiKey.repository,
     repositories: await listMcpRepositories(apiKey),
     user: apiKey.user,

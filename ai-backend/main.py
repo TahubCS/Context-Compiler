@@ -38,6 +38,9 @@ def require_backend_auth(authorization: str | None = Header(default=None)) -> No
 
 AUTH = [Depends(require_backend_auth)]
 
+# Upper bound on chunks per search; the web app re-ranks up to this many candidates.
+MAX_RESULTS = 40
+
 
 class ScanRequest(BaseModel):
     scan_job_id: str
@@ -146,7 +149,7 @@ def search_repository(body: SearchRequest):
                 repository_id=body.repository_id,
                 query=query,
                 query_vector=embedding,
-                limit=max(1, min(body.limit, 12)),
+                limit=max(1, min(body.limit, MAX_RESULTS)),
                 language=body.language,
                 file_category=body.file_category,
                 path_prefix=body.path_prefix,
@@ -182,7 +185,7 @@ def answer_question(body: AnswerRequest):
                     repository_id=body.repository_id,
                     query=question,
                     query_vector=embedding,
-                    limit=max(1, min(body.limit, 12)),
+                    limit=max(1, min(body.limit, MAX_RESULTS)),
                     language=body.language,
                     file_category=body.file_category,
                     path_prefix=body.path_prefix,

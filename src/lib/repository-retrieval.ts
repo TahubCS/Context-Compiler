@@ -3,8 +3,12 @@ import {
   getFileContextChunks,
   type FileContextChunk,
 } from "@/lib/db"
+import { classifyFile, kindAdjustment, type FileRole } from "@/lib/file-roles"
 import { formatContextPack } from "@/lib/prompt-packs"
 import { getAiBackendHeaders, getAiBackendUrl } from "@/lib/runtime-urls"
+
+/** Chunks fetched from the AI backend before re-ranking; the ranker can only reorder what it sees. */
+const RERANK_CANDIDATES = 30
 
 export type RetrievalFilters = {
   language?: string | null
@@ -89,13 +93,7 @@ type AgentSearchSelection = {
   omittedDuplicateCount: number
 }
 
-type FileRole = "entrypoint" | "orchestration" | "persistence" | "integration" | "supporting"
-
 const SYMBOL_QUERY_RE = /^[A-Za-z_$][\w$]*(?:[.:][A-Za-z_$][\w$]*)*$/
-const EXAMPLE_LIKE_RE =
-  /(?:^|\/)(?:examples?|demo|sample|fixtures?|mocks?|stories?|storybook|__tests__|tests?|specs?)(?:\/|$)/i
-const GENERATED_LIKE_RE =
-  /(?:^|\/)(?:dist|build|coverage|generated|vendor|node_modules|\.next)(?:\/|$)/i
 const ROUTE_WRAPPER_RE = /(?:^|\/)(?:page|route|layout|loading|template)\.(?:t|j)sx?$/i
 
 function trimFilter(value: string | null | undefined): string | null {
@@ -145,27 +143,7 @@ function inferTaskMode(input: string): RetrievalTaskMode {
 }
 
 function classifyFileRole(filePath: string): FileRole {
-  if (/(?:^|\/)src\/app\/.+\/(?:page|route|layout)\.(?:t|j)sx?$/i.test(filePath)) {
-    return "entrypoint"
-  }
-  if (/(?:^|\/)src\/lib\/db\//i.test(filePath) || /(?:^|\/)prisma\//i.test(filePath)) {
-    return "persistence"
-  }
-  if (/(?:^|\/)ai-backend\//i.test(filePath) || /github-app|stripe|billing|supabase/i.test(filePath)) {
-    return "integration"
-  }
-  if (/(?:^|\/)src\/lib\//i.test(filePath)) {
-    return "orchestration"
-  }
-  return "supporting"
-}
-
-function isExampleLikePath(filePath: string) {
-  return EXAMPLE_LIKE_RE.test(filePath)
-}
-
-function isGeneratedLikePath(filePath: string) {
-  return GENERATED_LIKE_RE.test(filePath)
+  return classifyFile(filePath).role
 }
 
 function buildSelectionReason(
@@ -197,9 +175,32 @@ function buildSelectionReason(
   return "Ranked as a supporting implementation match."
 }
 
+const PERSISTENCE_QUERY_RE =
+  /\b(?:db|database|schema|models?|tables?|columns?|fields?|stored?|persist\w*|quer(?:y|ies)|records?|orm)\b/i
+const ENTRYPOINT_QUERY_RE =
+  /\b(?:routes?|routing|endpoints?|urls?|handl\w*|controllers?|requests?|api|registered|mounted|server|started)\b/i
+const INTEGRATION_QUERY_RE = /\b(?:webhooks?|integrations?|external|third[- ]party|client|sdk|provider)\b/i
+
+function rolePrior(role: FileRole, query: string, mode: RetrievalTaskMode): number {
+  const broad = mode === "architecture" || mode === "debug"
+  switch (role) {
+    case "entrypoint":
+      return ENTRYPOINT_QUERY_RE.test(query) ? 12 : broad ? 6 : 0
+    case "persistence":
+      return PERSISTENCE_QUERY_RE.test(query) ? 12 : 0
+    case "integration":
+      return INTEGRATION_QUERY_RE.test(query) ? 12 : broad ? 6 : 0
+    case "orchestration":
+      return broad ? 8 : 0
+    default:
+      return 0
+  }
+}
+
 function scoreResult(result: RetrievalSearchResult, query: string, mode: RetrievalTaskMode) {
   const lowerPath = result.filePath.toLowerCase()
-  const role = classifyFileRole(result.filePath)
+  const classification = classifyFile(result.filePath)
+  const role = classification.role
   let score = result.score * 100
 
   if (result.declarationHint === "high") {
@@ -220,39 +221,15 @@ function scoreResult(result: RetrievalSearchResult, query: string, mode: Retriev
       break
   }
 
-  if (result.fileCategory === "source") {
-    score += 28
-  }
-
-  if (role === "orchestration") {
-    score += mode === "architecture" ? 44 : 24
-  }
-
-  if (role === "persistence") {
-    score += mode === "debug" || /\b(db|database|query|repository|workspace|persist)/i.test(query)
-      ? 32
-      : 8
-  }
-
-  if (role === "integration") {
-    score += mode === "architecture" || mode === "debug" ? 22 : 10
-  }
-
-  if (role === "entrypoint") {
-    score += mode === "architecture" || mode === "debug" ? 26 : -8
-  }
+  // Role priors are small and only apply when the question points at that layer: the
+  // match signals above should decide the ranking, not where a file sits in the tree.
+  score += rolePrior(role, query, mode)
 
   if (ROUTE_WRAPPER_RE.test(lowerPath) && mode === "symbol") {
     score -= 26
   }
 
-  if (isExampleLikePath(lowerPath)) {
-    score -= /\b(example|examples|demo|sample|story|test)\b/i.test(query) ? 10 : 85
-  }
-
-  if (isGeneratedLikePath(lowerPath)) {
-    score -= 120
-  }
+  score += kindAdjustment(classification.kind, query)
 
   return {
     score,
@@ -261,9 +238,9 @@ function scoreResult(result: RetrievalSearchResult, query: string, mode: Retriev
 }
 
 function priorityTierForScore(score: number): RetrievalPriorityTier {
-  if (score >= 180) return "primary"
-  if (score >= 125) return "high"
-  if (score >= 75) return "supporting"
+  if (score >= 150) return "primary"
+  if (score >= 100) return "high"
+  if (score >= 50) return "supporting"
   return "deprioritized"
 }
 
@@ -564,7 +541,7 @@ export async function searchRepositoryContextForAgent(
     metadata: RetrievalSearchMetadata
   }> | RetrievalFailure
 > {
-  const search = await searchRepositoryContext(repositoryId, query, filters, Math.max(limit * 2, 12))
+  const search = await searchRepositoryContext(repositoryId, query, filters, RERANK_CANDIDATES)
   if (!search.ok) {
     return search
   }
@@ -599,7 +576,7 @@ export async function answerRepositoryQuestion(
     }
   }
 
-  const search = await searchRepositoryContext(repositoryId, question, filters, Math.max(limit * 2, 12))
+  const search = await searchRepositoryContext(repositoryId, question, filters, RERANK_CANDIDATES)
   if (!search.ok) {
     return search
   }
@@ -722,7 +699,7 @@ export async function buildRepositoryContextPack(
   maxSnippets = 6
 ): Promise<RetrievalSuccess<RetrievalContextPackResult> | RetrievalFailure> {
   const mode = inferTaskMode(task)
-  const search = await searchRepositoryContext(repositoryId, task, filters, Math.max(maxSnippets * 2, 12))
+  const search = await searchRepositoryContext(repositoryId, task, filters, RERANK_CANDIDATES)
   if (!search.ok) {
     return search
   }
@@ -763,7 +740,7 @@ export async function traceRepositoryFeatureFlow(
 ): Promise<RetrievalSuccess<RetrievalTraceResult> | RetrievalFailure> {
   const inferredMode =
     mode === "auto" ? (isSymbolStyleQuery(query) ? "symbol" : "architecture") : mode === "symbol" ? "symbol" : "architecture"
-  const search = await searchRepositoryContext(repositoryId, query, filters, 16)
+  const search = await searchRepositoryContext(repositoryId, query, filters, RERANK_CANDIDATES)
   if (!search.ok) {
     return search
   }

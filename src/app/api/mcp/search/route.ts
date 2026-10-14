@@ -1,49 +1,17 @@
 import { NextResponse } from "next/server"
-import { authenticateMcpRequest } from "@/lib/mcp-request"
-import { searchRepositoryContextForAgent } from "@/lib/repository-retrieval"
-
-type RetrievalFilters = {
-  language?: string
-  fileCategory?: string
-  pathPrefix?: string
-}
+import { authenticateMcpRequest, mcpUnauthorizedResponse, operationResponse, readJsonObject } from "@/lib/mcp-request"
+import { runSearch } from "@/lib/mcp-operations"
 
 export async function POST(req: Request) {
   const apiKey = await authenticateMcpRequest(req)
   if (!apiKey) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return mcpUnauthorizedResponse()
   }
 
-  let body: { query?: string; limit?: number } & RetrievalFilters
-  try {
-    body = (await req.json()) as { query?: string; limit?: number } & RetrievalFilters
-  } catch {
+  const body = await readJsonObject(req)
+  if (!body) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const query = body.query?.trim()
-  if (!query) {
-    return NextResponse.json({ error: "query is required" }, { status: 400 })
-  }
-
-  const search = await searchRepositoryContextForAgent(
-    apiKey.repository.id,
-    query,
-    {
-      language: body.language,
-      fileCategory: body.fileCategory,
-      pathPrefix: body.pathPrefix,
-    },
-    typeof body.limit === "number" ? body.limit : 10
-  )
-
-  if (!search.ok) {
-    return NextResponse.json({ error: search.error }, { status: search.status })
-  }
-
-  return NextResponse.json({
-    repository: apiKey.repository,
-    results: search.data.results,
-    ...search.data.metadata,
-  })
+  return operationResponse(await runSearch(apiKey.repository, body))
 }

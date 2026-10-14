@@ -20,7 +20,16 @@ logger = logging.getLogger("context-compiler")
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-GOOGLE_GEMINI_API_KEY: str = os.environ["GOOGLE_GEMINI_API_KEY"]
+# "gemini" (default) or "hash": deterministic offline embeddings for tests, CI and evals.
+EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "gemini").strip().lower()
+if EMBEDDING_PROVIDER not in {"gemini", "hash"}:
+    raise RuntimeError("EMBEDDING_PROVIDER must be 'gemini' or 'hash'.")
+
+# Required for Gemini embeddings; optional with the hash provider (answers then use the
+# extractive fallback).
+GOOGLE_GEMINI_API_KEY: str = os.environ.get("GOOGLE_GEMINI_API_KEY", "").strip()
+if EMBEDDING_PROVIDER == "gemini" and not GOOGLE_GEMINI_API_KEY:
+    raise RuntimeError("GOOGLE_GEMINI_API_KEY is required unless EMBEDDING_PROVIDER=hash.")
 DATABASE_URL: str = os.environ["DATABASE_URL"]
 
 # Shared secret the web app sends as `Authorization: Bearer <secret>`.
@@ -93,7 +102,7 @@ LANGUAGE_MAP: dict[str, str] = {
 
 # ── Embedding model ───────────────────────────────────────────────────────────
 
-EMBEDDING_MODEL = "models/gemini-embedding-001"
+EMBEDDING_MODEL = "models/gemini-embedding-001" if EMBEDDING_PROVIDER == "gemini" else "hash-v1"
 EMBEDDING_DIMENSIONS = 768
 ANSWER_MODEL = os.getenv("GEMINI_ANSWER_MODEL", "gemini-2.5-flash")
 ANSWER_MODEL_FALLBACKS = [

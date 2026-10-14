@@ -1,0 +1,187 @@
+{
+  "name": "context-compiler",
+  "repo": "TahubCS/Context-Compiler",
+  "commit": "6b6a0f8d395d9cde51f9a7ff40daab24dfc4ca72",
+  "layout": "Next.js + FastAPI + Prisma",
+  "questions": [
+    {
+      "id": "context-compiler-01",
+      "kind": "nl",
+      "query": "How are MCP API keys authenticated on requests?",
+      "expect": [
+        "src/lib/mcp-request.ts",
+        "src/lib/db/mcp-api-keys.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-02",
+      "kind": "nl",
+      "query": "Where are MCP API keys hashed?",
+      "expect": [
+        "src/lib/crypto.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-03",
+      "kind": "nl",
+      "query": "Where is a repository scan dispatched to the AI backend?",
+      "expect": [
+        "src/lib/scan-dispatch.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-04",
+      "kind": "nl",
+      "query": "How does the scanner split source files into chunks?",
+      "expect": [
+        "ai-backend/scanner.py"
+      ]
+    },
+    {
+      "id": "context-compiler-05",
+      "kind": "nl",
+      "query": "Where are embeddings generated?",
+      "expect": [
+        "ai-backend/ai.py"
+      ]
+    },
+    {
+      "id": "context-compiler-06",
+      "kind": "nl",
+      "query": "How does hybrid semantic and lexical search work?",
+      "expect": [
+        "ai-backend/vector_store.py"
+      ]
+    },
+    {
+      "id": "context-compiler-07",
+      "kind": "nl",
+      "query": "Where does the scan status callback update the scan job?",
+      "expect": [
+        "src/app/api/repo/[repoId]/scan/status/route.ts",
+        "src/lib/db/scan-jobs.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-08",
+      "kind": "nl",
+      "query": "How are stale scan jobs detected?",
+      "expect": [
+        "src/lib/db/scan-jobs.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-09",
+      "kind": "nl",
+      "query": "Where are GitHub webhook signatures verified?",
+      "expect": [
+        "src/lib/github-app.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-10",
+      "kind": "nl",
+      "query": "How are GitHub tokens encrypted at rest?",
+      "expect": [
+        "src/lib/crypto.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-11",
+      "kind": "nl",
+      "query": "How are search results re-ranked and deduplicated for agents?",
+      "expect": [
+        "src/lib/repository-retrieval.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-12",
+      "kind": "nl",
+      "query": "Where is the context pack text formatted?",
+      "expect": [
+        "src/lib/prompt-packs.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-13",
+      "kind": "symbol",
+      "query": "authenticateMcpRequest",
+      "expect": [
+        "src/lib/mcp-request.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-14",
+      "kind": "nl",
+      "query": "Where is the Stripe webhook handled?",
+      "expect": [
+        "src/app/api/webhooks/stripe/route.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-15",
+      "kind": "nl",
+      "query": "Where are the MCP tools registered?",
+      "expect": [
+        "src/mcp/server.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-16",
+      "kind": "nl",
+      "query": "How is the grounded answer generated with model fallbacks?",
+      "expect": [
+        "ai-backend/ai.py"
+      ]
+    },
+    {
+      "id": "context-compiler-17",
+      "kind": "nl",
+      "query": "Where are workspace invites accepted?",
+      "expect": [
+        "src/app/api/workspaces/invites/[inviteId]/accept/route.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-18",
+      "kind": "nl",
+      "query": "What is the database schema for code documents?",
+      "expect": [
+        "prisma/schema.prisma"
+      ]
+    },
+    {
+      "id": "context-compiler-19",
+      "kind": "task",
+      "query": "Add a rate limit to the MCP search endpoint",
+      "expect": [
+        "src/app/api/mcp/search/route.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-20",
+      "kind": "nl",
+      "query": "Where is the incremental scan diff computed?",
+      "expect": [
+        "ai-backend/scanner.py"
+      ]
+    },
+    {
+      "id": "context-compiler-21",
+      "kind": "nl",
+      "query": "How does the app pick the active workspace for a user?",
+      "expect": [
+        "src/lib/db/workspaces.ts",
+        "src/lib/app-context.ts"
+      ]
+    },
+    {
+      "id": "context-compiler-22",
+      "kind": "nl",
+      "query": "Where is the Prisma client created?",
+      "expect": [
+        "src/lib/prisma.ts"
+      ]
+    }
+  ]
+}

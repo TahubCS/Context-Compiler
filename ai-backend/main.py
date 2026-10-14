@@ -49,6 +49,7 @@ class ScanRequest(BaseModel):
     github_token: str
     callback_url: str
     callback_secret: str
+    checkout_sha: str | None = None
 
 
 class EmbedRequest(BaseModel):
@@ -117,6 +118,7 @@ def trigger_scan(body: ScanRequest, background_tasks: BackgroundTasks):
         github_token=body.github_token,
         callback_url=body.callback_url,
         callback_secret=body.callback_secret,
+        checkout_sha=body.checkout_sha,
     )
     return {"status": "accepted"}
 

@@ -53,3 +53,6 @@ AGENTS.md
 .agents/
 .sixth/
 skills/
+
+# eval keys
+evals/keys.local.json

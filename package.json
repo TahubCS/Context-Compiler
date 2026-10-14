@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "db:setup": "bun ./scripts/ensure-vector-index.ts --extension-only && prisma db push && bun ./scripts/ensure-vector-index.ts",
+    "eval": "bun ./scripts/eval.ts",
+    "eval:setup-local": "bun ./scripts/eval-setup-local.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -444,6 +444,7 @@ def run_scan(
     github_token: str,
     callback_url: str,
     callback_secret: str,
+    checkout_sha: str | None = None,
 ) -> None:
     logger.info(
         "Starting scan job=%s for repo=%s url=%s branch=%s",
@@ -454,14 +455,21 @@ def run_scan(
 
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            auth_url = github_url.replace("https://", f"https://x-access-token:{github_token}@")
+            # An empty token clones a public repository anonymously (offline evals use this).
+            auth_url = (
+                github_url.replace("https://", f"https://x-access-token:{github_token}@")
+                if github_token
+                else github_url
+            )
             logger.info("Cloning %s (branch=%s) ...", github_url, default_branch)
             try:
+                # An empty branch clones the remote's default branch.
+                branch_args = {"branch": default_branch} if default_branch else {}
                 Repo.clone_from(
                     auth_url,
                     tmp_dir,
-                    branch=default_branch,
                     depth=SCAN_GIT_HISTORY_DEPTH,
+                    **branch_args,
                 )
             except GitCommandError as exc:
                 if "Remote branch" in str(exc) and "not found" in str(exc):
@@ -477,6 +485,11 @@ def run_scan(
 
             repo_dir = Path(tmp_dir)
             repo = Repo(repo_dir)
+            if checkout_sha:
+                # Index a specific commit (used by the eval harness to keep results comparable).
+                if not _has_commit(repo, checkout_sha):
+                    repo.git.fetch("origin", checkout_sha, depth=1)
+                repo.git.checkout(checkout_sha)
             indexed_commit_sha = repo.git.rev_parse("HEAD").strip()
             scan_mode = "full"
             deleted_paths: list[str] = []

@@ -15,12 +15,23 @@ from config import (
     ANSWER_MODEL_FALLBACKS,
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
     GOOGLE_GEMINI_API_KEY,
 )
+from hash_embedding import hash_embed
 
 logger = logging.getLogger("context-compiler.ai")
 
-gemini_client = genai.Client(api_key=GOOGLE_GEMINI_API_KEY)
+_gemini_client: genai.Client | None = None
+
+
+def _client() -> genai.Client:
+    global _gemini_client
+    if not GOOGLE_GEMINI_API_KEY:
+        raise RuntimeError("GOOGLE_GEMINI_API_KEY is not set")
+    if _gemini_client is None:
+        _gemini_client = genai.Client(api_key=GOOGLE_GEMINI_API_KEY)
+    return _gemini_client
 
 _MAX_RETRIES = 6
 _BASE_DELAY_S = 5.0
@@ -44,11 +55,14 @@ def embed_text(
     Scans use the default long retry chain. Interactive callers pass a small
     max_retries so a rate limit fails fast instead of outliving the HTTP timeout.
     """
+    if EMBEDDING_PROVIDER == "hash":
+        return hash_embed(text, EMBEDDING_DIMENSIONS)
+
     delay = base_delay
 
     for attempt in range(max_retries + 1):
         try:
-            result = gemini_client.models.embed_content(
+            result = _client().models.embed_content(
                 model=EMBEDDING_MODEL,
                 contents=text,
                 config={"output_dimensionality": EMBEDDING_DIMENSIONS},
@@ -98,7 +112,7 @@ def _should_fallback_answer_error(exc: Exception) -> bool:
 
 
 def _generate_with_model_once(model: str, prompt: str) -> str:
-    response = gemini_client.models.generate_content(
+    response = _client().models.generate_content(
         model=model,
         contents=prompt,
     )

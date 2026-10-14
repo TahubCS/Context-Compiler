@@ -80,6 +80,24 @@ function claudeSteps(repositoryName: string, workspaceScope: boolean): Step[] {
   ]
 }
 
+// Set NEXT_PUBLIC_MCP_CLI_AVAILABLE=true once the context-compiler-mcp package is published.
+const CLI_AVAILABLE = process.env.NEXT_PUBLIC_MCP_CLI_AVAILABLE === "true"
+
+const CLI_STEPS: Step[] = [
+  {
+    title: "Run it in any terminal",
+    body: "It opens your browser to confirm a code. No key to create or copy: the CLI's key is activated when you approve.",
+  },
+  {
+    title: "It registers every agent it finds",
+    body: "Claude Code, Codex and Gemini CLI get one workspace key covering all your repositories. The agent picks the repository it is working in on each call.",
+  },
+  {
+    title: "Check or undo",
+    body: "npx context-compiler-mcp doctor checks the key and each agent. npx context-compiler-mcp disconnect removes the registrations and revokes the key.",
+  },
+]
+
 const CODEX_STEPS: Step[] = [
   {
     title: "Make the key available to Codex",
@@ -208,6 +226,8 @@ export function RepoMcpSetupDialog({
   const bridgeScript = `${cwd}/src/mcp/server.ts`
 
   // A workspace key works in every project, so register it for the user rather than one folder.
+  const cliSnippet = `npx context-compiler-mcp connect --url ${resolvedBaseUrl}`
+
   const claudeRemoteSnippet = `claude mcp add --transport http${workspaceScope ? " -s user" : ""} context-compiler ${mcpUrl} --header "Authorization: Bearer ${keyValue}"`
 
   const codexRemoteSnippet = [
@@ -495,8 +515,14 @@ export function RepoMcpSetupDialog({
                 nothing to clone or install. Create a key first so the commands below include it.
               </p>
 
-              <Tabs defaultValue="claude">
+              <Tabs defaultValue={CLI_AVAILABLE ? "cli" : "claude"}>
                 <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+                  {CLI_AVAILABLE ? (
+                    <TabsTrigger value="cli" className="gap-1.5">
+                      <PlugZap className="size-3.5" />
+                      One command
+                    </TabsTrigger>
+                  ) : null}
                   <TabsTrigger value="claude" className="gap-1.5">
                     <Bot className="size-3.5" />
                     Claude Code
@@ -518,6 +544,20 @@ export function RepoMcpSetupDialog({
                     Advanced: local stdio
                   </TabsTrigger>
                 </TabsList>
+
+                {CLI_AVAILABLE ? (
+                  <TabsContent value="cli" className="mt-5">
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                      <SnippetBlock
+                        title="Terminal command (no key needed)"
+                        value={cliSnippet}
+                        onCopy={copyText}
+                        minHeight="min-h-20"
+                      />
+                      <StepList steps={CLI_STEPS} />
+                    </div>
+                  </TabsContent>
+                ) : null}
 
                 <TabsContent value="claude" className="mt-5">
                   <div className="grid min-w-0 gap-6 lg:grid-cols-2">

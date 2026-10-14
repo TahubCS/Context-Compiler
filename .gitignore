@@ -56,3 +56,6 @@ skills/
 
 # eval keys
 evals/keys.local.json
+
+# CLI package build output
+packages/mcp/dist/

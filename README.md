@@ -55,6 +55,14 @@ This path assumes an administrator has already deployed Context Compiler and sca
    The dialog shows the same command with your URL and key filled in, plus the [Codex, Gemini CLI and generic JSON forms](examples/mcp-clients.md).
 3. In Claude Code, run `/mcp` to confirm `context-compiler` is connected, then ask it to call `search_codebase` with `{"query":"authentication entrypoint"}`.
 
+Or, once the [`context-compiler-mcp`](packages/mcp/README.md) package is published, skip the key entirely:
+
+```bash
+npx context-compiler-mcp connect --url https://your-context-compiler.example
+```
+
+It signs in through the browser and registers a workspace key with Claude Code, Codex and Gemini CLI (whichever are installed).
+
 The response contains repository metadata, a best match, related files, grouped matches, and structured content. Exact files and scores vary with the bound repository and its latest scan.
 
 ## Self-hosted installation
@@ -151,7 +159,7 @@ For Python dependency-isolated work, create the virtual environment above and ad
 
 ## Current limitations and follow-up work
 
-- Connecting still means copying a key into each agent's command; an `npx` installer that signs in through the browser and registers every installed agent is planned in [docs/PLAN.md](docs/PLAN.md).
+- The `npx context-compiler-mcp connect` installer (`packages/mcp`) must be published to npm before the one-command flow works for others; until then, use the per-agent commands in the setup dialog.
 - The MCP surface has tools only—no resources, prompts, subscriptions, or write operations.
 - Full self-hosting is operationally involved and lacks a single compose file, automated environment doctor for every web/AI integration, and end-to-end tests with ephemeral PostgreSQL/pgvector.
 - Indexed content can be stale until a scan completes. Feature-flow and Q&A outputs are retrieval/model-assisted and should be verified before edits.

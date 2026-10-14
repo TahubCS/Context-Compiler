@@ -86,6 +86,11 @@ export function generateMcpApiKey(): { plaintextKey: string; keyPrefix: string }
   }
 }
 
+/** Shape check for keys made by generateMcpApiKey (or by the CLI, which uses the same format). */
+export function isWellFormedMcpApiKey(value: string): boolean {
+  return /^ccmcp_[A-Za-z0-9_-]{43}$/.test(value)
+}
+
 export function hashMcpApiKey(plaintextKey: string): string {
   return createHmac("sha256", getMcpApiKeySecret()).update(plaintextKey).digest("hex")
 }

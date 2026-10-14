@@ -156,3 +156,10 @@ export async function listMcpRepositories(apiKey: ResolvedMcpApiKey): Promise<Mc
     orderBy: [{ fullName: "asc" }],
   })
 }
+
+export async function revokeOwnMcpApiKey(apiKeyId: string): Promise<void> {
+  await prisma.mcpApiKey.updateMany({
+    where: { id: apiKeyId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+}

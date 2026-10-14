@@ -1,0 +1,26 @@
+{
+  "name": "context-compiler-mcp",
+  "version": "0.1.0",
+  "description": "Connect Claude Code, Codex and Gemini CLI to Context Compiler in one command.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "context-compiler-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "bun build ./src/cli.ts --target=node --minify-syntax --outfile=dist/cli.js --banner='#!/usr/bin/env node'",
+    "prepublishOnly": "bun run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TahubCS/Context-Compiler",
+    "directory": "packages/mcp"
+  }
+}

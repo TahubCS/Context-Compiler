@@ -18,6 +18,9 @@ jobs:
       - run: bun run typecheck
       - run: bun test
       - run: bun run build
+      - name: Build and smoke-test the CLI package
+        working-directory: packages/mcp
+        run: bun run build && node dist/cli.js --help
 
   ai-backend:
     runs-on: ubuntu-latest

@@ -195,6 +195,14 @@ async function main() {
     return
   }
 
+  await startStdioServer(backend, defaultRepository)
+}
+
+/** Serves the tools over stdio until the client disconnects or the process is signalled. */
+export async function startStdioServer(
+  backend: ReturnType<typeof createHttpBackend>,
+  defaultRepository: string | null
+) {
   const server = new McpServer({ name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION })
   registerContextCompilerTools(server, backend)
 

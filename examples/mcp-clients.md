@@ -2,7 +2,15 @@
 
 Replace `https://your-context-compiler.example` with your deployment and `ccmcp_REPLACE_ME` with a repository key from the repository page (**Use With Agent**). Keep keys in local client configuration or a secret manager; never commit them.
 
-## Remote server (recommended)
+## One command (recommended once the CLI is published)
+
+```bash
+npx context-compiler-mcp connect --url https://your-context-compiler.example
+```
+
+Signs in through the browser and registers a workspace key with every installed agent. See [packages/mcp](../packages/mcp/README.md).
+
+## Remote server
 
 Context Compiler serves MCP over Streamable HTTP at `<base-url>/api/mcp`. Nothing needs to be cloned or installed.
 

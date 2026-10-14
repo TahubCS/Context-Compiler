@@ -394,3 +394,21 @@ model AnswerCitation {
   @@index([answerSessionId, orderIndex])
   @@index([codeDocumentId])
 }
+
+/// Sign-in requests from the `context-compiler-mcp connect` CLI. The CLI generates its MCP key
+/// locally and sends it once; only its hash is stored. Approving in the browser activates it.
+model CliAuthRequest {
+  id         String   @id @default(uuid()) @db.Uuid
+  keyHash    String   @unique
+  keyPrefix  String
+  userCode   String   @unique
+  clientName String
+  /// pending | approved | denied
+  status     String   @default("pending")
+  apiKeyId   String?  @db.Uuid
+  decidedBy  String?  @db.Uuid
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([expiresAt])
+}

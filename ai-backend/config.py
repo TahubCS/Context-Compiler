@@ -23,6 +23,29 @@ logger = logging.getLogger("context-compiler")
 GOOGLE_GEMINI_API_KEY: str = os.environ["GOOGLE_GEMINI_API_KEY"]
 DATABASE_URL: str = os.environ["DATABASE_URL"]
 
+# Shared secret the web app sends as `Authorization: Bearer <secret>`.
+# Every route except /health requires it.
+AI_BACKEND_SECRET: str = os.environ.get("AI_BACKEND_SECRET", "").strip()
+if len(AI_BACKEND_SECRET) < 32:
+    raise RuntimeError(
+        "AI_BACKEND_SECRET must be set to at least 32 characters "
+        "(generate one with `openssl rand -base64 32`) and match the web app's value."
+    )
+
+# Origin of the web app. When set, scan callbacks may only target this origin.
+APP_BASE_URL: str = os.environ.get("APP_BASE_URL", "").strip().rstrip("/")
+
+# Hosts the scanner may clone from.
+ALLOWED_GIT_HOSTS: set[str] = {
+    host.strip().lower()
+    for host in os.environ.get("ALLOWED_GIT_HOSTS", "github.com").split(",")
+    if host.strip()
+}
+
+# Interactive requests (search/answer) must finish well inside the web app's timeouts.
+QUERY_EMBED_MAX_RETRIES = int(os.getenv("QUERY_EMBED_MAX_RETRIES", "1"))
+ANSWER_TIMEOUT_SECONDS = float(os.getenv("ANSWER_TIMEOUT_SECONDS", "25"))
+
 # ── Scanner constants ─────────────────────────────────────────────────────────
 
 CHUNK_MAX_LINES = 100  # Max lines per chunk

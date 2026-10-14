@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { ScanJobStatus } from "@prisma/client"
+import { safeEqual } from "@/lib/crypto"
 import { isPrismaConnectivityError, updateScanJobStatus } from "@/lib/db"
 
 type RouteParams = { params: Promise<{ repoId: string }> }
@@ -23,7 +24,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const { repoId } = await params
 
   const secret = req.headers.get("x-callback-secret")
-  if (!secret || secret !== process.env.AI_CALLBACK_SECRET) {
+  const expected = process.env.AI_CALLBACK_SECRET
+  if (!secret || !expected || !safeEqual(secret, expected)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

@@ -11,7 +11,7 @@ describe("MCP runtime configuration", () => {
     expect(loadRuntimeConfig(validEnv)).toEqual({
       baseUrl: "https://context.example.com",
       mcpKey: "ccmcp_example",
-      timeoutMs: 15_000,
+      timeoutMs: 60_000,
     })
   })
 

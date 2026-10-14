@@ -66,4 +66,4 @@ Output: repository/query, possible entrypoint, categorized files, read order, mi
 
 ## Protocol and errors
 
-The bridge first calls `GET /api/mcp/session` to validate its key, then calls the corresponding authenticated web route. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 15 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.
+The bridge first calls `GET /api/mcp/session` to validate its key, then calls the corresponding authenticated web route. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 60 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.

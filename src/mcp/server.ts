@@ -76,7 +76,7 @@ export function loadRuntimeConfig(env: Record<string, string | undefined> = proc
   if (!['http:', 'https:'].includes(baseUrl.protocol)) throw new Error("CONTEXT_COMPILER_BASE_URL must use http or https.")
   if (baseUrl.username || baseUrl.password) throw new Error("CONTEXT_COMPILER_BASE_URL must not contain credentials.")
 
-  const timeoutMs = Number(env.CONTEXT_COMPILER_TIMEOUT_MS ?? "15000")
+  const timeoutMs = Number(env.CONTEXT_COMPILER_TIMEOUT_MS ?? "60000")
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) {
     throw new Error("CONTEXT_COMPILER_TIMEOUT_MS must be an integer between 1000 and 120000.")
   }
@@ -544,7 +544,7 @@ server.registerTool(
 async function main() {
   const command = process.argv[2]
   if (command === "--help" || command === "-h" || command === "help") {
-    console.log(`Context Compiler MCP (stdio)\n\nUsage:\n  bun run mcp:stdio\n  bun run mcp:doctor\n\nRequired environment:\n  CONTEXT_COMPILER_BASE_URL  Context Compiler web app origin\n  CONTEXT_COMPILER_MCP_KEY   Repository-bound key (ccmcp_...)\n\nOptional environment:\n  CONTEXT_COMPILER_TIMEOUT_MS Request timeout, 1000-120000 (default: 15000)\n\nThe server uses MCP stdio; stdout is reserved for protocol messages.`)
+    console.log(`Context Compiler MCP (stdio)\n\nUsage:\n  bun run mcp:stdio\n  bun run mcp:doctor\n\nRequired environment:\n  CONTEXT_COMPILER_BASE_URL  Context Compiler web app origin\n  CONTEXT_COMPILER_MCP_KEY   Repository-bound key (ccmcp_...)\n\nOptional environment:\n  CONTEXT_COMPILER_TIMEOUT_MS Request timeout, 1000-120000 (default: 60000)\n\nThe server uses MCP stdio; stdout is reserved for protocol messages.`)
     return
   }
   runtimeConfig = loadRuntimeConfig()

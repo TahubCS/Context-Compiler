@@ -31,3 +31,13 @@ export function getAppBaseUrl(req?: Request): string {
 
   return trimTrailingSlash(new URL(req.url).origin)
 }
+
+/** Headers for every request to the AI backend, which rejects calls without the shared secret. */
+export function getAiBackendHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  const secret = process.env.AI_BACKEND_SECRET?.trim()
+  if (secret) {
+    headers.Authorization = `Bearer ${secret}`
+  }
+  return headers
+}

@@ -7,7 +7,7 @@ import {
 } from "@/lib/db"
 import { resolveScanCredential } from "@/lib/scan-auth"
 import { getGitHubDefaultBranchHeadSha } from "@/lib/github-repository-refs"
-import { getAiBackendUrl } from "@/lib/runtime-urls"
+import { getAiBackendHeaders, getAiBackendUrl } from "@/lib/runtime-urls"
 
 export type ScanDispatchResult =
   | { status: "dispatched"; scanJobId: string }
@@ -112,7 +112,7 @@ export async function dispatchRepositoryScan(input: {
   try {
     backendResponse = await fetch(`${backendUrl}/scan`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAiBackendHeaders(),
       body: JSON.stringify({
         scan_job_id: scanJobId,
         repository_id: repository.id,

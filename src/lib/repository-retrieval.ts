@@ -4,7 +4,7 @@ import {
   type FileContextChunk,
 } from "@/lib/db"
 import { formatContextPack } from "@/lib/prompt-packs"
-import { getAiBackendUrl } from "@/lib/runtime-urls"
+import { getAiBackendHeaders, getAiBackendUrl } from "@/lib/runtime-urls"
 
 export type RetrievalFilters = {
   language?: string | null
@@ -523,7 +523,7 @@ export async function searchRepositoryContext(
   try {
     const response = await fetch(`${backendUrl}/search`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAiBackendHeaders(),
       body: JSON.stringify({
         repository_id: repositoryId,
         query: query.trim(),
@@ -625,7 +625,7 @@ export async function answerRepositoryQuestion(
   try {
     const response = await fetch(`${backendUrl}/answer`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAiBackendHeaders(),
       body: JSON.stringify({
         repository_id: repositoryId,
         question: question.trim(),

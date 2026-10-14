@@ -35,13 +35,18 @@ def _compute_wait(delay: float) -> float:
 def embed_text(
     text: str,
     on_retry_wait: Callable[[float, int, int], None] | None = None,
+    max_retries: int = _MAX_RETRIES,
+    base_delay: float = _BASE_DELAY_S,
 ) -> list[float]:
     """
     Generate a 768-dim embedding vector for the given text.
-    """
-    delay = _BASE_DELAY_S
 
-    for attempt in range(_MAX_RETRIES + 1):
+    Scans use the default long retry chain. Interactive callers pass a small
+    max_retries so a rate limit fails fast instead of outliving the HTTP timeout.
+    """
+    delay = base_delay
+
+    for attempt in range(max_retries + 1):
         try:
             result = gemini_client.models.embed_content(
                 model=EMBEDDING_MODEL,
@@ -51,9 +56,9 @@ def embed_text(
             return result.embeddings[0].values
         except ClientError as exc:
             if exc.code == 429:
-                if attempt == _MAX_RETRIES:
+                if attempt == max_retries:
                     logger.error(
-                        "Embedding rate-limited after %d retries, giving up.", _MAX_RETRIES
+                        "Embedding rate-limited after %d retries, giving up.", max_retries
                     )
                     raise
 
@@ -61,11 +66,11 @@ def embed_text(
                 logger.warning(
                     "Rate limited (429) on attempt %d/%d, waiting %.1fs before retry.",
                     attempt + 1,
-                    _MAX_RETRIES,
+                    max_retries,
                     wait,
                 )
                 if on_retry_wait:
-                    on_retry_wait(wait, attempt + 1, _MAX_RETRIES)
+                    on_retry_wait(wait, attempt + 1, max_retries)
                 time.sleep(wait)
                 delay = min(delay * 2, _MAX_DELAY_S)
             else:
@@ -121,7 +126,10 @@ def build_grounded_fallback_answer(question: str, citations: list[dict], selecte
 
 
 def generate_grounded_answer(
-    question: str, citations: list[dict], selected_files: list[str] | None = None
+    question: str,
+    citations: list[dict],
+    selected_files: list[str] | None = None,
+    deadline: float | None = None,
 ) -> str:
     """
     Generate a concise answer using the retrieved repository context only.
@@ -159,6 +167,8 @@ def generate_grounded_answer(
 
     last_error: Exception | None = None
     for model in _answer_models():
+        if deadline is not None and time.monotonic() >= deadline:
+            raise TimeoutError("Answer time budget exhausted before trying model " + model)
         try:
             answer = _generate_with_model_once(model, prompt)
             if model != ANSWER_MODEL:

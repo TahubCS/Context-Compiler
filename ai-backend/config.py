@@ -62,7 +62,8 @@ CHUNK_OVERLAP_LINES = 20
 PROGRESS_EVERY = 10    # Call back every N files processed
 SCAN_HEARTBEAT_INTERVAL_SECONDS = int(os.getenv("SCAN_HEARTBEAT_INTERVAL_SECONDS", "25"))
 SCAN_GIT_HISTORY_DEPTH = int(os.getenv("SCAN_GIT_HISTORY_DEPTH", "50"))
-CURRENT_INDEX_FORMAT_VERSION = 2
+# 3: search tokens for lexical search, and embeddings with retrieval task types.
+CURRENT_INDEX_FORMAT_VERSION = 3
 
 SKIP_DIRS: set[str] = {
     ".git", "node_modules", "vendor", "__pycache__", ".venv", "venv",

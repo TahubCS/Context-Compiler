@@ -43,31 +43,66 @@ def _compute_wait(delay: float) -> float:
     return min(delay + jitter, _MAX_DELAY_S)
 
 
-def embed_text(
-    text: str,
+# Gemini task types: stored code is embedded as documents, searches as code-retrieval
+# queries, which ranks code against natural-language questions better than untyped vectors.
+DOCUMENT_TASK = "RETRIEVAL_DOCUMENT"
+QUERY_TASK = "CODE_RETRIEVAL_QUERY"
+EMBED_BATCH_SIZE = 50
+
+
+def embed_texts(
+    texts: list[str],
+    task_type: str = DOCUMENT_TASK,
     on_retry_wait: Callable[[float, int, int], None] | None = None,
     max_retries: int = _MAX_RETRIES,
     base_delay: float = _BASE_DELAY_S,
-) -> list[float]:
+) -> list[list[float]]:
     """
-    Generate a 768-dim embedding vector for the given text.
+    Generate 768-dim embeddings for several texts, EMBED_BATCH_SIZE per request.
 
     Scans use the default long retry chain. Interactive callers pass a small
     max_retries so a rate limit fails fast instead of outliving the HTTP timeout.
     """
     if EMBEDDING_PROVIDER == "hash":
-        return hash_embed(text, EMBEDDING_DIMENSIONS)
+        return [hash_embed(text, EMBEDDING_DIMENSIONS) for text in texts]
 
+    vectors: list[list[float]] = []
+    for start in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[start : start + EMBED_BATCH_SIZE]
+        vectors.extend(_embed_batch(batch, task_type, on_retry_wait, max_retries, base_delay))
+    return vectors
+
+
+def embed_text(
+    text: str,
+    task_type: str = DOCUMENT_TASK,
+    on_retry_wait: Callable[[float, int, int], None] | None = None,
+    max_retries: int = _MAX_RETRIES,
+    base_delay: float = _BASE_DELAY_S,
+) -> list[float]:
+    return embed_texts([text], task_type, on_retry_wait, max_retries, base_delay)[0]
+
+
+def _embed_batch(
+    texts: list[str],
+    task_type: str,
+    on_retry_wait: Callable[[float, int, int], None] | None,
+    max_retries: int,
+    base_delay: float,
+) -> list[list[float]]:
     delay = base_delay
 
     for attempt in range(max_retries + 1):
         try:
             result = _client().models.embed_content(
                 model=EMBEDDING_MODEL,
-                contents=text,
-                config={"output_dimensionality": EMBEDDING_DIMENSIONS},
+                contents=texts,
+                config={"output_dimensionality": EMBEDDING_DIMENSIONS, "task_type": task_type},
             )
-            return result.embeddings[0].values
+            embeddings = result.embeddings or []
+            if len(embeddings) != len(texts):
+                raise RuntimeError(f"Gemini returned {len(embeddings)} embeddings for {len(texts)} texts")
+            return [embedding.values for embedding in embeddings]
         except ClientError as exc:
             if exc.code == 429:
                 if attempt == max_retries:
@@ -93,6 +128,8 @@ def embed_text(
         except APIError as exc:
             logger.error("Gemini server error %s: %s", exc.code, exc.message)
             raise
+
+    raise RuntimeError("unreachable")
 
 
 def _answer_models() -> list[str]:

@@ -26,6 +26,12 @@ describe("classifyFile", () => {
     ["dist/index.js", "generated"],
     ["src/app/routes/auth/user-request.d.ts", "types"],
     ["app/views/articles/_article.json.jbuilder", "template"],
+    ["packages/lib/translations/en/web.po", "locale"],
+    ["src/locales/fr.json", "locale"],
+    ["packages/email/.gitignore", "config"],
+    ["packages/trpc/server/envelope-router/download-envelope-certificate-pdf.types.ts", "types"],
+    ["packages/prisma/types/document-with-recipient.ts", "types"],
+    ["apps/docs/content/docs/developers/signing-certificate.mdx", "docs"],
     // source
     ["config/routes.rb", "source"],
     ["src/lib/crypto.ts", "source"],

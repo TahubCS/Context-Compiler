@@ -18,3 +18,20 @@ def test_query_terms_limit():
 def test_escape_like_makes_wildcards_literal():
     assert _escape_like("src/my_app%") == "src/my\\_app\\%"
     assert _escape_like("a\\b") == "a\\\\b"
+
+
+def test_path_tokens_split_name_and_directories():
+    from text_tokens import path_tokens
+
+    assert path_tokens("packages/lib/server-only/auth/hash.ts") == (["hash"], ["packag", "lib", "server", "only", "auth"])
+    assert path_tokens("internal/reader/handler/handler.go") == (["handler"], ["internal", "reader", "handler"])
+
+
+def test_declared_name_tokens_across_languages():
+    from text_tokens import declared_name_tokens
+
+    assert {"sign", "field", "token"} <= declared_name_tokens("export const signFieldWithToken = async ({ token }) => {")
+    assert {"refresh", "feed"} <= declared_name_tokens("func (h *Handler) RefreshFeed(store *storage.Storage) error {")
+    assert {"generate", "jwt", "token"} <= declared_name_tokens("    def _generate_jwt_token(self):")
+    assert {"user", "manager"} <= declared_name_tokens("class UserManager(BaseUserManager):")
+    assert declared_name_tokens("const limit = 10") == set()

@@ -1,0 +1,186 @@
+{
+  "name": "miniflux",
+  "repo": "miniflux/v2",
+  "commit": "c317f84bc3779bc5d936b75408b631589983c81a",
+  "layout": "Go service (internal/ packages)",
+  "heldOut": true,
+  "questions": [
+    {
+      "id": "miniflux-01",
+      "kind": "nl",
+      "query": "How are API requests authenticated with an API key or basic auth?",
+      "expect": [
+        "internal/api/middleware.go"
+      ]
+    },
+    {
+      "id": "miniflux-02",
+      "kind": "nl",
+      "query": "Where is HTML from feed entries sanitized?",
+      "expect": [
+        "internal/reader/sanitizer/sanitizer.go"
+      ]
+    },
+    {
+      "id": "miniflux-03",
+      "kind": "nl",
+      "query": "How is the estimated reading time of an entry calculated?",
+      "expect": [
+        "internal/reader/readingtime/readingtime.go"
+      ]
+    },
+    {
+      "id": "miniflux-04",
+      "kind": "nl",
+      "query": "Where are the database schema migrations defined?",
+      "expect": [
+        "internal/database/migrations.go"
+      ]
+    },
+    {
+      "id": "miniflux-05",
+      "kind": "nl",
+      "query": "How does the background scheduler refresh feeds?",
+      "expect": [
+        "internal/cli/scheduler.go",
+        "internal/worker/worker.go"
+      ]
+    },
+    {
+      "id": "miniflux-06",
+      "kind": "nl",
+      "query": "Where are HTTP requests for fetching feeds built, including the user agent and proxy?",
+      "expect": [
+        "internal/reader/fetcher/request_builder.go"
+      ]
+    },
+    {
+      "id": "miniflux-07",
+      "kind": "nl",
+      "query": "How does subscription discovery find feed URLs on a website?",
+      "expect": [
+        "internal/reader/subscription/finder.go"
+      ]
+    },
+    {
+      "id": "miniflux-08",
+      "kind": "nl",
+      "query": "Where are entries saved to Wallabag?",
+      "expect": [
+        "internal/integration/wallabag/wallabag.go"
+      ]
+    },
+    {
+      "id": "miniflux-09",
+      "kind": "nl",
+      "query": "How are entries sent to all of a user's enabled integrations?",
+      "expect": [
+        "internal/integration/integration.go"
+      ]
+    },
+    {
+      "id": "miniflux-10",
+      "kind": "nl",
+      "query": "Where are the HTTP routes registered?",
+      "expect": [
+        "internal/http/server/routes.go"
+      ]
+    },
+    {
+      "id": "miniflux-11",
+      "kind": "nl",
+      "query": "How is OpenID Connect login implemented?",
+      "expect": [
+        "internal/oauth2/oidc.go"
+      ]
+    },
+    {
+      "id": "miniflux-12",
+      "kind": "nl",
+      "query": "Where are configuration options parsed from environment variables?",
+      "expect": [
+        "internal/config/parser.go"
+      ]
+    },
+    {
+      "id": "miniflux-13",
+      "kind": "nl",
+      "query": "How are entries queried with filters like status, category and search text?",
+      "expect": [
+        "internal/storage/entry_query_builder.go"
+      ]
+    },
+    {
+      "id": "miniflux-14",
+      "kind": "nl",
+      "query": "Where is the Fever API implemented?",
+      "expect": [
+        "internal/fever/handler.go"
+      ]
+    },
+    {
+      "id": "miniflux-15",
+      "kind": "nl",
+      "query": "How are images proxied to protect reader privacy?",
+      "expect": [
+        "internal/mediaproxy/rewriter.go"
+      ]
+    },
+    {
+      "id": "miniflux-16",
+      "kind": "nl",
+      "query": "How are feed icons found?",
+      "expect": [
+        "internal/reader/icon/finder.go"
+      ]
+    },
+    {
+      "id": "miniflux-17",
+      "kind": "nl",
+      "query": "Where is a new admin user created from the command line?",
+      "expect": [
+        "internal/cli/create_admin.go"
+      ]
+    },
+    {
+      "id": "miniflux-18",
+      "kind": "nl",
+      "query": "How is the watch time of YouTube videos fetched for entries?",
+      "expect": [
+        "internal/reader/processor/youtube.go"
+      ]
+    },
+    {
+      "id": "miniflux-19",
+      "kind": "nl",
+      "query": "How are OPML files imported?",
+      "expect": [
+        "internal/reader/opml/handler.go"
+      ]
+    },
+    {
+      "id": "miniflux-20",
+      "kind": "nl",
+      "query": "Where are web sessions stored in the database?",
+      "expect": [
+        "internal/storage/web_session.go"
+      ]
+    },
+    {
+      "id": "miniflux-21",
+      "kind": "nl",
+      "query": "How is a single feed refreshed and its new entries stored?",
+      "expect": [
+        "internal/reader/handler/handler.go"
+      ]
+    },
+    {
+      "id": "miniflux-22",
+      "kind": "task",
+      "query": "Add a new integration that posts entries to Mastodon",
+      "expect": [
+        "internal/integration/integration.go"
+      ]
+    }
+  ]
+}

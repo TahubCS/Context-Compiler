@@ -17,6 +17,7 @@ export type FileKind =
   | "example"
   | "types"
   | "template"
+  | "locale"
 
 export type FileRole = "entrypoint" | "orchestration" | "persistence" | "integration" | "supporting"
 
@@ -31,10 +32,12 @@ const MIGRATION_RE =
 const EXAMPLE_RE = /(?:^|\/)(?:examples?|demos?|samples?|fixtures?|mocks?|stories|storybook|playground)\//i
 const DOCS_RE =
   /\.(?:md|mdx|rst|adoc|txt)$|(?:^|\/)(?:docs?|documentation)\/|(?:^|\/)(?:readme|changelog|license|contributing|agents|claude|code_of_conduct)(?:\.[^/]*)?$/i
-const TYPES_RE = /\.d\.ts$/i
+const TYPES_RE = /\.d\.ts$|\.types\.[cm]?tsx?$|(?:^|\/)(?:types|typings|@types)\/[^/]+\.[cm]?tsx?$/i
+const LOCALE_RE =
+  /\.(?:po|pot|mo|xliff|xlf|arb|resx)$|(?:^|\/)(?:translations?|locales?|i18n|l10n|lang)\/[^/]*\.(?:json|ya?ml|properties|toml)$/i
 const TEMPLATE_RE = /\.(?:jbuilder|erb|haml|slim|hbs|handlebars|ejs|pug|njk|jinja2?|twig|mustache|liquid)$/i
 const CONFIG_RE =
-  /(?:^|\/)(?:\.github|\.circleci|\.vscode|\.devcontainer)\/|(?:^|\/)(?:config|configs|initializers|settings)\/|(?:^|\/)(?:package\.json|tsconfig[^/]*\.json|jsconfig\.json|[^/]*\.config\.[cm]?[jt]s|\.eslintrc[^/]*|\.prettierrc[^/]*|Dockerfile[^/]*|docker-compose[^/]*|Makefile|Procfile|Gemfile|Rakefile|go\.mod|Cargo\.toml|pyproject\.toml|setup\.cfg|requirements[^/]*\.txt|nx\.json|project\.json|components\.json|\.env[^/]*)$|\.(?:ya?ml|toml|ini|cfg|conf|properties)$/i
+  /(?:^|\/)(?:\.github|\.circleci|\.vscode|\.devcontainer)\/|(?:^|\/)(?:config|configs|initializers|settings)\/|(?:^|\/)\.(?:gitignore|gitattributes|dockerignore|npmrc|nvmrc|editorconfig|prettierignore|eslintignore|env[^/]*)$|(?:^|\/)(?:package\.json|tsconfig[^/]*\.json|jsconfig\.json|[^/]*\.config\.[cm]?[jt]s|\.eslintrc[^/]*|\.prettierrc[^/]*|Dockerfile[^/]*|docker-compose[^/]*|Makefile|Procfile|Gemfile|Rakefile|go\.mod|Cargo\.toml|pyproject\.toml|setup\.cfg|requirements[^/]*\.txt|nx\.json|project\.json|components\.json|\.env[^/]*)$|\.(?:ya?ml|toml|ini|cfg|conf|properties)$/i
 
 // Roles. A file's own name is the stronger signal (routes/article/article.service.ts is a
 // service), so name rules run before directory rules. Rails keeps its route table in
@@ -86,6 +89,7 @@ export function classifyFile(filePath: string): FileClassification {
   else if (TEST_RE.test(path)) kind = "test"
   else if (MIGRATION_RE.test(path)) kind = "migration"
   else if (EXAMPLE_RE.test(path)) kind = "example"
+  else if (LOCALE_RE.test(path)) kind = "locale"
   else if (DOCS_RE.test(path)) kind = "docs"
   else if (TYPES_RE.test(path)) kind = "types"
   else if (TEMPLATE_RE.test(path)) kind = "template"
@@ -110,6 +114,7 @@ const KIND_INTENT: Partial<Record<FileKind, RegExp>> = {
   example: /\b(?:examples?|demo|sample|stories|storybook|fixtures?|seed\w*)\b/i,
   types: /\b(?:types?|typings?|declarations?|interface)\b/i,
   template: /\b(?:templates?|views?|render\w*|json|html|markup)\b/i,
+  locale: /\b(?:translat\w*|locali[sz]\w*|locales?|i18n|l10n|languages?)\b/i,
 }
 
 /** Score adjustment for a file's kind given the query (0 for source files). */
@@ -125,12 +130,14 @@ export function kindAdjustment(kind: FileKind, query: string): number {
     case "example":
       return wanted ? 0 : -85
     case "docs":
-      return wanted ? 10 : -45
+      return wanted ? 10 : -60
     case "config":
       return wanted ? 10 : -30
     case "types":
       return wanted ? 0 : -30
     case "template":
       return wanted ? 5 : -10
+    case "locale":
+      return wanted ? 5 : -90
   }
 }

@@ -1,18 +1,19 @@
 import logging
+import math
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import psycopg
 
 from config import DATABASE_URL, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL
-from text_tokens import query_terms
+from text_tokens import declared_name_tokens, path_tokens, query_terms, tokenize
 
 logger = logging.getLogger("context-compiler.vector_store")
 
 _PSYCOPG_UNSUPPORTED_PARAMS = {"pgbouncer"}
 _SYMBOL_QUERY_RE = re.compile(r"^[A-Za-z_$][\w$]*(?:[.:][A-Za-z_$][\w$]*)*$")
 _SEARCH_SEMANTIC_LIMIT = 40
-_SEARCH_LEXICAL_LIMIT = 30
+_SEARCH_LEXICAL_LIMIT = 60
 _MAX_RESULTS_PER_FILE = 2
 
 
@@ -45,21 +46,26 @@ def upsert_chunk(
     token_count: int,
     embedding: list[float],
 ) -> None:
-    """Insert or update a single code chunk with metadata and embedding vector."""
+    """Insert or update a single code chunk with metadata, embedding vector and search tokens."""
     vector_literal = "[" + ",".join(str(v) for v in embedding) + "]"
+    name_tokens, directory_tokens = path_tokens(file_path)
     conn.execute(
         """
         INSERT INTO "CodeDocument" (
             id, "repositoryId", "lastSeenScanJobId", "filePath", "chunkIndex", language,
             "fileCategory", "chunkType", "pathBucket",
             content, "contentHash", "tokenCount", embedding,
-            "embeddingModel", "embeddingDimensions", "updatedAt"
+            "embeddingModel", "embeddingDimensions", "searchTokens", "updatedAt"
         )
         VALUES (
             gen_random_uuid(), %s, %s, %s, %s, %s,
             %s, %s, %s,
             %s, %s, %s, %s::vector,
-            %s, %s, NOW()
+            %s, %s,
+            setweight(to_tsvector('simple', %s), 'A')
+              || setweight(to_tsvector('simple', %s), 'B')
+              || setweight(to_tsvector('simple', %s), 'D'),
+            NOW()
         )
         ON CONFLICT ("repositoryId", "filePath", "chunkIndex") DO UPDATE SET
             "lastSeenScanJobId" = EXCLUDED."lastSeenScanJobId",
@@ -71,6 +77,9 @@ def upsert_chunk(
             "contentHash"       = EXCLUDED."contentHash",
             embedding           = EXCLUDED.embedding,
             "tokenCount"        = EXCLUDED."tokenCount",
+            "embeddingModel"    = EXCLUDED."embeddingModel",
+            "embeddingDimensions" = EXCLUDED."embeddingDimensions",
+            "searchTokens"      = EXCLUDED."searchTokens",
             "updatedAt"         = NOW()
         """,
         (
@@ -88,6 +97,9 @@ def upsert_chunk(
             vector_literal,
             EMBEDDING_MODEL,
             EMBEDDING_DIMENSIONS,
+            " ".join(name_tokens),
+            " ".join(directory_tokens),
+            " ".join(tokenize(content)),
         ),
     )
 
@@ -216,6 +228,41 @@ def _compile_symbol_patterns(symbol: str) -> tuple[re.Pattern[str], re.Pattern[s
     return exact, declaration
 
 
+_SEMANTIC_COLUMNS = """
+    id::text,
+    "filePath",
+    "chunkIndex",
+    language,
+    "fileCategory",
+    "chunkType",
+    "pathBucket",
+    content,
+    (1 - (embedding <=> %(vector)s::vector))::float8 AS score
+"""
+
+_SEMANTIC_FILTERS = """
+    "repositoryId" = %(repository_id)s::uuid
+    AND embedding IS NOT NULL
+    AND (%(language)s::text IS NULL OR language = %(language)s)
+    AND (%(file_category)s::text IS NULL OR "fileCategory" = %(file_category)s)
+    AND (%(like_path)s::text IS NULL OR "filePath" ILIKE %(like_path)s)
+"""
+
+# The HNSW index spans every repository, and pgvector applies the repository filter after
+# the index scan. With many repositories indexed, the nearest chunks overall may mostly
+# belong to other repositories, leaving few or no rows. So: widen the index search, and
+# when it still returns too few rows, rank the repository's chunks exactly instead.
+_HNSW_EF_SEARCH = 200
+
+_SEMANTIC_INDEXED_SQL = f"SELECT {_SEMANTIC_COLUMNS} FROM \"CodeDocument\" WHERE {_SEMANTIC_FILTERS} ORDER BY embedding <=> %(vector)s::vector LIMIT %(limit)s"
+_SEMANTIC_EXACT_SQL = f"""
+    WITH scoped AS MATERIALIZED (
+        SELECT * FROM "CodeDocument" WHERE {_SEMANTIC_FILTERS}
+    )
+    SELECT {_SEMANTIC_COLUMNS} FROM scoped ORDER BY embedding <=> %(vector)s::vector LIMIT %(limit)s
+"""
+
+
 def _semantic_candidates(
     conn,
     repository_id: str,
@@ -225,42 +272,25 @@ def _semantic_candidates(
     path_prefix: str | None,
     limit: int,
 ) -> list[dict]:
-    vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
-    like_path = f"{_escape_like(path_prefix)}%" if path_prefix else None
-    rows = conn.execute(
-        """
-        SELECT
-            id::text,
-            "filePath",
-            "chunkIndex",
-            language,
-            "fileCategory",
-            "chunkType",
-            "pathBucket",
-            content,
-            (1 - (embedding <=> %s::vector))::float8 AS score
-        FROM "CodeDocument"
-        WHERE "repositoryId" = %s::uuid
-          AND embedding IS NOT NULL
-          AND (%s::text IS NULL OR language = %s)
-          AND (%s::text IS NULL OR "fileCategory" = %s)
-          AND (%s::text IS NULL OR "filePath" ILIKE %s)
-        ORDER BY embedding <=> %s::vector
-        LIMIT %s
-        """,
-        (
-            vector_literal,
-            repository_id,
-            language,
-            language,
-            file_category,
-            file_category,
-            like_path,
-            like_path,
-            vector_literal,
-            limit,
-        ),
-    ).fetchall()
+    params = {
+        "vector": "[" + ",".join(str(v) for v in query_vector) + "]",
+        "repository_id": repository_id,
+        "language": language,
+        "file_category": file_category,
+        "like_path": f"{_escape_like(path_prefix)}%" if path_prefix else None,
+        "limit": limit,
+    }
+
+    try:
+        with conn.transaction():
+            conn.execute(f"SET LOCAL hnsw.ef_search = {max(_HNSW_EF_SEARCH, limit)}")
+            rows = conn.execute(_SEMANTIC_INDEXED_SQL, params).fetchall()
+    except psycopg.Error:
+        logger.warning("Indexed semantic search failed; using an exact scan.", exc_info=True)
+        rows = []
+
+    if len(rows) < limit:
+        rows = conn.execute(_SEMANTIC_EXACT_SQL, params).fetchall()
 
     return [
         {
@@ -361,7 +391,42 @@ def _lexical_candidates(
     if not terms:
         return []
 
-    # Graded matching: count how many distinct query terms each chunk's path and content
+    if _has_search_tokens(conn, repository_id):
+        rows = conn.execute(
+            """
+            SELECT
+                d.id::text,
+                d."filePath",
+                d."chunkIndex",
+                d.language,
+                d."fileCategory",
+                d."chunkType",
+                d."pathBucket",
+                d.content
+            FROM "CodeDocument" d, to_tsquery('simple', %s) AS q
+            WHERE d."repositoryId" = %s::uuid
+              AND d."searchTokens" @@ q
+              AND (%s::text IS NULL OR d.language = %s)
+              AND (%s::text IS NULL OR d."fileCategory" = %s)
+              AND (%s::text IS NULL OR d."filePath" ILIKE %s)
+            ORDER BY ts_rank(d."searchTokens", q) DESC, d."chunkIndex" ASC
+            LIMIT %s
+            """,
+            (
+                " | ".join(terms),
+                repository_id,
+                language,
+                language,
+                file_category,
+                file_category,
+                like_path_prefix,
+                like_path_prefix,
+                limit,
+            ),
+        ).fetchall()
+        return [_lexical_row(row) for row in rows]
+
+    # Repositories indexed before format 3 have no search tokens: graded substring matching: count how many distinct query terms each chunk's path and content
     # contain, so a chunk that matches every term outranks one that shares a single word.
     patterns = [f"%{_escape_like(term)}%" for term in terms]
     rows = conn.execute(
@@ -408,24 +473,36 @@ def _lexical_candidates(
         ),
     ).fetchall()
 
-    term_count = len(terms)
-    return [
-        {
-            "id": row[0],
-            "filePath": row[1],
-            "chunkIndex": int(row[2]),
-            "language": row[3],
-            "fileCategory": row[4],
-            "chunkType": row[5],
-            "pathBucket": row[6],
-            "content": row[7],
-            "pathMatch": int(row[8]) > 0,
-            "contentMatch": int(row[9]) > 0,
-            "pathHitRatio": int(row[8]) / term_count,
-            "contentHitRatio": int(row[9]) / term_count,
-        }
-        for row in rows
-    ]
+    return [_lexical_row(row) for row in rows]
+
+
+def _lexical_row(row) -> dict:
+    return {
+        "id": row[0],
+        "filePath": row[1],
+        "chunkIndex": int(row[2]),
+        "language": row[3],
+        "fileCategory": row[4],
+        "chunkType": row[5],
+        "pathBucket": row[6],
+        "content": row[7],
+        "lexicalMatch": True,
+    }
+
+
+def _has_search_tokens(conn, repository_id: str) -> bool:
+    """True once every chunk of the repository was written with search tokens (index format 3)."""
+    row = conn.execute(
+        """
+        SELECT
+            EXISTS (SELECT 1 FROM "CodeDocument" WHERE "repositoryId" = %s::uuid)
+            AND NOT EXISTS (
+                SELECT 1 FROM "CodeDocument" WHERE "repositoryId" = %s::uuid AND "searchTokens" IS NULL
+            )
+        """,
+        (repository_id, repository_id),
+    ).fetchone()
+    return bool(row and row[0])
 
 
 def _fetch_context_slice(
@@ -459,10 +536,61 @@ def _fetch_context_slice(
     return stitched, actual_start, actual_end
 
 
-def _merge_candidate(candidate_map: dict[str, dict], raw: dict, is_symbol_query: bool) -> None:
-    candidate = candidate_map.setdefault(
-        raw["id"],
-        {
+def _term_weights(conn, repository_id: str, terms: list[str]) -> dict[str, float]:
+    """
+    Inverse document frequency of each query term within the repository, so a rare,
+    specific word ("hash") counts for more than words that appear everywhere ("user").
+    Uses the search-token index; repositories without it weight terms equally.
+    """
+    if not terms or not _has_search_tokens(conn, repository_id):
+        return {term: 1.0 for term in terms}
+    total = conn.execute(
+        'SELECT count(*) FROM "CodeDocument" WHERE "repositoryId" = %s::uuid', (repository_id,)
+    ).fetchone()[0]
+    rows = conn.execute(
+        """
+        SELECT term, (
+            SELECT count(*) FROM "CodeDocument"
+            WHERE "repositoryId" = %s::uuid AND "searchTokens" @@ to_tsquery('simple', term)
+        )
+        FROM unnest(%s::text[]) AS term
+        """,
+        (repository_id, terms),
+    ).fetchall()
+    return {term: math.log(1 + total / max(int(df), 1)) for term, df in rows}
+
+
+def _term_ratios(file_path: str, content: str, weights: dict[str, float]) -> dict[str, float]:
+    """IDF-weighted share of query terms found in the file name, directories, content and declared names."""
+    total = sum(weights.values())
+    if total <= 0:
+        return {"nameHitRatio": 0.0, "directoryHitRatio": 0.0, "contentHitRatio": 0.0, "declarationHitRatio": 0.0}
+    name_tokens, directory_tokens = path_tokens(file_path)
+    content_tokens = set(tokenize(content))
+    declared = declared_name_tokens(content)
+
+    def share(tokens) -> float:
+        return sum(weight for term, weight in weights.items() if term in tokens) / total
+
+    # Share of the file name made of query terms: "rate-limit.ts" names the concept itself,
+    # "check-organisation-rate-limits.ts" only mentions it.
+    name_precision = (
+        sum(token in weights for token in name_tokens) / len(name_tokens) if name_tokens else 0.0
+    )
+    return {
+        "nameHitRatio": share(name_tokens) * (0.5 + 0.5 * name_precision),
+        "directoryHitRatio": share(directory_tokens),
+        "contentHitRatio": share(content_tokens),
+        "declarationHitRatio": share(declared),
+    }
+
+
+def _merge_candidate(
+    candidate_map: dict[str, dict], raw: dict, is_symbol_query: bool, weights: dict[str, float]
+) -> None:
+    candidate = candidate_map.get(raw["id"])
+    if candidate is None:
+        candidate = {
             "id": raw["id"],
             "filePath": raw["filePath"],
             "chunkIndex": raw["chunkIndex"],
@@ -475,29 +603,32 @@ def _merge_candidate(candidate_map: dict[str, dict], raw: dict, is_symbol_query:
             "pathMatch": False,
             "symbolMatch": False,
             "declarationMatch": False,
-            "contentMatch": False,
-            "pathHitRatio": 0.0,
-            "contentHitRatio": 0.0,
-        },
-    )
+            **_term_ratios(raw["filePath"], raw["content"], weights),
+        }
+        candidate_map[raw["id"]] = candidate
 
-    candidate["sourceContent"] = raw["content"]
     candidate["semanticScore"] = max(candidate["semanticScore"], raw.get("semanticScore", 0.0))
-    candidate["pathMatch"] = candidate["pathMatch"] or raw.get("pathMatch", False)
+    candidate["pathMatch"] = (
+        candidate["pathMatch"]
+        or raw.get("pathMatch", False)
+        or candidate["nameHitRatio"] > 0
+        or candidate["directoryHitRatio"] > 0
+    )
     candidate["symbolMatch"] = candidate["symbolMatch"] or raw.get("symbolMatch", False)
     candidate["declarationMatch"] = candidate["declarationMatch"] or raw.get("declarationMatch", False)
-    candidate["contentMatch"] = candidate["contentMatch"] or raw.get("contentMatch", False)
-    candidate["pathHitRatio"] = max(candidate.get("pathHitRatio", 0.0), raw.get("pathHitRatio", 0.0))
-    candidate["contentHitRatio"] = max(candidate.get("contentHitRatio", 0.0), raw.get("contentHitRatio", 0.0))
 
     score = candidate["semanticScore"]
     if is_symbol_query:
         if candidate["pathMatch"]:
             score += 0.22
     else:
-        # Scaled by the share of query terms matched (0..1).
-        score += 0.15 * candidate["pathHitRatio"]
-        score += 0.35 * candidate["contentHitRatio"]
+        # Each term is scaled by the share of query terms matched (0..1). A file named after
+        # the question ("hash.ts" for "how are passwords hashed") and functions named after it
+        # are stronger evidence than the same words in a directory or the body.
+        score += 0.25 * candidate["nameHitRatio"]
+        score += 0.10 * candidate["directoryHitRatio"]
+        score += 0.30 * candidate["contentHitRatio"]
+        score += 0.20 * candidate["declarationHitRatio"]
     if candidate["symbolMatch"]:
         score += 0.42
     if candidate["declarationMatch"]:
@@ -561,11 +692,13 @@ def search_hybrid_chunks(
         )
         lexical_rows = []
 
+    terms = [] if is_symbol_query else query_terms(normalized_query)
+    weights = _term_weights(conn, repository_id, terms)
     candidate_map: dict[str, dict] = {}
     for row in semantic_rows:
-        _merge_candidate(candidate_map, row, is_symbol_query)
+        _merge_candidate(candidate_map, row, is_symbol_query, weights)
     for row in lexical_rows:
-        _merge_candidate(candidate_map, row, is_symbol_query)
+        _merge_candidate(candidate_map, row, is_symbol_query, weights)
 
     ranked = sorted(
         candidate_map.values(),

@@ -1,0 +1,31 @@
+# Retrieval eval: heldout-documenso-lexical-v1
+
+Base URL: `http://127.0.0.1:3100` · k = 5 · 2026-10-14T20:56:50.614Z
+
+| Dataset | Layout | Questions | Hit@5 | Recall@5 | MRR | Pack recall | Pack tokens | Latency |
+|---|---|---|---|---|---|---|---|---|
+| documenso | TypeScript monorepo (Remix + tRPC + Prisma) | 22 | 41% | 41% | 0.39 | 50% | 5396 | 1437 ms |
+| **overall** | | 22 | 41% | 41% | 0.39 | 50% | 5396 | 1437 ms |
+
+## By question kind
+
+| Kind | Questions | Hit@5 | Recall@5 | MRR |
+|---|---|---|---|---|
+| nl | 21 | 43% | 43% | 0.41 |
+| task | 1 | 0% | 0% | 0.00 |
+
+## Misses (expected file not in the top 5)
+
+- **documenso-05** "How does a recipient sign a field?" expected `packages/lib/server-only/field/sign-field-with-token.ts`; got `apps/remix/app/components/general/document-signing/document-signing-field-container.tsx`, `packages/prisma/types/recipient-with-fields.ts`, `packages/ui/components/document/envelope-recipient-field-tooltip.tsx`, `packages/trpc/server/envelope-router/sign-envelope-field.ts`, `packages/lib/server-only/recipient/get-recipient-signatures.ts`
+- **documenso-07** "How are user passwords hashed?" expected `packages/lib/server-only/auth/hash.ts`; got `packages/lib/server-only/user/update-password.ts`, `packages/lib/server-only/user/reset-password.ts`, `packages/lib/server-only/2fa/verify-password.ts`, `packages/lib/server-only/user/create-user.ts`, `packages/lib/utils/user-auth-methods.ts`
+- **documenso-08** "Where is rate limiting implemented?" expected `packages/lib/server-only/rate-limit/rate-limit.ts`; got `packages/lib/jobs/definitions/internal/cleanup-rate-limits.ts`, `packages/lib/server-only/rate-limit/types.ts`, `packages/lib/server-only/rate-limit/rate-limits.ts`, `packages/lib/server-only/rate-limit/check-organisation-rate-limits.ts`, `packages/lib/jobs/definitions/internal/cleanup-rate-limits.handler.ts`
+- **documenso-10** "How is it decided whose turn it is to sign when signing order is enabled?" expected `packages/lib/server-only/recipient/get-is-recipient-turn.ts`; got `packages/lib/server-only/signature-level/assert-compatible-signing-order.ts`, `packages/lib/server-only/recipient/assign-omitted-recipient-signing-orders.ts`, `packages/lib/server-only/envelope/get-envelope-for-recipient-signing.ts`, `apps/remix/app/components/general/envelope-signing/envelope-signer-header.tsx`, `packages/ui/primitives/signature-pad/signature-pad-dialog.tsx`
+- **documenso-12** "How does OAuth sign-in with Google start?" expected `packages/auth/server/routes/oauth.ts`; got `packages/lib/constants/embed-auth.ts`, `packages/lib/constants/auth.ts`, `apps/remix/app/components/forms/signin.tsx`, `apps/remix/app/components/embed/embed-popup-auth.tsx`, `packages/signing/transports/google-cloud.ts`
+- **documenso-13** "Where are passkeys registered for a user?" expected `packages/lib/server-only/auth/create-passkey.ts`; got `packages/lib/utils/user-auth-methods.ts`, `packages/lib/server-only/user/get-user-auth-methods.ts`, `packages/lib/server-only/auth/delete-passkey.ts`, `packages/lib/server-only/auth/update-passkey.ts`, `packages/lib/server-only/auth/create-passkey-registration-options.ts`
+- **documenso-14** "Where is the database schema for documents and recipients defined?" expected `packages/prisma/schema.prisma`; got `packages/lib/types/embed-document-sign-schema.ts`, `packages/lib/jobs/definitions/internal/process-recipient-expired.handler.ts`, `packages/lib/jobs/definitions/emails/send-document-pending-email.ts`, `packages/lib/jobs/definitions/emails/send-admin-recipient-removed-emails.ts`, `packages/lib/jobs/definitions/internal/seal-document.handler.ts`
+- **documenso-17** "Where is the background job client defined?" expected `packages/lib/jobs/client.ts`; got `packages/lib/jobs/client/local.ts`, `packages/lib/jobs/client/client.ts`, `packages/lib/jobs/client/bullmq.ts`, `packages/lib/jobs/definitions/internal/cleanup-rate-limits.ts`, `packages/lib/jobs/definitions/internal/seal-document-sweep.ts`
+- **documenso-18** "Where is the email asking a recipient to sign a document sent?" expected `packages/lib/jobs/definitions/emails/send-signing-email.handler.ts`; got `packages/lib/types/document-email.ts`, `apps/remix/app/components/general/document-signing/document-signing-email-field.tsx`, `apps/remix/app/components/general/document-signing/document-signing-recipient-provider.tsx`, `packages/ui/components/document/document-email-checkboxes.tsx`, `packages/lib/server-only/document/resend-document.ts`
+- **documenso-19** "How is the public API v1 authenticated with an API token?" expected `packages/api/v1/middleware/authenticated.ts`; got `packages/trpc/server/api-token-router/get-api-tokens.ts`, `packages/trpc/server/api-token-router/delete-api-token.ts`, `packages/trpc/server/api-token-router/router.ts`, `packages/lib/server-only/webhooks/zapier/validateApiToken.ts`, `packages/trpc/server/api-token-router/create-api-token.ts`
+- **documenso-20** "Where are signed field values inserted into the PDF?" expected `packages/lib/server-only/pdf/insert-field-in-pdf-v2.ts`, `packages/lib/server-only/pdf/insert-field-in-pdf-v1.ts`; got `apps/remix/app/utils/field-signing/email-field.ts`, `apps/remix/app/utils/field-signing/dropdown-field.ts`, `apps/remix/app/utils/field-signing/name-field.ts`, `apps/remix/app/utils/field-signing/initial-field.ts`, `packages/lib/server-only/pdf/insert-form-values-in-pdf.ts`
+- **documenso-21** "How are documents searched and filtered in the documents list?" expected `packages/lib/server-only/document/find-documents.ts`; got `apps/remix/app/components/tables/documents-table-status-filter.tsx`, `apps/remix/app/components/tables/documents-table-period-filter.tsx`, `apps/remix/app/components/tables/documents-table-sender-filter.tsx`, `apps/remix/app/utils/documents-search-params.ts`, `packages/trpc/server/document-router/search-document.types.ts`
+- **documenso-22** "Change how many two-factor backup codes are generated" expected `packages/lib/server-only/2fa/setup-2fa.ts`; got `packages/lib/server-only/2fa/verify-backup-code.ts`, `apps/remix/app/components/forms/2fa/two-factor-code-dialog.tsx`, `packages/lib/server-only/2fa/view-backup-codes.ts`, `packages/auth/server/routes/two-factor.ts`, `packages/lib/server-only/2fa/get-backup-code.ts`

@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from ai import build_grounded_fallback_answer, embed_text, generate_grounded_answer
+from ai import QUERY_TASK, build_grounded_fallback_answer, embed_text, generate_grounded_answer
 from config import (
     AI_BACKEND_SECRET,
     ALLOWED_GIT_HOSTS,
@@ -99,7 +99,7 @@ def validate_scan_urls(github_url: str, callback_url: str) -> None:
 
 def _embed_query(text: str) -> list[float]:
     try:
-        return embed_text(text, max_retries=QUERY_EMBED_MAX_RETRIES, base_delay=1.0)
+        return embed_text(text, QUERY_TASK, max_retries=QUERY_EMBED_MAX_RETRIES, base_delay=1.0)
     except Exception as exc:
         logger.warning("Query embedding failed: %s", exc)
         raise HTTPException(

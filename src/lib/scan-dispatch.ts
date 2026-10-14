@@ -7,6 +7,7 @@ import {
 } from "@/lib/db"
 import { resolveScanCredential } from "@/lib/scan-auth"
 import { getGitHubDefaultBranchHeadSha } from "@/lib/github-repository-refs"
+import { isRepositoryIndexOutdated } from "@/lib/index-format"
 import { getAiBackendHeaders, getAiBackendUrl } from "@/lib/runtime-urls"
 
 export type ScanDispatchResult =
@@ -81,7 +82,13 @@ export async function dispatchRepositoryScan(input: {
         token: scanCredential.token,
       })
 
-  if (resolvedSha && repository.lastIndexedCommitSha && resolvedSha === repository.lastIndexedCommitSha) {
+  // An index written in an older format is rebuilt even when the branch has not moved.
+  if (
+    resolvedSha &&
+    repository.lastIndexedCommitSha &&
+    resolvedSha === repository.lastIndexedCommitSha &&
+    !isRepositoryIndexOutdated(repository.indexFormatVersion)
+  ) {
     return { status: "up_to_date", sha: resolvedSha }
   }
 

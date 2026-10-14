@@ -17,8 +17,23 @@ Measures whether Context Compiler returns the right files for real developer que
 | express-prisma-realworld | Express + Prisma (TypeScript) | 21 |
 | rails-realworld | Ruby on Rails | 18 |
 | context-compiler | Next.js + FastAPI + Prisma (this repo at `6b6a0f8`) | 22 |
+| miniflux | Go service, 433 code files | 22 |
+| documenso | TypeScript monorepo, 2,394 code files | 22 |
 
-The four RealWorld apps implement the same spec, so the same question can be compared across frameworks. They are small (40–110 files), which makes ranking easier than on a large codebase; treat these scores as an upper bound until larger repositories are added.
+The four RealWorld apps implement the same spec, so the same question can be compared across frameworks. They are small (40–180 files), which makes ranking much easier than on a real codebase.
+
+`miniflux` and `documenso` (`"heldOut": true`) were added after ranking had been tuned on the first five, to check for overfitting. Their **first** run is the unbiased measurement: 75% and 41% recall@5 (`results/heldout-*-lexical-v1.md`). Their misses were then used to find general problems (term weighting, translation files, type-only modules), so later numbers on them are no longer held-out. One documenso label was corrected after checking the code (`documenso-17`: the `JobClient` class is defined in `jobs/client/client.ts`).
+
+## Results so far (offline hash embedder)
+
+| Run | Change | Small repos (5) | miniflux | documenso |
+|---|---|---|---|---|
+| `baseline-hash` | starting point | 80% | — | — |
+| `roles-v2` | generic file kinds and roles | 86% | — | — |
+| `lexical-v1` | graded term matching | 93% | 75% (held-out) | 41% (held-out) |
+| `idf-v2` | search-token index, IDF weights, name/declaration matches | 94% | 70% | 39% |
+
+Recall@5, averaged over questions. The hash embedder only matches shared words, so large repositories whose questions use different vocabulary from the code (documenso) score far below what Gemini embeddings should give. **Run the eval against a Gemini-backed deployment before treating the C-grade bar as met on large repositories.**
 
 ## Metrics
 

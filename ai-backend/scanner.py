@@ -16,7 +16,7 @@ import psycopg
 from git import Repo
 from git.exc import GitCommandError
 
-from ai import embed_text
+from ai import embed_texts
 from config import (
     BINARY_EXTENSIONS,
     CHUNK_MAX_LINES,
@@ -597,6 +597,8 @@ def run_scan(
                     file_had_recoverable_issue = False
                     file_skipped_chunk_count = 0
 
+                    # Chunks whose content changed since the last scan, embedded in one batch.
+                    pending: list[tuple[int, str, str, str, int]] = []
                     for chunk_index, (chunk_type, chunk_text) in enumerate(chunks):
                         content_hash = hashlib.sha256(chunk_text.encode()).hexdigest()
                         token_count = len(chunk_text.split())
@@ -605,63 +607,68 @@ def run_scan(
                         if existing_chunk_hashes.get(chunk_index) == content_hash:
                             progress.send_scanning(phase="chunk-reused")
                             continue
+                        pending.append((chunk_index, chunk_type, chunk_text, content_hash, token_count))
 
+                    embeddings: list[list[float]] = []
+                    if pending:
                         progress.send_scanning(phase="embedding")
-
                         try:
-                            embedding = embed_text(
-                                chunk_text,
+                            embeddings = embed_texts(
+                                [chunk[2] for chunk in pending],
                                 on_retry_wait=lambda _wait, _attempt, _max: progress.send_scanning(
                                     force=True, phase="embedding-retry"
                                 ),
                             )
                         except Exception as exc:
                             warning = (
-                                f"Skipped {relative_path} chunk {chunk_index}: embedding failed after retries ({exc})."
+                                f"Skipped {len(pending)} chunk(s) of {relative_path}: embedding failed after retries ({exc})."
                             )
                             logger.warning(warning)
                             warning_messages.append(warning)
-                            skipped_chunks_count += 1
-                            file_skipped_chunk_count += 1
+                            skipped_chunks_count += len(pending)
+                            file_skipped_chunk_count += len(pending)
                             file_had_recoverable_issue = True
-                            continue
 
-                        try:
-                            progress.send_scanning(phase="writing")
-                            upsert_chunk(
-                                conn,
-                                scan_job_id=scan_job_id,
-                                repository_id=repository_id,
-                                file_path=relative_path,
-                                chunk_index=chunk_index,
-                                language=language,
-                                file_category=file_category,
-                                chunk_type=chunk_type,
-                                path_bucket=path_bucket,
-                                content=chunk_text,
-                                content_hash=content_hash,
-                                token_count=token_count,
-                                embedding=embedding,
-                            )
-                        except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
-                            logger.error(
-                                "DB connectivity lost at %s chunk %d - aborting scan: %s",
-                                relative_path,
-                                chunk_index,
-                                exc,
-                            )
-                            raise
-                        except Exception as exc:
-                            warning = (
-                                f"Skipped {relative_path} chunk {chunk_index}: database write failed ({exc})."
-                            )
-                            logger.warning(warning)
-                            warning_messages.append(warning)
-                            skipped_chunks_count += 1
-                            file_skipped_chunk_count += 1
-                            file_had_recoverable_issue = True
-                            conn.rollback()
-                            break
+                    if not file_had_recoverable_issue:
+                        for (chunk_index, chunk_type, chunk_text, content_hash, token_count), embedding in zip(
+                            pending, embeddings
+                        ):
+                            try:
+                                progress.send_scanning(phase="writing")
+                                upsert_chunk(
+                                    conn,
+                                    scan_job_id=scan_job_id,
+                                    repository_id=repository_id,
+                                    file_path=relative_path,
+                                    chunk_index=chunk_index,
+                                    language=language,
+                                    file_category=file_category,
+                                    chunk_type=chunk_type,
+                                    path_bucket=path_bucket,
+                                    content=chunk_text,
+                                    content_hash=content_hash,
+                                    token_count=token_count,
+                                    embedding=embedding,
+                                )
+                            except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
+                                logger.error(
+                                    "DB connectivity lost at %s chunk %d - aborting scan: %s",
+                                    relative_path,
+                                    chunk_index,
+                                    exc,
+                                )
+                                raise
+                            except Exception as exc:
+                                warning = (
+                                    f"Skipped {relative_path} chunk {chunk_index}: database write failed ({exc})."
+                                )
+                                logger.warning(warning)
+                                warning_messages.append(warning)
+                                skipped_chunks_count += 1
+                                file_skipped_chunk_count += 1
+                                file_had_recoverable_issue = True
+                                conn.rollback()
+                                break
 
                     if file_had_recoverable_issue:
                         conn.rollback()

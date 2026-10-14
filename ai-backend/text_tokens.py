@@ -49,3 +49,30 @@ def query_terms(query: str, limit: int = 8) -> list[str]:
         if len(terms) >= limit:
             break
     return terms
+
+
+def path_tokens(file_path: str) -> tuple[list[str], list[str]]:
+    """Tokens of a file's name (without extension) and of its directories."""
+    normalized = file_path.replace("\\", "/")
+    directory, _, name = normalized.rpartition("/")
+    stem = name.split(".")[0] if not name.startswith(".") else name
+    return tokenize(stem), tokenize(directory)
+
+
+# Declarations across common languages: function/def/func/fn/class/interface/type/struct,
+# Go methods, and `const name = (` / `name = function` style bindings.
+_DECLARATION_RE = re.compile(
+    r"(?:\b(?:function|def|func|fn|class|interface|type|struct|enum|trait|module|record)\s+"
+    r"(?:\([^)]*\)\s*)?([A-Za-z_$][\w$]*))"
+    r"|(?:\b(?:const|let|var|export\s+const)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:async\s*)?(?:\(|function|[A-Za-z_$][\w$]*\s*=>))"
+)
+
+
+def declared_name_tokens(content: str) -> set[str]:
+    """Tokens of the names a chunk declares, e.g. signFieldWithToken -> {sign, field, token}."""
+    tokens: set[str] = set()
+    for match in _DECLARATION_RE.finditer(content):
+        name = match.group(1) or match.group(2)
+        if name:
+            tokens.update(tokenize(name))
+    return tokens

@@ -1,8 +1,8 @@
 # MCP reference
 
-The MCP entry point is `src/mcp/server.ts`. It implements **stdio only** and is read-only. A key binds one server process to one repository and workspace. There are no MCP resources or prompts in this release; repository access is exposed through the five tools below. All tools return MCP text content plus `structuredContent`; failures return `isError: true` with an actionable message.
+Context Compiler serves MCP two ways, with the same tools (defined in `src/mcp/tools.ts`): a remote **Streamable HTTP** endpoint at `<base-url>/api/mcp` (`src/app/api/mcp/route.ts`, stateless, JSON responses) and a local **stdio** bridge (`src/mcp/server.ts`). Both are read-only, and a key binds them to one repository and workspace. There are no MCP resources or prompts in this release; repository access is exposed through the five tools below. All tools return MCP text content plus `structuredContent`; failures return `isError: true` with an actionable message.
 
-Common optional filters are `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful repository scan. Every request requires `CONTEXT_COMPILER_BASE_URL` and a valid repository-bound `CONTEXT_COMPILER_MCP_KEY`.
+Common optional filters are `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful repository scan. Every request requires a valid repository-bound key: as an `Authorization: Bearer` header for the remote endpoint, or `CONTEXT_COMPILER_MCP_KEY` (plus `CONTEXT_COMPILER_BASE_URL`) for the stdio bridge. All tools carry `readOnlyHint: true`.
 
 ## `search_codebase`
 
@@ -66,4 +66,4 @@ Output: repository/query, possible entrypoint, categorized files, read order, mi
 
 ## Protocol and errors
 
-The bridge first calls `GET /api/mcp/session` to validate its key, then calls the corresponding authenticated web route. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 60 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.
+The remote endpoint authenticates each request and returns 401 with `WWW-Authenticate: Bearer` when the key is missing or revoked; tool failures are returned as `isError` results. The stdio bridge connects immediately and calls the corresponding authenticated web route per tool (`/api/mcp/search`, `/answer`, `/file`, `/context-pack`, `/trace`); `doctor` calls `GET /api/mcp/session`. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 60 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.

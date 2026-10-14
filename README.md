@@ -1,6 +1,6 @@
 # Context Compiler
 
-Context Compiler turns a GitHub repository into a searchable, repository-bound context service for humans and MCP-compatible AI clients. It clones and chunks source code, creates Gemini embeddings in PostgreSQL/pgvector, and exposes ranked code search, grounded Q&A, context packs, file context, and feature-flow tracing through a web UI and a local read-only MCP stdio bridge.
+Context Compiler turns a GitHub repository into a searchable, repository-bound context service for humans and MCP-compatible AI clients. It clones and chunks source code, creates Gemini embeddings in PostgreSQL/pgvector, and exposes ranked code search, grounded Q&A, context packs, file context, and feature-flow tracing through a web UI and a read-only MCP server (remote Streamable HTTP, plus an optional local stdio bridge).
 
 > **Project status:** self-hosted pre-release (`0.1.0`). It is a multi-service application, not a standalone local code-search binary. Scanning requires Supabase/PostgreSQL, a GitHub integration, the Python AI service, and Gemini credentials.
 
@@ -11,7 +11,7 @@ Context Compiler turns a GitHub repository into a searchable, repository-bound c
 - Prompt-ready context packs and indexed file chunk retrieval.
 - Retrieval-based feature-flow/read-order suggestions.
 - Incremental GitHub scans, GitHub App reconciliation/webhooks, repository-bound MCP API keys, workspaces, saved carts/answers, notifications, and optional Stripe billing.
-- One MCP transport: local **stdio**, forwarding authenticated requests to the Next.js application.
+- Two MCP transports: a remote **Streamable HTTP** endpoint at `/api/mcp` (nothing to install on the client) and an optional local **stdio** bridge that forwards to the same app.
 
 Context Compiler currently registers five MCP tools. It registers no MCP resources or prompts. See the complete [MCP reference](docs/MCP_REFERENCE.md).
 
@@ -19,8 +19,9 @@ Context Compiler currently registers five MCP tools. It registers no MCP resourc
 
 ```mermaid
 flowchart LR
-  Client[MCP client\nClaude Code / Codex / stdio client] -->|stdio| Bridge[TypeScript MCP bridge]
-  Bridge -->|HTTPS + repository-bound Bearer key| Web[Next.js app + MCP API routes]
+  Client[MCP client\nClaude Code / Codex / Gemini CLI] -->|Streamable HTTP + repository-bound Bearer key| Web[Next.js app + /api/mcp]
+  StdioClient[stdio-only MCP client] -->|stdio| Bridge[Optional local stdio bridge]
+  Bridge -->|HTTPS + Bearer key| Web
   Browser[Browser] --> Web
   Web --> DB[(Supabase PostgreSQL + pgvector)]
   Web -->|scan/search/answer HTTP| AI[FastAPI AI backend]
@@ -44,21 +45,14 @@ flowchart LR
 
 This path assumes an administrator has already deployed Context Compiler and scanned a repository.
 
-1. Install the bridge dependencies:
+1. On the repository page, open **Use With Agent**, create a repository-bound key, and copy it once.
+2. Register the remote server with your agent. Run this in your checkout of that repository:
    ```bash
-   git clone https://github.com/TahubCS/Context-Compiler.git
-   cd Context-Compiler
-   bun install --frozen-lockfile
+   claude mcp add --transport http context-compiler https://your-context-compiler.example/api/mcp \
+     --header "Authorization: Bearer ccmcp_REPLACE_ME"
    ```
-2. In the repository page, open **MCP**, create a repository-bound key, and copy it once.
-3. Diagnose authentication without exposing the key:
-   ```bash
-   CONTEXT_COMPILER_BASE_URL="https://your-context-compiler.example" \
-   CONTEXT_COMPILER_MCP_KEY="ccmcp_REPLACE_ME" \
-   bun run mcp:doctor
-   ```
-   Expected output resembles `OK: authenticated to owner/repository; scan status: completed`.
-4. Add one of the [verified stdio configuration shapes](examples/mcp-clients.md), restart the client, and ask it to call `search_codebase` with `{"query":"authentication entrypoint"}`.
+   The dialog shows the same command with your URL and key filled in, plus the [Codex, Gemini CLI and generic JSON forms](examples/mcp-clients.md).
+3. In Claude Code, run `/mcp` to confirm `context-compiler` is connected, then ask it to call `search_codebase` with `{"query":"authentication entrypoint"}`.
 
 The response contains repository metadata, a best match, related files, grouped matches, and structured content. Exact files and scores vary with the bound repository and its latest scan.
 
@@ -106,13 +100,17 @@ Run database migrations through a reviewed deployment process before the applica
 
 ## MCP operation
 
+The remote endpoint is `POST <base-url>/api/mcp` (Streamable HTTP, stateless, JSON responses). It authenticates every request with `Authorization: Bearer <key>` and returns 401 with a `WWW-Authenticate` header for a missing or revoked key.
+
+The local stdio bridge is for clients that cannot use remote servers:
+
 ```bash
 bun run mcp:stdio --help
 bun run mcp:doctor
 bun run mcp:stdio
 ```
 
-`mcp:stdio` is normally spawned by a client, not typed interactively. It reserves stdout for MCP protocol frames and sends startup diagnostics to stderr. Required client-process variables are `CONTEXT_COMPILER_BASE_URL` and `CONTEXT_COMPILER_MCP_KEY`; optional `CONTEXT_COMPILER_TIMEOUT_MS` defaults to 60000 and accepts 1000–120000.
+`mcp:stdio` is normally spawned by a client, not typed interactively. It reserves stdout for MCP protocol frames and sends diagnostics to stderr. Required client-process variables are `CONTEXT_COMPILER_BASE_URL` and `CONTEXT_COMPILER_MCP_KEY`; optional `CONTEXT_COMPILER_TIMEOUT_MS` defaults to 60000 and accepts 1000–120000. The bridge connects even when the app is unreachable or a variable is missing; each tool call then returns the problem as a tool error.
 
 ## Configuration and security
 
@@ -132,7 +130,7 @@ bun run mcp:stdio
 | `Unauthorized` | The key is malformed, revoked, or points at another deployment. Create a new key for the repository and confirm the base URL. |
 | Non-JSON response | The base URL likely points to a proxy error page or the Python backend. It must be the Next.js app origin. |
 | Request timeout / connection failure | Run `bun run mcp:doctor`, check DNS/TLS and application health, then raise the timeout only if the service is healthy but slow. |
-| Client shows disconnected | Use an absolute repository path, run `bun install`, check `bun run mcp:stdio --help`, and restart the client. Do not expect a remote SSE/HTTP MCP endpoint. |
+| Client shows disconnected or "needs auth" | For the remote server, check the URL ends in `/api/mcp` and the header is exactly `Authorization: Bearer ccmcp_...`. For the stdio bridge, use an absolute repository path, run `bun install`, check `bun run mcp:stdio --help`, and restart the client. |
 | Search has no results / file not found | Complete a repository scan; file context comes from the index and can lag the live branch. |
 | Scan fails | Verify GitHub installation access, Gemini key/quota, AI backend connectivity, callback secret equality, database/pgvector, and scan-job diagnostics. |
 | MCP key creation says storage/config is unavailable | Apply current Prisma migrations/schema and provide a valid `MCP_API_KEY_SECRET`. |
@@ -152,7 +150,7 @@ For Python dependency-isolated work, create the virtual environment above and ad
 
 ## Current limitations and follow-up work
 
-- MCP is stdio-only and requires a local checkout plus access to a separately hosted web app; there is no Streamable HTTP/SSE transport or packaged executable.
+- Each MCP key is bound to one repository, so each repository needs its own registration. Workspace-wide keys and an `npx` installer are planned in [docs/PLAN.md](docs/PLAN.md).
 - The MCP surface has tools only—no resources, prompts, subscriptions, or write operations.
 - Full self-hosting is operationally involved and lacks a single compose file, automated environment doctor for every web/AI integration, and end-to-end tests with ephemeral PostgreSQL/pgvector.
 - Indexed content can be stale until a scan completes. Feature-flow and Q&A outputs are retrieval/model-assisted and should be verified before edits.

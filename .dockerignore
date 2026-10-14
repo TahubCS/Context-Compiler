@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.env
+.env.*
+!.env.example
+ai-backend/.venv
+ai-backend/__pycache__
+packages/*/dist
+evals/keys.local.json

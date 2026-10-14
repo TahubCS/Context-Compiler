@@ -2,7 +2,7 @@
  * Retrieval eval: asks each dataset's questions through the remote MCP endpoint, exactly
  * as an agent would, and scores whether the expected files come back.
  *
- *   EVAL_BASE_URL=https://your-app bun run eval [--dataset name] [--label baseline] [--k 5]
+ *   EVAL_BASE_URL=https://your-app bun run eval [--dataset a,b] [--label baseline] [--k 5] [--min-recall 0.85]
  *
  * Keys come from evals/keys.local.json ({ "<dataset name>": "ccmcp_..." }), written by
  * scripts/eval-setup-local.ts or by hand for a deployed instance.
@@ -135,7 +135,7 @@ async function main() {
   const datasets: Dataset[] = readdirSync(DATASET_DIR)
     .filter((file) => file.endsWith(".json"))
     .map((file) => JSON.parse(readFileSync(path.join(DATASET_DIR, file), "utf8")) as Dataset)
-    .filter((dataset) => !only || dataset.name === only)
+    .filter((dataset) => !only || only.split(",").includes(dataset.name))
 
   const report: Array<{ dataset: Dataset; results: QuestionResult[] }> = []
   for (const dataset of datasets) {
@@ -161,6 +161,7 @@ async function main() {
   console.log(`${"overall".padEnd(26)} hit@${k} ${pct(overall.hit).padStart(4)}  recall@${k} ${pct(overall.recall).padStart(4)}  MRR ${overall.mrr.toFixed(2)}  pack ${pct(overall.packRecall).padStart(4)}  ~${overall.packTokens} tok`)
   const worst = Math.min(...datasetMeans.map((s) => s.recall))
   console.log(`Lowest per-repo recall@${k}: ${pct(worst)} (C-grade bar: 70% on every repo)`)
+  const minRecall = argValue("--min-recall")
 
   const lines = [
     `# Retrieval eval: ${label}`,
@@ -196,6 +197,18 @@ async function main() {
   writeFileSync(path.join(RESULTS_DIR, `${label}.md`), lines.join("\n"))
   writeFileSync(path.join(RESULTS_DIR, `${label}.json`), JSON.stringify({ label, baseUrl, k, report }, null, 2) + "\n")
   console.log(`Wrote evals/results/${label}.md`)
+
+  // CI regression gate: fail when any dataset drops below the threshold, or any call errored.
+  if (minRecall !== undefined) {
+    const threshold = Number(minRecall)
+    const failing = report.filter(({ results }) => summarize(results).recall < threshold || results.some((r) => r.error))
+    if (report.length === 0 || failing.length > 0) {
+      console.error(
+        `Recall below ${pct(threshold)} or errors in: ${failing.map(({ dataset }) => dataset.name).join(", ") || "no datasets ran"}`
+      )
+      process.exit(1)
+    }
+  }
 }
 
 main()

@@ -11,6 +11,7 @@
     "mcp:doctor": "bun ./src/mcp/server.ts doctor",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "setup": "bun ./scripts/setup.ts",
     "db:setup": "bun ./scripts/ensure-vector-index.ts --extension-only && prisma db push && bun ./scripts/ensure-vector-index.ts",
     "eval": "bun ./scripts/eval.ts",
     "eval:setup-local": "bun ./scripts/eval-setup-local.ts",

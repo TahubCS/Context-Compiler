@@ -8,7 +8,7 @@ import {
 import { resolveScanCredential } from "@/lib/scan-auth"
 import { getGitHubDefaultBranchHeadSha } from "@/lib/github-repository-refs"
 import { isRepositoryIndexOutdated } from "@/lib/index-format"
-import { getAiBackendHeaders, getAiBackendUrl } from "@/lib/runtime-urls"
+import { getAiBackendHeaders, getAiBackendUrl, getScanCallbackBaseUrl } from "@/lib/runtime-urls"
 
 export type ScanDispatchResult =
   | { status: "dispatched"; scanJobId: string }
@@ -128,7 +128,7 @@ export async function dispatchRepositoryScan(input: {
         previous_indexed_commit_sha: repository.lastIndexedCommitSha,
         repository_index_format_version: repository.indexFormatVersion,
         github_token: scanCredential.token,
-        callback_url: `${appBaseUrl}/api/repo/${repoId}/scan/status`,
+        callback_url: `${getScanCallbackBaseUrl(appBaseUrl)}/api/repo/${repoId}/scan/status`,
         callback_secret: process.env.AI_CALLBACK_SECRET,
       }),
       signal: AbortSignal.timeout(5000),

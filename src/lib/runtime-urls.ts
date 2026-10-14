@@ -41,3 +41,13 @@ export function getAiBackendHeaders(): Record<string, string> {
   }
   return headers
 }
+
+/**
+ * Where the AI backend sends scan progress. Defaults to the app's public URL; set
+ * AI_CALLBACK_BASE_URL when the backend reaches the app at a different address
+ * (for example http://web:3000 inside Docker Compose).
+ */
+export function getScanCallbackBaseUrl(appBaseUrl: string): string {
+  const configured = process.env.AI_CALLBACK_BASE_URL?.trim()
+  return trimTrailingSlash(configured || appBaseUrl)
+}

@@ -101,7 +101,7 @@ async function main() {
   const datasets: Dataset[] = readdirSync(DATASET_DIR)
     .filter((file) => file.endsWith(".json"))
     .map((file) => JSON.parse(readFileSync(path.join(DATASET_DIR, file), "utf8")) as Dataset)
-    .filter((dataset) => !only || dataset.name === only)
+    .filter((dataset) => !only || only.split(",").includes(dataset.name))
 
   const workspace = await ensureWorkspace()
   let keys: Record<string, string> = {}

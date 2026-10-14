@@ -69,18 +69,24 @@ The response contains repository metadata, a best match, related files, grouped 
 
 ```bash
 bun install --frozen-lockfile
-cp .env.example .env.local
-bunx prisma generate
+bun run setup             # creates .env.local with generated secrets, then reports what is missing
 bun run db:setup          # enables pgvector, runs prisma db push, builds the HNSW vector index
 python -m venv ai-backend/.venv
 ai-backend/.venv/bin/pip install -r ai-backend/requirements.txt
 ```
 
-`db:setup` is safe to re-run. On an existing database, run `bun ./scripts/ensure-vector-index.ts` once: databases created with plain `prisma db push` have a btree index on the embedding column that rejects every embedding insert.
+`bun run setup` never overwrites an existing `.env.local`; run it again after editing to re-check. It generates the callback, webhook, backend, GitHub-token and MCP-key secrets, and lists what each feature still needs: Supabase and the database for sign-in, the GitHub App for repository import, and the AI backend plus a Gemini key for scanning. The full inventory is in [`.env.example`](.env.example); never commit a filled-in environment file.
 
-Fill placeholders in `.env.local`; never paste or commit a complete environment file. The variable inventory is in [`.env.example`](.env.example). At minimum, the web app needs database/Supabase settings. Repository import needs GitHub settings, scanning needs `AI_BACKEND_URL`, `AI_CALLBACK_SECRET`, `AI_BACKEND_SECRET` (the same value on both services), and the AI service settings, and MCP key issuance needs `MCP_API_KEY_SECRET`.
+`db:setup` is safe to re-run. On a database created earlier with plain `prisma db push`, run `bun ./scripts/ensure-vector-index.ts` once: that btree index on the embedding column rejects every embedding insert. Patch migrations for existing deployments are in `prisma/migrations/` (0013 onward add the search index, workspace keys, CLI sign-in, usage log, and re-scan permission).
 
-Generate independent high-entropy secrets for callback, webhook, encryption, and MCP-key encryption purposes. `GITHUB_TOKEN_ENCRYPTION_KEY` and `MCP_API_KEY_SECRET` must meet the 32-byte base64 requirements enforced by their implementations.
+### Docker Compose
+
+```bash
+bun run setup                                   # then fill in Supabase, GitHub App and Gemini values
+docker compose --env-file .env.local up --build
+```
+
+Starts PostgreSQL with pgvector, a one-shot `migrate` job (`db:setup`), the AI backend on port 8080, and the web app on port 3000. Sign-in still uses a hosted Supabase project. Without a Gemini key, set `EMBEDDING_PROVIDER=hash` for offline embeddings that match words rather than meaning.
 
 ### Development
 
@@ -95,7 +101,7 @@ cd ai-backend
 ../ai-backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Check the AI process with `curl --fail http://127.0.0.1:8000/health`. Then sign in, connect GitHub, import and scan a repository, wait for completion, and create its MCP key.
+The AI backend reads `AI_BACKEND_SECRET`, `DATABASE_URL`, `GOOGLE_GEMINI_API_KEY` (or `EMBEDDING_PROVIDER=hash`) and `APP_BASE_URL` from its own environment. Then open `/api/health`: it checks the database, the vector and search indexes, that the AI backend is reachable with a matching secret, and the MCP and GitHub App settings. Sign in, connect GitHub, import and scan a repository, and connect an agent.
 
 ### Production
 
@@ -105,7 +111,7 @@ bun run start
 cd ai-backend && .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Run database migrations through a reviewed deployment process before the application. Put both services behind TLS, restrict the AI backend to the web application where possible, and configure the GitHub webhook at `/api/github-app/webhook`. The included Dockerfile packages only the Python service; deployment of the Next.js application and database remains operator-managed.
+The root `Dockerfile` builds the web app (pass `NEXT_PUBLIC_*` values as build arguments) and `ai-backend/Dockerfile` the AI service. Apply schema changes before deploying the application, put both services behind TLS, keep the AI backend private to the web app where possible, and configure the GitHub webhook at `/api/github-app/webhook`. Point uptime checks at `/api/health` (HTTP 200 when every check passes, 503 otherwise). If the AI backend reaches the web app at a different address than its public URL, set `AI_CALLBACK_BASE_URL`.
 
 ## MCP operation
 
@@ -141,7 +147,7 @@ bun run mcp:stdio
 | Request timeout / connection failure | Run `bun run mcp:doctor`, check DNS/TLS and application health, then raise the timeout only if the service is healthy but slow. |
 | Client shows disconnected or "needs auth" | For the remote server, check the URL ends in `/api/mcp` and the header is exactly `Authorization: Bearer ccmcp_...`. For the stdio bridge, use an absolute repository path, run `bun install`, check `bun run mcp:stdio --help`, and restart the client. |
 | Search has no results / file not found | Complete a repository scan; file context comes from the index and can lag the live branch. |
-| Scan fails | Verify GitHub installation access, Gemini key/quota, AI backend connectivity, callback secret equality, database/pgvector, and scan-job diagnostics. |
+| Scan fails | Open `/api/health` first. Then verify GitHub installation access, Gemini key/quota, callback secret equality, and scan-job diagnostics. |
 | MCP key creation says storage/config is unavailable | Apply current Prisma migrations/schema and provide a valid `MCP_API_KEY_SECRET`. |
 | Build fails on environment validation | Compare variable names with `.env.example`; optional integrations may still have routes that require their secrets when invoked. |
 
@@ -161,7 +167,7 @@ For Python dependency-isolated work, create the virtual environment above and ad
 
 - The `npx context-compiler-mcp connect` installer (`packages/mcp`) must be published to npm before the one-command flow works for others; until then, use the per-agent commands in the setup dialog.
 - The MCP surface has tools only—no resources, prompts, subscriptions, or write operations.
-- Full self-hosting is operationally involved and lacks a single compose file, automated environment doctor for every web/AI integration, and end-to-end tests with ephemeral PostgreSQL/pgvector.
+- Self-hosting still needs a hosted Supabase project for sign-in and a GitHub App for repository import. The Compose file and web Dockerfile have not yet been built in CI.
 - Indexed content can be stale until a scan completes. Feature-flow and Q&A outputs are retrieval/model-assisted and should be verified before edits.
 - External integration tests require credentials and live services and are not safe to run by default.
 - Billing exists in code but is optional; production pricing/entitlements should be reviewed by each operator rather than inferred from this README.

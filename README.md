@@ -1,3 +1,5 @@
+<p><img src="public/logo.svg" alt="" width="64" height="64"></p>
+
 # Context Compiler
 
 Context Compiler turns a GitHub repository into a searchable, repository-bound context service for humans and MCP-compatible AI clients. It clones and chunks source code, creates Gemini embeddings in PostgreSQL/pgvector, and exposes ranked code search, grounded Q&A, context packs, file context, and feature-flow tracing through a web UI and a read-only MCP server (remote Streamable HTTP, plus an optional local stdio bridge).

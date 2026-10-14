@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Code2 } from "lucide-react"
+import { AppLogoMark } from "@/components/features/app-logo"
 import { GitHubSignInButton } from "@/components/features/github-sign-in-button"
 
 export default function PublicLayout({
@@ -12,7 +12,7 @@ export default function PublicLayout({
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6">
           <Link href="/" className="flex items-center gap-2 text-foreground hover:text-primary transition-colors">
-            <Code2 className="size-5" />
+            <AppLogoMark />
             <span className="font-semibold">Context Compiler</span>
           </Link>
           <nav className="flex items-center gap-5">

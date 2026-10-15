@@ -2,7 +2,7 @@
   "name": "context-compiler-mcp",
   "version": "0.1.0",
   "description": "Connect Claude Code, Codex and Gemini CLI to Context Compiler in one command.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "context-compiler-mcp": "dist/cli.js"

@@ -32,7 +32,7 @@ describe("resolveRepository with a repository key", () => {
     id: "r1",
     fullName: "Acme/Demo",
     defaultBranch: "main",
-    scanStatus: "COMPLETED",
+    scanStatus: "COMPLETED" as const,
     lastIndexedCommitSha: "abc",
     indexFormatVersion: 3,
     lastScannedAt: null,

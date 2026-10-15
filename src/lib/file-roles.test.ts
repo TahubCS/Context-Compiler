@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { classifyFile, kindAdjustment } from "./file-roles"
+import { classifyFile, kindAdjustment, type FileKind, type FileRole } from "./file-roles"
 
 describe("classifyFile", () => {
-  test.each([
+  test.each<[string, FileKind]>([
     // tests across ecosystems
     ["users/unit_test.go", "test"],
     ["src/tests/services/auth.service.test.ts", "test"],
@@ -42,7 +42,7 @@ describe("classifyFile", () => {
     expect(classifyFile(path).kind).toBe(kind)
   })
 
-  test.each([
+  test.each<[string, FileRole]>([
     ["app/controllers/articles_controller.rb", "entrypoint"],
     ["conduit/apps/articles/views.py", "entrypoint"],
     ["conduit/apps/articles/urls.py", "entrypoint"],

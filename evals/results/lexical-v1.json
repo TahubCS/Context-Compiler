@@ -1,0 +1,3483 @@
+{
+  "label": "lexical-v1",
+  "baseUrl": "http://127.0.0.1:3100",
+  "k": 5,
+  "report": [
+    {
+      "dataset": {
+        "name": "rails-realworld",
+        "repo": "gothinkster/rails-realworld-example-app",
+        "commit": "a2ae4fff78b3337683cea988c023281dcb5551b9",
+        "layout": "Ruby on Rails",
+        "questions": [
+          {
+            "id": "rails-realworld-01",
+            "kind": "nl",
+            "query": "Where are JWT tokens generated?",
+            "expect": [
+              "app/models/user.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-02",
+            "kind": "nl",
+            "query": "How are requests authenticated with the Authorization header?",
+            "expect": [
+              "app/controllers/application_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-03",
+            "kind": "nl",
+            "query": "How are article slugs generated?",
+            "expect": [
+              "app/models/article.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-04",
+            "kind": "nl",
+            "query": "Where does a user favorite an article?",
+            "expect": [
+              "app/controllers/favorites_controller.rb",
+              "app/models/user.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-05",
+            "kind": "nl",
+            "query": "How does following a user work?",
+            "expect": [
+              "app/controllers/follows_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-06",
+            "kind": "nl",
+            "query": "How are articles filtered by author or favorited user?",
+            "expect": [
+              "app/models/article.rb",
+              "app/controllers/articles_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-07",
+            "kind": "nl",
+            "query": "Where is the feed of articles from followed users?",
+            "expect": [
+              "app/controllers/articles_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-08",
+            "kind": "nl",
+            "query": "Where are the API routes defined?",
+            "expect": [
+              "config/routes.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-09",
+            "kind": "nl",
+            "query": "What does the database schema look like?",
+            "expect": [
+              "db/schema.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-10",
+            "kind": "nl",
+            "query": "How is the article JSON response rendered?",
+            "expect": [
+              "app/views/articles/_article.json.jbuilder"
+            ]
+          },
+          {
+            "id": "rails-realworld-11",
+            "kind": "nl",
+            "query": "How is login handled?",
+            "expect": [
+              "app/controllers/sessions_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-12",
+            "kind": "nl",
+            "query": "Where are camelCase request params converted to snake_case?",
+            "expect": [
+              "app/controllers/application_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-13",
+            "kind": "nl",
+            "query": "Where are tags listed?",
+            "expect": [
+              "app/controllers/tags_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-14",
+            "kind": "nl",
+            "query": "How are comments created and deleted?",
+            "expect": [
+              "app/controllers/comments_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-15",
+            "kind": "nl",
+            "query": "Where is the current user's profile updated?",
+            "expect": [
+              "app/controllers/users_controller.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-16",
+            "kind": "nl",
+            "query": "How is the profile JSON with following status rendered?",
+            "expect": [
+              "app/views/profiles/_profile.json.jbuilder"
+            ]
+          },
+          {
+            "id": "rails-realworld-17",
+            "kind": "task",
+            "query": "Add a maximum title length for articles",
+            "expect": [
+              "app/models/article.rb"
+            ]
+          },
+          {
+            "id": "rails-realworld-18",
+            "kind": "nl",
+            "query": "Where is Devise configured?",
+            "expect": [
+              "config/initializers/devise.rb"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "rails-realworld-01",
+          "kind": "nl",
+          "query": "Where are JWT tokens generated?",
+          "expect": [
+            "app/models/user.rb"
+          ],
+          "ranked": [
+            "app/views/users/_user.json.jbuilder",
+            "app/controllers/application_controller.rb",
+            ".gitignore",
+            "db/schema.rb",
+            "app/models/user.rb",
+            "config.ru",
+            "config/application.rb",
+            "config/initializers/devise.rb",
+            "Gemfile"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.2,
+          "packRecall": 1,
+          "packTokens": 2558,
+          "latencyMs": 125.99303099999997
+        },
+        {
+          "id": "rails-realworld-02",
+          "kind": "nl",
+          "query": "How are requests authenticated with the Authorization header?",
+          "expect": [
+            "app/controllers/application_controller.rb"
+          ],
+          "ranked": [
+            "app/controllers/application_controller.rb",
+            "app/controllers/follows_controller.rb",
+            "app/controllers/favorites_controller.rb",
+            "app/controllers/users_controller.rb",
+            "app/controllers/comments_controller.rb",
+            "app/controllers/articles_controller.rb",
+            "config/application.rb",
+            "app/assets/javascripts/application.js",
+            "README.md",
+            "app/models/user.rb"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 1952,
+          "latencyMs": 49.08991400000002
+        },
+        {
+          "id": "rails-realworld-03",
+          "kind": "nl",
+          "query": "How are article slugs generated?",
+          "expect": [
+            "app/models/article.rb"
+          ],
+          "ranked": [
+            "app/controllers/articles_controller.rb",
+            "app/views/articles/_article.json.jbuilder",
+            "app/views/articles/show.json.jbuilder",
+            "app/controllers/favorites_controller.rb",
+            "app/models/article.rb",
+            "app/views/articles/index.json.jbuilder",
+            "db/schema.rb",
+            "app/controllers/comments_controller.rb",
+            "app/models/user.rb",
+            ".gitignore"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.2,
+          "packRecall": 1,
+          "packTokens": 1495,
+          "latencyMs": 49.086681
+        },
+        {
+          "id": "rails-realworld-04",
+          "kind": "nl",
+          "query": "Where does a user favorite an article?",
+          "expect": [
+            "app/controllers/favorites_controller.rb",
+            "app/models/user.rb"
+          ],
+          "ranked": [
+            "app/models/favorite.rb",
+            "app/controllers/favorites_controller.rb",
+            "app/controllers/articles_controller.rb",
+            "app/views/articles/_article.json.jbuilder",
+            "app/models/user.rb",
+            "app/models/article.rb",
+            "app/views/users/show.json.jbuilder",
+            "app/views/articles/show.json.jbuilder",
+            "app/controllers/users_controller.rb",
+            "app/views/articles/index.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 1709,
+          "latencyMs": 47.71062600000005
+        },
+        {
+          "id": "rails-realworld-05",
+          "kind": "nl",
+          "query": "How does following a user work?",
+          "expect": [
+            "app/controllers/follows_controller.rb"
+          ],
+          "ranked": [
+            "app/controllers/follows_controller.rb",
+            "app/views/profiles/_profile.json.jbuilder",
+            "app/views/users/show.json.jbuilder",
+            "app/controllers/users_controller.rb",
+            "app/views/users/_user.json.jbuilder",
+            "app/models/user.rb",
+            "app/controllers/articles_controller.rb",
+            "app/models/follow.rb",
+            "app/views/devise/registrations/create.json.jbuilder",
+            "app/views/devise/sessions/create.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 1212,
+          "latencyMs": 44.72124299999996
+        },
+        {
+          "id": "rails-realworld-06",
+          "kind": "nl",
+          "query": "How are articles filtered by author or favorited user?",
+          "expect": [
+            "app/models/article.rb",
+            "app/controllers/articles_controller.rb"
+          ],
+          "ranked": [
+            "app/models/article.rb",
+            "app/controllers/articles_controller.rb",
+            "app/views/articles/_article.json.jbuilder",
+            "app/controllers/favorites_controller.rb",
+            "app/models/user.rb",
+            "app/models/favorite.rb",
+            "db/schema.rb",
+            "app/views/users/show.json.jbuilder",
+            "app/controllers/users_controller.rb",
+            "app/views/articles/index.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 1713,
+          "latencyMs": 48.29264400000011
+        },
+        {
+          "id": "rails-realworld-07",
+          "kind": "nl",
+          "query": "Where is the feed of articles from followed users?",
+          "expect": [
+            "app/controllers/articles_controller.rb"
+          ],
+          "ranked": [
+            "app/controllers/articles_controller.rb",
+            "app/models/article.rb",
+            "app/controllers/follows_controller.rb",
+            "app/views/users/show.json.jbuilder",
+            "config/routes.rb",
+            "app/models/user.rb",
+            "app/controllers/users_controller.rb",
+            "app/views/profiles/_profile.json.jbuilder",
+            "db/schema.rb",
+            "app/views/articles/index.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2179,
+          "latencyMs": 44.84023499999989
+        },
+        {
+          "id": "rails-realworld-08",
+          "kind": "nl",
+          "query": "Where are the API routes defined?",
+          "expect": [
+            "config/routes.rb"
+          ],
+          "ranked": [
+            "config/routes.rb",
+            "app/controllers/application_controller.rb",
+            "app/assets/stylesheets/application.css",
+            "app/assets/javascripts/application.js",
+            "db/schema.rb",
+            "app/views/users/_user.json.jbuilder",
+            "app/views/articles/show.json.jbuilder",
+            "config/initializers/devise.rb",
+            "app/views/profiles/show.json.jbuilder",
+            "app/views/comments/create.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3075,
+          "latencyMs": 46.54947599999991
+        },
+        {
+          "id": "rails-realworld-09",
+          "kind": "nl",
+          "query": "What does the database schema look like?",
+          "expect": [
+            "db/schema.rb"
+          ],
+          "ranked": [
+            "db/schema.rb",
+            "app/models/user.rb",
+            "db/seeds.rb",
+            "config/database.yml",
+            ".gitignore",
+            "README.md",
+            "public/404.html",
+            "app/controllers/profiles_controller.rb",
+            "app/controllers/follows_controller.rb",
+            "app/controllers/users_controller.rb"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2686,
+          "latencyMs": 51.76778799999988
+        },
+        {
+          "id": "rails-realworld-10",
+          "kind": "nl",
+          "query": "How is the article JSON response rendered?",
+          "expect": [
+            "app/views/articles/_article.json.jbuilder"
+          ],
+          "ranked": [
+            "app/views/articles/show.json.jbuilder",
+            "app/views/articles/index.json.jbuilder",
+            "app/views/articles/_article.json.jbuilder",
+            "app/controllers/articles_controller.rb",
+            "app/views/profiles/show.json.jbuilder",
+            "app/views/comments/create.json.jbuilder",
+            "app/views/comments/index.json.jbuilder",
+            "app/views/users/show.json.jbuilder",
+            "app/views/devise/registrations/create.json.jbuilder",
+            "app/views/devise/sessions/create.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 1276,
+          "latencyMs": 45.283456000000115
+        },
+        {
+          "id": "rails-realworld-11",
+          "kind": "nl",
+          "query": "How is login handled?",
+          "expect": [
+            "app/controllers/sessions_controller.rb"
+          ],
+          "ranked": [
+            "config/routes.rb",
+            "app/controllers/follows_controller.rb",
+            "config/application.rb",
+            "app/controllers/application_controller.rb",
+            "app/controllers/articles_controller.rb",
+            "app/views/profiles/_profile.json.jbuilder",
+            "config/initializers/devise.rb",
+            "app/models/follow.rb",
+            "db/schema.rb"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 2356,
+          "latencyMs": 47.69482099999982
+        },
+        {
+          "id": "rails-realworld-12",
+          "kind": "nl",
+          "query": "Where are camelCase request params converted to snake_case?",
+          "expect": [
+            "app/controllers/application_controller.rb"
+          ],
+          "ranked": [
+            "app/controllers/users_controller.rb",
+            "app/controllers/sessions_controller.rb",
+            "app/controllers/comments_controller.rb",
+            "app/controllers/articles_controller.rb",
+            "app/controllers/application_controller.rb",
+            "app/controllers/profiles_controller.rb",
+            "app/controllers/follows_controller.rb",
+            "app/controllers/favorites_controller.rb",
+            "config/application.rb",
+            "README.md"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.2,
+          "packRecall": 1,
+          "packTokens": 1859,
+          "latencyMs": 53.04213600000003
+        },
+        {
+          "id": "rails-realworld-13",
+          "kind": "nl",
+          "query": "Where are tags listed?",
+          "expect": [
+            "app/controllers/tags_controller.rb"
+          ],
+          "ranked": [
+            "app/controllers/tags_controller.rb",
+            "config/application.rb",
+            "db/schema.rb",
+            "app/assets/stylesheets/application.css",
+            "app/assets/javascripts/application.js",
+            "config/routes.rb",
+            "app/controllers/articles_controller.rb",
+            "app/views/articles/_article.json.jbuilder",
+            "app/views/layouts/application.html.erb",
+            "app/controllers/comments_controller.rb"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3042,
+          "latencyMs": 40.73736799999983
+        },
+        {
+          "id": "rails-realworld-14",
+          "kind": "nl",
+          "query": "How are comments created and deleted?",
+          "expect": [
+            "app/controllers/comments_controller.rb"
+          ],
+          "ranked": [
+            "app/views/comments/_comment.json.jbuilder",
+            "app/controllers/comments_controller.rb",
+            "app/views/comments/create.json.jbuilder",
+            "app/views/comments/index.json.jbuilder",
+            "app/models/comment.rb",
+            "db/schema.rb",
+            "config/routes.rb",
+            "app/models/user.rb",
+            "db/seeds.rb",
+            "app/models/article.rb"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 2216,
+          "latencyMs": 53.087864999999965
+        },
+        {
+          "id": "rails-realworld-15",
+          "kind": "nl",
+          "query": "Where is the current user's profile updated?",
+          "expect": [
+            "app/controllers/users_controller.rb"
+          ],
+          "ranked": [
+            "app/controllers/users_controller.rb",
+            "app/views/users/show.json.jbuilder",
+            "app/views/profiles/show.json.jbuilder",
+            "app/controllers/follows_controller.rb",
+            "app/views/articles/_article.json.jbuilder",
+            "app/views/comments/_comment.json.jbuilder",
+            "app/views/profiles/_profile.json.jbuilder",
+            "app/controllers/profiles_controller.rb",
+            "app/views/devise/sessions/create.json.jbuilder",
+            "app/views/devise/registrations/create.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 1000,
+          "latencyMs": 53.13604899999996
+        },
+        {
+          "id": "rails-realworld-16",
+          "kind": "nl",
+          "query": "How is the profile JSON with following status rendered?",
+          "expect": [
+            "app/views/profiles/_profile.json.jbuilder"
+          ],
+          "ranked": [
+            "app/views/profiles/show.json.jbuilder",
+            "app/views/profiles/_profile.json.jbuilder",
+            "app/views/comments/_comment.json.jbuilder",
+            "app/controllers/follows_controller.rb",
+            "app/views/articles/_article.json.jbuilder",
+            "app/views/comments/index.json.jbuilder",
+            "app/views/articles/show.json.jbuilder",
+            "app/views/comments/create.json.jbuilder",
+            "app/views/devise/sessions/create.json.jbuilder",
+            "app/views/devise/registrations/create.json.jbuilder"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 964,
+          "latencyMs": 48.224733000000015
+        },
+        {
+          "id": "rails-realworld-17",
+          "kind": "task",
+          "query": "Add a maximum title length for articles",
+          "expect": [
+            "app/models/article.rb"
+          ],
+          "ranked": [
+            "app/controllers/articles_controller.rb",
+            "app/models/article.rb",
+            "app/views/articles/index.json.jbuilder",
+            "app/views/articles/_article.json.jbuilder",
+            "db/schema.rb",
+            "app/views/articles/show.json.jbuilder",
+            "app/controllers/favorites_controller.rb",
+            ".gitignore",
+            "public/500.html",
+            "app/models/user.rb"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 2632,
+          "latencyMs": 50.76976800000011
+        },
+        {
+          "id": "rails-realworld-18",
+          "kind": "nl",
+          "query": "Where is Devise configured?",
+          "expect": [
+            "config/initializers/devise.rb"
+          ],
+          "ranked": [
+            "config/initializers/devise.rb",
+            "config/locales/devise.en.yml",
+            "app/controllers/application_controller.rb",
+            "Gemfile",
+            "config/environments/development.rb",
+            "app/models/user.rb",
+            "app/controllers/sessions_controller.rb",
+            "config/initializers/filter_parameter_logging.rb",
+            "config/environments/test.rb"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7835,
+          "latencyMs": 45.10624400000006
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "name": "express-prisma-realworld",
+        "repo": "gothinkster/node-express-realworld-example-app",
+        "commit": "30b68e1e881462b2f4164ea09ab4c4f5699c7b0b",
+        "layout": "Express + Prisma (TypeScript)",
+        "questions": [
+          {
+            "id": "express-prisma-realworld-01",
+            "kind": "nl",
+            "query": "Where are JWT tokens signed?",
+            "expect": [
+              "src/app/routes/auth/token.utils.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-02",
+            "kind": "nl",
+            "query": "How does the API require or optionally read a JWT on requests?",
+            "expect": [
+              "src/app/routes/auth/auth.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-03",
+            "kind": "nl",
+            "query": "Where are passwords hashed on registration?",
+            "expect": [
+              "src/app/routes/auth/auth.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-04",
+            "kind": "nl",
+            "query": "How does login check the password?",
+            "expect": [
+              "src/app/routes/auth/auth.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-05",
+            "kind": "nl",
+            "query": "How are article slugs created?",
+            "expect": [
+              "src/app/routes/article/article.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-06",
+            "kind": "nl",
+            "query": "Where is an article favorited?",
+            "expect": [
+              "src/app/routes/article/article.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-07",
+            "kind": "nl",
+            "query": "How is the list of articles filtered by tag, author and favorited user?",
+            "expect": [
+              "src/app/routes/article/article.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-08",
+            "kind": "nl",
+            "query": "Where is the feed of articles from followed authors built?",
+            "expect": [
+              "src/app/routes/article/article.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-09",
+            "kind": "nl",
+            "query": "Where are all API routers mounted under /api?",
+            "expect": [
+              "src/app/routes/routes.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-10",
+            "kind": "nl",
+            "query": "Where are unauthorized JWT errors turned into 401 responses?",
+            "expect": [
+              "src/main.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-11",
+            "kind": "nl",
+            "query": "How does following another user work?",
+            "expect": [
+              "src/app/routes/profile/profile.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-12",
+            "kind": "nl",
+            "query": "What does the database schema for articles and tags look like?",
+            "expect": [
+              "src/prisma/schema.prisma"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-13",
+            "kind": "nl",
+            "query": "Where is the Prisma client created?",
+            "expect": [
+              "src/prisma/prisma-client.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-14",
+            "kind": "nl",
+            "query": "How is an article mapped to the API response shape?",
+            "expect": [
+              "src/app/routes/article/article.mapper.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-15",
+            "kind": "symbol",
+            "query": "HttpException",
+            "expect": [
+              "src/app/models/http-exception.model.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-16",
+            "kind": "nl",
+            "query": "Where are tags listed?",
+            "expect": [
+              "src/app/routes/tag/tag.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-17",
+            "kind": "nl",
+            "query": "Where is the current user's profile updated?",
+            "expect": [
+              "src/app/routes/auth/auth.service.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-18",
+            "kind": "task",
+            "query": "Add pagination to the comments of an article",
+            "expect": [
+              "src/app/routes/article/article.service.ts",
+              "src/app/routes/article/article.controller.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-19",
+            "kind": "nl",
+            "query": "How is the following flag in a profile response computed?",
+            "expect": [
+              "src/app/routes/profile/profile.utils.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-20",
+            "kind": "nl",
+            "query": "Where is the database seeded with fake users and articles?",
+            "expect": [
+              "src/prisma/seed.ts"
+            ]
+          },
+          {
+            "id": "express-prisma-realworld-21",
+            "kind": "nl",
+            "query": "Who is allowed to delete a comment?",
+            "expect": [
+              "src/app/routes/article/article.service.ts"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "express-prisma-realworld-01",
+          "kind": "nl",
+          "query": "Where are JWT tokens signed?",
+          "expect": [
+            "src/app/routes/auth/token.utils.ts"
+          ],
+          "ranked": [
+            "src/app/routes/auth/token.utils.ts",
+            "src/app/routes/auth/auth.ts",
+            "src/app/routes/auth/registered-user.model.ts",
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/models/http-exception.model.ts",
+            "src/app/routes/routes.ts",
+            "package.json",
+            "Dockerfile",
+            "project.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2959,
+          "latencyMs": 82.25347899999997
+        },
+        {
+          "id": "express-prisma-realworld-02",
+          "kind": "nl",
+          "query": "How does the API require or optionally read a JWT on requests?",
+          "expect": [
+            "src/app/routes/auth/auth.ts"
+          ],
+          "ranked": [
+            "src/app/routes/auth/auth.ts",
+            "src/app/routes/auth/token.utils.ts",
+            "src/main.ts",
+            "src/app/routes/tag/tag.controller.ts",
+            "src/app/routes/profile/profile.controller.ts",
+            "src/app/routes/auth/auth.controller.ts",
+            "src/app/routes/routes.ts",
+            "src/app/routes/article/article.controller.ts",
+            "jest.preset.js"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2097,
+          "latencyMs": 64.73609000000033
+        },
+        {
+          "id": "express-prisma-realworld-03",
+          "kind": "nl",
+          "query": "Where are passwords hashed on registration?",
+          "expect": [
+            "src/app/routes/auth/auth.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/routes/auth/register-input.model.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/prisma/seed.ts",
+            "src/prisma/schema.prisma",
+            "src/tests/services/auth.service.test.ts",
+            "src/prisma/migrations/20210924225358_initial/migration.sql",
+            "src/tests/services/article.service.test.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2956,
+          "latencyMs": 48.52695100000028
+        },
+        {
+          "id": "express-prisma-realworld-04",
+          "kind": "nl",
+          "query": "How does login check the password?",
+          "expect": [
+            "src/app/routes/auth/auth.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/routes/auth/register-input.model.ts",
+            "src/app/routes/auth/auth.controller.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/prisma/schema.prisma",
+            "src/prisma/seed.ts",
+            "src/app/routes/article/article.mapper.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/article/article.service.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3548,
+          "latencyMs": 61.20314199999984
+        },
+        {
+          "id": "express-prisma-realworld-05",
+          "kind": "nl",
+          "query": "How are article slugs created?",
+          "expect": [
+            "src/app/routes/article/article.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/article.mapper.ts",
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/prisma/seed.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/auth/user.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 6393,
+          "latencyMs": 80.7793859999997
+        },
+        {
+          "id": "express-prisma-realworld-06",
+          "kind": "nl",
+          "query": "Where is an article favorited?",
+          "expect": [
+            "src/app/routes/article/article.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/article.mapper.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/routes.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 4303,
+          "latencyMs": 60.18242799999962
+        },
+        {
+          "id": "express-prisma-realworld-07",
+          "kind": "nl",
+          "query": "How is the list of articles filtered by tag, author and favorited user?",
+          "expect": [
+            "src/app/routes/article/article.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/article.mapper.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/article/author.mapper.ts",
+            "src/app/routes/tag/tag.service.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/app/routes/tag/tag.controller.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4307,
+          "latencyMs": 72.17448400000012
+        },
+        {
+          "id": "express-prisma-realworld-08",
+          "kind": "nl",
+          "query": "Where is the feed of articles from followed authors built?",
+          "expect": [
+            "src/app/routes/article/article.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/author.mapper.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/article/article.mapper.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/auth/user.model.ts",
+            "src/app/routes/tag/tag.service.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/article/comment.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4817,
+          "latencyMs": 72.5396039999996
+        },
+        {
+          "id": "express-prisma-realworld-09",
+          "kind": "nl",
+          "query": "Where are all API routers mounted under /api?",
+          "expect": [
+            "src/app/routes/routes.ts"
+          ],
+          "ranked": [
+            "src/app/routes/routes.ts",
+            "src/app/routes/tag/tag.controller.ts",
+            "src/app/routes/auth/token.utils.ts",
+            "src/app/routes/auth/auth.ts",
+            "src/app/routes/profile/profile.controller.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/main.ts",
+            "src/app/routes/auth/auth.controller.ts",
+            "src/app/routes/auth/registered-user.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3195,
+          "latencyMs": 69.0468990000004
+        },
+        {
+          "id": "express-prisma-realworld-10",
+          "kind": "nl",
+          "query": "Where are unauthorized JWT errors turned into 401 responses?",
+          "expect": [
+            "src/main.ts"
+          ],
+          "ranked": [
+            "src/main.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/models/http-exception.model.ts",
+            "src/app/routes/auth/auth.ts",
+            "src/app/routes/auth/token.utils.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7183,
+          "latencyMs": 71.70815300000004
+        },
+        {
+          "id": "express-prisma-realworld-11",
+          "kind": "nl",
+          "query": "How does following another user work?",
+          "expect": [
+            "src/app/routes/profile/profile.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/auth/user.model.ts",
+            "src/app/routes/profile/profile.utils.ts",
+            "src/app/routes/article/author.mapper.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/profile/profile.service.ts",
+            "src/app/routes/profile/profile.controller.ts",
+            "src/app/routes/auth/registered-user.model.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/profile/profile.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.2,
+          "packRecall": 1,
+          "packTokens": 3967,
+          "latencyMs": 55.99428999999964
+        },
+        {
+          "id": "express-prisma-realworld-12",
+          "kind": "nl",
+          "query": "What does the database schema for articles and tags look like?",
+          "expect": [
+            "src/prisma/schema.prisma"
+          ],
+          "ranked": [
+            "src/prisma/schema.prisma",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/routes.ts",
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/tag/tag.service.ts",
+            "src/app/routes/auth/user.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5181,
+          "latencyMs": 56.78473299999996
+        },
+        {
+          "id": "express-prisma-realworld-13",
+          "kind": "nl",
+          "query": "Where is the Prisma client created?",
+          "expect": [
+            "src/prisma/prisma-client.ts"
+          ],
+          "ranked": [
+            "src/prisma/prisma-client.ts",
+            "src/prisma/seed.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/routes/tag/tag.service.ts",
+            "src/app/routes/profile/profile.service.ts",
+            "README.md",
+            "src/app/routes/article/comment.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3637,
+          "latencyMs": 63.28106800000023
+        },
+        {
+          "id": "express-prisma-realworld-14",
+          "kind": "nl",
+          "query": "How is an article mapped to the API response shape?",
+          "expect": [
+            "src/app/routes/article/article.mapper.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/article.mapper.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/routes.ts",
+            "src/app/routes/article/author.mapper.ts",
+            "src/app/routes/tag/tag.controller.ts",
+            "src/app/routes/article/article.model.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6398,
+          "latencyMs": 63.813914999999724
+        },
+        {
+          "id": "express-prisma-realworld-15",
+          "kind": "symbol",
+          "query": "HttpException",
+          "expect": [
+            "src/app/models/http-exception.model.ts"
+          ],
+          "ranked": [
+            "src/app/models/http-exception.model.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/routes/profile/profile.service.ts",
+            "src/main.ts",
+            "README.md",
+            "src/prisma/migrations/20211105153605_api_url/migration.sql",
+            "package-lock.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5327,
+          "latencyMs": 44.69552900000008
+        },
+        {
+          "id": "express-prisma-realworld-16",
+          "kind": "nl",
+          "query": "Where are tags listed?",
+          "expect": [
+            "src/app/routes/tag/tag.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/tag/tag.controller.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/tag/tag.service.ts",
+            "src/app/routes/routes.ts",
+            "src/app/routes/article/article.mapper.ts",
+            "src/prisma/schema.prisma",
+            "src/prisma/seed.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.25,
+          "packRecall": 1,
+          "packTokens": 5095,
+          "latencyMs": 50.75624600000083
+        },
+        {
+          "id": "express-prisma-realworld-17",
+          "kind": "nl",
+          "query": "Where is the current user's profile updated?",
+          "expect": [
+            "src/app/routes/auth/auth.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/profile/profile.utils.ts",
+            "src/app/routes/profile/profile.service.ts",
+            "src/app/routes/profile/profile.controller.ts",
+            "src/app/routes/profile/profile.model.ts",
+            "src/app/routes/auth/auth.controller.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/app/routes/auth/registered-user.model.ts",
+            "src/app/routes/auth/auth.service.ts",
+            "src/app/routes/article/article.service.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.125,
+          "packRecall": 0,
+          "packTokens": 1976,
+          "latencyMs": 56.77671100000043
+        },
+        {
+          "id": "express-prisma-realworld-18",
+          "kind": "task",
+          "query": "Add pagination to the comments of an article",
+          "expect": [
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/article.controller.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/app/routes/article/article.mapper.ts",
+            "src/prisma/seed.ts",
+            "src/prisma/schema.prisma"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 6239,
+          "latencyMs": 49.68638499999997
+        },
+        {
+          "id": "express-prisma-realworld-19",
+          "kind": "nl",
+          "query": "How is the following flag in a profile response computed?",
+          "expect": [
+            "src/app/routes/profile/profile.utils.ts"
+          ],
+          "ranked": [
+            "src/app/routes/profile/profile.controller.ts",
+            "src/app/routes/profile/profile.model.ts",
+            "src/app/routes/profile/profile.utils.ts",
+            "src/app/routes/profile/profile.service.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/app/routes/article/author.mapper.ts",
+            "src/app/routes/routes.ts",
+            "src/main.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 3326,
+          "latencyMs": 58.61624699999993
+        },
+        {
+          "id": "express-prisma-realworld-20",
+          "kind": "nl",
+          "query": "Where is the database seeded with fake users and articles?",
+          "expect": [
+            "src/prisma/seed.ts"
+          ],
+          "ranked": [
+            "src/app/routes/auth/user.model.ts",
+            "src/prisma/seed.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/auth/registered-user.model.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/article/author.mapper.ts",
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/article/article.service.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 3880,
+          "latencyMs": 58.86846299999979
+        },
+        {
+          "id": "express-prisma-realworld-21",
+          "kind": "nl",
+          "query": "Who is allowed to delete a comment?",
+          "expect": [
+            "src/app/routes/article/article.service.ts"
+          ],
+          "ranked": [
+            "src/app/routes/article/comment.model.ts",
+            "src/app/routes/article/article.controller.ts",
+            "src/app/routes/article/article.service.ts",
+            "src/prisma/schema.prisma",
+            "src/app/routes/article/article.model.ts",
+            "src/app/routes/auth/user.model.ts",
+            "src/prisma/seed.ts",
+            "src/app/routes/profile/profile.controller.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 5254,
+          "latencyMs": 58.74770999999964
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "name": "django-realworld",
+        "repo": "gothinkster/django-realworld-example-app",
+        "commit": "29c9d42831fa0cfc5a4aa7561f674396eacf20a2",
+        "layout": "Django + DRF",
+        "questions": [
+          {
+            "id": "django-realworld-01",
+            "kind": "nl",
+            "query": "Where are JWT tokens generated for a user?",
+            "expect": [
+              "conduit/apps/authentication/models.py"
+            ]
+          },
+          {
+            "id": "django-realworld-02",
+            "kind": "nl",
+            "query": "How does the API authenticate requests using the Authorization header?",
+            "expect": [
+              "conduit/apps/authentication/backends.py"
+            ]
+          },
+          {
+            "id": "django-realworld-03",
+            "kind": "symbol",
+            "query": "JWTAuthentication",
+            "expect": [
+              "conduit/apps/authentication/backends.py"
+            ]
+          },
+          {
+            "id": "django-realworld-04",
+            "kind": "nl",
+            "query": "Where is a user's password hashed when they register?",
+            "expect": [
+              "conduit/apps/authentication/models.py"
+            ]
+          },
+          {
+            "id": "django-realworld-05",
+            "kind": "nl",
+            "query": "Where is the login request validated?",
+            "expect": [
+              "conduit/apps/authentication/serializers.py"
+            ]
+          },
+          {
+            "id": "django-realworld-06",
+            "kind": "nl",
+            "query": "How does a user favorite an article?",
+            "expect": [
+              "conduit/apps/articles/views.py",
+              "conduit/apps/profiles/models.py"
+            ]
+          },
+          {
+            "id": "django-realworld-07",
+            "kind": "nl",
+            "query": "Where are article slugs generated?",
+            "expect": [
+              "conduit/apps/articles/signals.py"
+            ]
+          },
+          {
+            "id": "django-realworld-08",
+            "kind": "nl",
+            "query": "When is a profile created for a new user?",
+            "expect": [
+              "conduit/apps/authentication/signals.py"
+            ]
+          },
+          {
+            "id": "django-realworld-09",
+            "kind": "nl",
+            "query": "How is the article list filtered by author, tag or favorited user?",
+            "expect": [
+              "conduit/apps/articles/views.py"
+            ]
+          },
+          {
+            "id": "django-realworld-10",
+            "kind": "nl",
+            "query": "Where is the feed of articles from followed users built?",
+            "expect": [
+              "conduit/apps/articles/views.py"
+            ]
+          },
+          {
+            "id": "django-realworld-11",
+            "kind": "nl",
+            "query": "How does following another user work?",
+            "expect": [
+              "conduit/apps/profiles/models.py",
+              "conduit/apps/profiles/views.py"
+            ]
+          },
+          {
+            "id": "django-realworld-12",
+            "kind": "nl",
+            "query": "Where are API errors formatted into the errors response shape?",
+            "expect": [
+              "conduit/apps/core/exceptions.py"
+            ]
+          },
+          {
+            "id": "django-realworld-13",
+            "kind": "nl",
+            "query": "How are JSON responses wrapped in a top-level key like user or article?",
+            "expect": [
+              "conduit/apps/core/renderers.py"
+            ]
+          },
+          {
+            "id": "django-realworld-14",
+            "kind": "symbol",
+            "query": "core_exception_handler",
+            "expect": [
+              "conduit/apps/core/exceptions.py"
+            ]
+          },
+          {
+            "id": "django-realworld-15",
+            "kind": "nl",
+            "query": "Where are the URL routes for articles and comments defined?",
+            "expect": [
+              "conduit/apps/articles/urls.py"
+            ]
+          },
+          {
+            "id": "django-realworld-16",
+            "kind": "nl",
+            "query": "Which settings configure Django REST Framework authentication and the exception handler?",
+            "expect": [
+              "conduit/settings.py"
+            ]
+          },
+          {
+            "id": "django-realworld-17",
+            "kind": "nl",
+            "query": "Where are tags converted between strings and Tag objects?",
+            "expect": [
+              "conduit/apps/articles/relations.py"
+            ]
+          },
+          {
+            "id": "django-realworld-18",
+            "kind": "task",
+            "query": "Add a reading time field to articles",
+            "expect": [
+              "conduit/apps/articles/models.py",
+              "conduit/apps/articles/serializers.py"
+            ]
+          },
+          {
+            "id": "django-realworld-19",
+            "kind": "nl",
+            "query": "Where are comments deleted?",
+            "expect": [
+              "conduit/apps/articles/views.py"
+            ]
+          },
+          {
+            "id": "django-realworld-20",
+            "kind": "symbol",
+            "query": "TimestampedModel",
+            "expect": [
+              "conduit/apps/core/models.py"
+            ]
+          },
+          {
+            "id": "django-realworld-21",
+            "kind": "nl",
+            "query": "How is the favorites count for an article calculated?",
+            "expect": [
+              "conduit/apps/articles/serializers.py"
+            ]
+          },
+          {
+            "id": "django-realworld-22",
+            "kind": "nl",
+            "query": "How does a profile response decide whether the current user follows that profile?",
+            "expect": [
+              "conduit/apps/profiles/serializers.py"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "django-realworld-01",
+          "kind": "nl",
+          "query": "Where are JWT tokens generated for a user?",
+          "expect": [
+            "conduit/apps/authentication/models.py"
+          ],
+          "ranked": [
+            "conduit/apps/authentication/models.py",
+            "conduit/apps/authentication/backends.py",
+            "conduit/apps/authentication/renderers.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/authentication/serializers.py",
+            "conduit/settings.py",
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/authentication/signals.py",
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/authentication/views.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6301,
+          "latencyMs": 52.21547399999963
+        },
+        {
+          "id": "django-realworld-02",
+          "kind": "nl",
+          "query": "How does the API authenticate requests using the Authorization header?",
+          "expect": [
+            "conduit/apps/authentication/backends.py"
+          ],
+          "ranked": [
+            "conduit/apps/authentication/backends.py",
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/profiles/exceptions.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/articles/serializers.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6633,
+          "latencyMs": 55.28862500000014
+        },
+        {
+          "id": "django-realworld-03",
+          "kind": "symbol",
+          "query": "JWTAuthentication",
+          "expect": [
+            "conduit/apps/authentication/backends.py"
+          ],
+          "ranked": [
+            "conduit/apps/authentication/backends.py",
+            "conduit/settings.py",
+            "conduit/apps/authentication/__init__.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/apps/authentication/models.py",
+            "conduit/wsgi.py",
+            "conduit/urls.py",
+            "manage.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/authentication/urls.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4288,
+          "latencyMs": 46.327376000000186
+        },
+        {
+          "id": "django-realworld-04",
+          "kind": "nl",
+          "query": "Where is a user's password hashed when they register?",
+          "expect": [
+            "conduit/apps/authentication/models.py"
+          ],
+          "ranked": [
+            "conduit/apps/authentication/serializers.py",
+            "conduit/settings.py",
+            "conduit/apps/authentication/models.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/authentication/signals.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/authentication/renderers.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/authentication/__init__.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 6029,
+          "latencyMs": 53.03933899999993
+        },
+        {
+          "id": "django-realworld-05",
+          "kind": "nl",
+          "query": "Where is the login request validated?",
+          "expect": [
+            "conduit/apps/authentication/serializers.py"
+          ],
+          "ranked": [
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/authentication/serializers.py",
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/articles/views.py",
+            "conduit/settings.py",
+            "conduit/apps/profiles/serializers.py",
+            "conduit/apps/profiles/exceptions.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 6561,
+          "latencyMs": 42.321507000000565
+        },
+        {
+          "id": "django-realworld-06",
+          "kind": "nl",
+          "query": "How does a user favorite an article?",
+          "expect": [
+            "conduit/apps/articles/views.py",
+            "conduit/apps/profiles/models.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/articles/signals.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/apps/authentication/urls.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6484,
+          "latencyMs": 40.84868099999949
+        },
+        {
+          "id": "django-realworld-07",
+          "kind": "nl",
+          "query": "Where are article slugs generated?",
+          "expect": [
+            "conduit/apps/articles/signals.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/signals.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/articles/relations.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/settings.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6084,
+          "latencyMs": 42.20836599999984
+        },
+        {
+          "id": "django-realworld-08",
+          "kind": "nl",
+          "query": "When is a profile created for a new user?",
+          "expect": [
+            "conduit/apps/authentication/signals.py"
+          ],
+          "ranked": [
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/authentication/signals.py",
+            "conduit/apps/profiles/serializers.py",
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/authentication/serializers.py",
+            "conduit/apps/articles/views.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 3339,
+          "latencyMs": 41.92289199999959
+        },
+        {
+          "id": "django-realworld-09",
+          "kind": "nl",
+          "query": "How is the article list filtered by author, tag or favorited user?",
+          "expect": [
+            "conduit/apps/articles/views.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/articles/relations.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/articles/signals.py",
+            "conduit/apps/articles/__init__.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5826,
+          "latencyMs": 49.684025000000474
+        },
+        {
+          "id": "django-realworld-10",
+          "kind": "nl",
+          "query": "Where is the feed of articles from followed users built?",
+          "expect": [
+            "conduit/apps/articles/views.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/profiles/serializers.py",
+            "conduit/apps/profiles/urls.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5616,
+          "latencyMs": 55.33577999999943
+        },
+        {
+          "id": "django-realworld-11",
+          "kind": "nl",
+          "query": "How does following another user work?",
+          "expect": [
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/profiles/views.py"
+          ],
+          "ranked": [
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/profiles/serializers.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/authentication/signals.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/core/renderers.py",
+            "conduit/apps/authentication/models.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 2459,
+          "latencyMs": 42.671870000000126
+        },
+        {
+          "id": "django-realworld-12",
+          "kind": "nl",
+          "query": "Where are API errors formatted into the errors response shape?",
+          "expect": [
+            "conduit/apps/core/exceptions.py"
+          ],
+          "ranked": [
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/core/exceptions.py",
+            "conduit/apps/authentication/views.py",
+            "manage.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/authentication/serializers.py",
+            "conduit/urls.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 2807,
+          "latencyMs": 51.5931300000002
+        },
+        {
+          "id": "django-realworld-13",
+          "kind": "nl",
+          "query": "How are JSON responses wrapped in a top-level key like user or article?",
+          "expect": [
+            "conduit/apps/core/renderers.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/authentication/renderers.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/core/renderers.py",
+            "conduit/apps/articles/signals.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/articles/urls.py"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.16666666666666666,
+          "packRecall": 0,
+          "packTokens": 5278,
+          "latencyMs": 52.16980699999931
+        },
+        {
+          "id": "django-realworld-14",
+          "kind": "symbol",
+          "query": "core_exception_handler",
+          "expect": [
+            "conduit/apps/core/exceptions.py"
+          ],
+          "ranked": [
+            "conduit/apps/core/exceptions.py",
+            "conduit/settings.py",
+            "conduit/apps/profiles/exceptions.py",
+            "conduit/apps/authentication/renderers.py",
+            "manage.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/wsgi.py",
+            "conduit/apps/authentication/backends.py",
+            "conduit/apps/authentication/__init__.py",
+            "conduit/apps/articles/signals.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3255,
+          "latencyMs": 37.76850000000013
+        },
+        {
+          "id": "django-realworld-15",
+          "kind": "nl",
+          "query": "Where are the URL routes for articles and comments defined?",
+          "expect": [
+            "conduit/apps/articles/urls.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/urls.py",
+            "conduit/urls.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/authentication/urls.py",
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/apps/articles/serializers.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4897,
+          "latencyMs": 46.487247000000025
+        },
+        {
+          "id": "django-realworld-16",
+          "kind": "nl",
+          "query": "Which settings configure Django REST Framework authentication and the exception handler?",
+          "expect": [
+            "conduit/settings.py"
+          ],
+          "ranked": [
+            "conduit/settings.py",
+            "conduit/apps/core/exceptions.py",
+            "conduit/apps/authentication/backends.py",
+            "conduit/apps/profiles/exceptions.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/authentication/__init__.py",
+            "conduit/apps/authentication/serializers.py",
+            "manage.py",
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/authentication/urls.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4268,
+          "latencyMs": 58.64655500000026
+        },
+        {
+          "id": "django-realworld-17",
+          "kind": "nl",
+          "query": "Where are tags converted between strings and Tag objects?",
+          "expect": [
+            "conduit/apps/articles/relations.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/relations.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/core/utils.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/authentication/models.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/authentication/renderers.py",
+            "conduit/apps/articles/renderers.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4905,
+          "latencyMs": 47.70704899999964
+        },
+        {
+          "id": "django-realworld-18",
+          "kind": "task",
+          "query": "Add a reading time field to articles",
+          "expect": [
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/serializers.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/apps/core/models.py",
+            "conduit/apps/authentication/models.py",
+            "conduit/apps/authentication/serializers.py",
+            "conduit/apps/articles/urls.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6353,
+          "latencyMs": 49.89822700000059
+        },
+        {
+          "id": "django-realworld-19",
+          "kind": "nl",
+          "query": "Where are comments deleted?",
+          "expect": [
+            "conduit/apps/articles/views.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/authentication/models.py",
+            "conduit/apps/profiles/views.py",
+            ".gitignore"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5890,
+          "latencyMs": 49.57493000000068
+        },
+        {
+          "id": "django-realworld-20",
+          "kind": "symbol",
+          "query": "TimestampedModel",
+          "expect": [
+            "conduit/apps/core/models.py"
+          ],
+          "ranked": [
+            "conduit/apps/core/models.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/authentication/models.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/authentication/signals.py",
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/profiles/serializers.py",
+            "conduit/apps/articles/signals.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/authentication/serializers.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4230,
+          "latencyMs": 38.80187999999998
+        },
+        {
+          "id": "django-realworld-21",
+          "kind": "nl",
+          "query": "How is the favorites count for an article calculated?",
+          "expect": [
+            "conduit/apps/articles/serializers.py"
+          ],
+          "ranked": [
+            "conduit/apps/articles/serializers.py",
+            "conduit/apps/articles/renderers.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/articles/urls.py",
+            "conduit/apps/articles/signals.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/articles/models.py",
+            "conduit/apps/articles/__init__.py",
+            "conduit/apps/profiles/renderers.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5174,
+          "latencyMs": 46.78918599999997
+        },
+        {
+          "id": "django-realworld-22",
+          "kind": "nl",
+          "query": "How does a profile response decide whether the current user follows that profile?",
+          "expect": [
+            "conduit/apps/profiles/serializers.py"
+          ],
+          "ranked": [
+            "conduit/apps/profiles/views.py",
+            "conduit/apps/profiles/urls.py",
+            "conduit/apps/profiles/serializers.py",
+            "conduit/apps/profiles/models.py",
+            "conduit/apps/profiles/renderers.py",
+            "conduit/apps/articles/views.py",
+            "conduit/apps/authentication/serializers.py",
+            "conduit/apps/authentication/signals.py",
+            "conduit/apps/authentication/views.py",
+            "conduit/apps/profiles/exceptions.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 3877,
+          "latencyMs": 63.734088000000156
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "name": "context-compiler",
+        "repo": "TahubCS/Context-Compiler",
+        "commit": "6b6a0f8d395d9cde51f9a7ff40daab24dfc4ca72",
+        "layout": "Next.js + FastAPI + Prisma",
+        "questions": [
+          {
+            "id": "context-compiler-01",
+            "kind": "nl",
+            "query": "How are MCP API keys authenticated on requests?",
+            "expect": [
+              "src/lib/mcp-request.ts",
+              "src/lib/db/mcp-api-keys.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-02",
+            "kind": "nl",
+            "query": "Where are MCP API keys hashed?",
+            "expect": [
+              "src/lib/crypto.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-03",
+            "kind": "nl",
+            "query": "Where is a repository scan dispatched to the AI backend?",
+            "expect": [
+              "src/lib/scan-dispatch.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-04",
+            "kind": "nl",
+            "query": "How does the scanner split source files into chunks?",
+            "expect": [
+              "ai-backend/scanner.py"
+            ]
+          },
+          {
+            "id": "context-compiler-05",
+            "kind": "nl",
+            "query": "Where are embeddings generated?",
+            "expect": [
+              "ai-backend/ai.py"
+            ]
+          },
+          {
+            "id": "context-compiler-06",
+            "kind": "nl",
+            "query": "How does hybrid semantic and lexical search work?",
+            "expect": [
+              "ai-backend/vector_store.py"
+            ]
+          },
+          {
+            "id": "context-compiler-07",
+            "kind": "nl",
+            "query": "Where does the scan status callback update the scan job?",
+            "expect": [
+              "src/app/api/repo/[repoId]/scan/status/route.ts",
+              "src/lib/db/scan-jobs.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-08",
+            "kind": "nl",
+            "query": "How are stale scan jobs detected?",
+            "expect": [
+              "src/lib/db/scan-jobs.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-09",
+            "kind": "nl",
+            "query": "Where are GitHub webhook signatures verified?",
+            "expect": [
+              "src/lib/github-app.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-10",
+            "kind": "nl",
+            "query": "How are GitHub tokens encrypted at rest?",
+            "expect": [
+              "src/lib/crypto.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-11",
+            "kind": "nl",
+            "query": "How are search results re-ranked and deduplicated for agents?",
+            "expect": [
+              "src/lib/repository-retrieval.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-12",
+            "kind": "nl",
+            "query": "Where is the context pack text formatted?",
+            "expect": [
+              "src/lib/prompt-packs.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-13",
+            "kind": "symbol",
+            "query": "authenticateMcpRequest",
+            "expect": [
+              "src/lib/mcp-request.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-14",
+            "kind": "nl",
+            "query": "Where is the Stripe webhook handled?",
+            "expect": [
+              "src/app/api/webhooks/stripe/route.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-15",
+            "kind": "nl",
+            "query": "Where are the MCP tools registered?",
+            "expect": [
+              "src/mcp/server.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-16",
+            "kind": "nl",
+            "query": "How is the grounded answer generated with model fallbacks?",
+            "expect": [
+              "ai-backend/ai.py"
+            ]
+          },
+          {
+            "id": "context-compiler-17",
+            "kind": "nl",
+            "query": "Where are workspace invites accepted?",
+            "expect": [
+              "src/app/api/workspaces/invites/[inviteId]/accept/route.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-18",
+            "kind": "nl",
+            "query": "What is the database schema for code documents?",
+            "expect": [
+              "prisma/schema.prisma"
+            ]
+          },
+          {
+            "id": "context-compiler-19",
+            "kind": "task",
+            "query": "Add a rate limit to the MCP search endpoint",
+            "expect": [
+              "src/app/api/mcp/search/route.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-20",
+            "kind": "nl",
+            "query": "Where is the incremental scan diff computed?",
+            "expect": [
+              "ai-backend/scanner.py"
+            ]
+          },
+          {
+            "id": "context-compiler-21",
+            "kind": "nl",
+            "query": "How does the app pick the active workspace for a user?",
+            "expect": [
+              "src/lib/db/workspaces.ts",
+              "src/lib/app-context.ts"
+            ]
+          },
+          {
+            "id": "context-compiler-22",
+            "kind": "nl",
+            "query": "Where is the Prisma client created?",
+            "expect": [
+              "src/lib/prisma.ts"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "context-compiler-01",
+          "kind": "nl",
+          "query": "How are MCP API keys authenticated on requests?",
+          "expect": [
+            "src/lib/mcp-request.ts",
+            "src/lib/db/mcp-api-keys.ts"
+          ],
+          "ranked": [
+            "src/app/api/repo/[repoId]/mcp-keys/route.ts",
+            "src/lib/mcp-request.ts",
+            "src/app/api/mcp/session/route.ts",
+            "src/app/api/repo/[repoId]/mcp-keys/[keyId]/route.ts",
+            "src/app/api/mcp/answer/route.ts",
+            "src/app/api/mcp/search/route.ts",
+            "src/app/api/mcp/trace/route.ts",
+            "src/app/api/mcp/context-pack/route.ts",
+            "src/app/api/mcp/file/route.ts",
+            "src/app/api/repositories/sync/route.ts"
+          ],
+          "hit": 1,
+          "recall": 0.5,
+          "rr": 0.5,
+          "packRecall": 0.5,
+          "packTokens": 2780,
+          "latencyMs": 79.53772800000024
+        },
+        {
+          "id": "context-compiler-02",
+          "kind": "nl",
+          "query": "Where are MCP API keys hashed?",
+          "expect": [
+            "src/lib/crypto.ts"
+          ],
+          "ranked": [
+            "src/lib/db/mcp-api-keys.ts",
+            "src/app/api/repo/[repoId]/mcp-keys/route.ts",
+            "src/app/api/mcp/session/route.ts",
+            "src/app/api/repo/[repoId]/mcp-keys/[keyId]/route.ts",
+            "src/lib/mcp-request.ts",
+            "src/app/api/mcp/answer/route.ts",
+            "src/app/api/mcp/context-pack/route.ts",
+            "src/app/api/mcp/trace/route.ts",
+            "src/app/api/mcp/search/route.ts",
+            "src/app/api/mcp/file/route.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 3255,
+          "latencyMs": 80.98961400000007
+        },
+        {
+          "id": "context-compiler-03",
+          "kind": "nl",
+          "query": "Where is a repository scan dispatched to the AI backend?",
+          "expect": [
+            "src/lib/scan-dispatch.ts"
+          ],
+          "ranked": [
+            "src/lib/scan-dispatch.ts",
+            "src/app/api/repo/[repoId]/scan/route.ts",
+            "src/lib/db/scan-jobs.ts",
+            "ai-backend/main.py",
+            "src/lib/repository-retrieval.ts",
+            "ai-backend/vector_store.py",
+            "ai-backend/scanner.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7030,
+          "latencyMs": 91.70476700000017
+        },
+        {
+          "id": "context-compiler-04",
+          "kind": "nl",
+          "query": "How does the scanner split source files into chunks?",
+          "expect": [
+            "ai-backend/scanner.py"
+          ],
+          "ranked": [
+            "ai-backend/scanner.py",
+            "ai-backend/vector_store.py",
+            "src/components/features/repo/retrieval-result-card.tsx",
+            "src/lib/repository-retrieval.ts",
+            "ai-backend/config.py",
+            "src/components/features/repo/search-pane.tsx",
+            "src/lib/db/code-documents.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 10123,
+          "latencyMs": 86.05488299999979
+        },
+        {
+          "id": "context-compiler-05",
+          "kind": "nl",
+          "query": "Where are embeddings generated?",
+          "expect": [
+            "ai-backend/ai.py"
+          ],
+          "ranked": [
+            "ai-backend/scanner.py",
+            "ai-backend/ai.py",
+            "ai-backend/main.py",
+            "src/lib/repository-retrieval.ts",
+            ".gitignore",
+            "src/app/(public)/page.tsx",
+            "ai-backend/config.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 9977,
+          "latencyMs": 63.02834900000016
+        },
+        {
+          "id": "context-compiler-06",
+          "kind": "nl",
+          "query": "How does hybrid semantic and lexical search work?",
+          "expect": [
+            "ai-backend/vector_store.py"
+          ],
+          "ranked": [
+            "ai-backend/vector_store.py",
+            "src/components/features/repo/search-pane.tsx",
+            "src/app/api/mcp/search/route.ts",
+            "src/app/api/repo/[repoId]/search/route.ts",
+            "src/app/(public)/page.tsx",
+            "src/mcp/server.ts",
+            "src/components/features/repo/repo-help-center.tsx"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 9102,
+          "latencyMs": 76.83942299999944
+        },
+        {
+          "id": "context-compiler-07",
+          "kind": "nl",
+          "query": "Where does the scan status callback update the scan job?",
+          "expect": [
+            "src/app/api/repo/[repoId]/scan/status/route.ts",
+            "src/lib/db/scan-jobs.ts"
+          ],
+          "ranked": [
+            "src/lib/db/scan-jobs.ts",
+            "src/app/api/repo/[repoId]/scan/status/route.ts",
+            "ai-backend/scanner.py",
+            "src/lib/scan-dispatch.ts",
+            "src/components/features/repositories/scan-status-badge.tsx",
+            "src/app/api/repo/[repoId]/scan/route.ts",
+            "src/components/features/repo/scan-trigger-button.tsx"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7457,
+          "latencyMs": 81.3875079999998
+        },
+        {
+          "id": "context-compiler-08",
+          "kind": "nl",
+          "query": "How are stale scan jobs detected?",
+          "expect": [
+            "src/lib/db/scan-jobs.ts"
+          ],
+          "ranked": [
+            "src/lib/db/scan-jobs.ts",
+            "src/lib/scan-dispatch.ts",
+            "ai-backend/scanner.py",
+            "src/app/api/repo/[repoId]/scan/route.ts",
+            "src/app/api/repo/[repoId]/scan/status/route.ts",
+            "src/components/features/repo/scan-trigger-button.tsx",
+            "src/components/features/repo/scan-poller.tsx",
+            "src/lib/scan-auth.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6547,
+          "latencyMs": 66.98871799999961
+        },
+        {
+          "id": "context-compiler-09",
+          "kind": "nl",
+          "query": "Where are GitHub webhook signatures verified?",
+          "expect": [
+            "src/lib/github-app.ts"
+          ],
+          "ranked": [
+            "src/lib/github-app.ts",
+            "src/app/api/github-app/webhook/route.ts",
+            "src/lib/github-repo-sync.ts",
+            "src/components/features/github-sign-in-button.tsx",
+            "src/app/api/github-app/install/route.ts",
+            "src/app/api/github-app/callback/route.ts",
+            "src/app/api/github-app/reconcile/route.ts",
+            "src/lib/github-repository-refs.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7375,
+          "latencyMs": 71.06679099999928
+        },
+        {
+          "id": "context-compiler-10",
+          "kind": "nl",
+          "query": "How are GitHub tokens encrypted at rest?",
+          "expect": [
+            "src/lib/crypto.ts"
+          ],
+          "ranked": [
+            "src/lib/github-repository-refs.ts",
+            "src/lib/github-app.ts",
+            "src/lib/github-repo-sync.ts",
+            "src/app/api/github-app/install/route.ts",
+            "src/app/api/github-app/webhook/route.ts",
+            "src/components/features/github-sign-in-button.tsx",
+            "src/lib/crypto.ts",
+            "src/app/api/github-app/link/route.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.14285714285714285,
+          "packRecall": 0,
+          "packTokens": 6690,
+          "latencyMs": 73.98756300000059
+        },
+        {
+          "id": "context-compiler-11",
+          "kind": "nl",
+          "query": "How are search results re-ranked and deduplicated for agents?",
+          "expect": [
+            "src/lib/repository-retrieval.ts"
+          ],
+          "ranked": [
+            "src/app/api/mcp/search/route.ts",
+            "src/components/features/repo/search-pane.tsx",
+            "src/lib/repository-retrieval.ts",
+            "src/app/api/repo/[repoId]/search/route.ts",
+            "src/components/features/repo/retrieval-result-card.tsx",
+            "src/components/features/repo/repo-help-center.tsx",
+            "ai-backend/vector_store.py"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 8346,
+          "latencyMs": 85.73410400000103
+        },
+        {
+          "id": "context-compiler-12",
+          "kind": "nl",
+          "query": "Where is the context pack text formatted?",
+          "expect": [
+            "src/lib/prompt-packs.ts"
+          ],
+          "ranked": [
+            "src/app/api/mcp/context-pack/route.ts",
+            "src/components/features/repo/context-cart-pane.tsx",
+            "src/lib/prompt-packs.ts",
+            "src/components/features/repo/repo-mcp-setup-dialog.tsx",
+            "src/app/api/repo/[repoId]/carts/[cartId]/export/route.ts",
+            "src/app/api/repo/[repoId]/answers/[answerId]/export/route.ts",
+            "src/components/features/repo/search-pane.tsx",
+            "src/lib/app-context.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 6288,
+          "latencyMs": 92.30953299999965
+        },
+        {
+          "id": "context-compiler-13",
+          "kind": "symbol",
+          "query": "authenticateMcpRequest",
+          "expect": [
+            "src/lib/mcp-request.ts"
+          ],
+          "ranked": [
+            "src/lib/mcp-request.ts",
+            "src/app/api/mcp/session/route.ts",
+            "src/app/api/mcp/answer/route.ts",
+            "src/app/api/mcp/context-pack/route.ts",
+            "src/app/api/mcp/search/route.ts",
+            "src/app/api/mcp/trace/route.ts",
+            "src/app/api/mcp/file/route.ts",
+            "docs/MCP_REFERENCE.md",
+            "src/mcp/server.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2148,
+          "latencyMs": 84.68748899999991
+        },
+        {
+          "id": "context-compiler-14",
+          "kind": "nl",
+          "query": "Where is the Stripe webhook handled?",
+          "expect": [
+            "src/app/api/webhooks/stripe/route.ts"
+          ],
+          "ranked": [
+            "src/app/api/webhooks/stripe/route.ts",
+            "src/lib/stripe.ts",
+            "src/app/api/github-app/webhook/route.ts",
+            "src/app/api/billing/portal/route.ts",
+            "src/lib/db/workspaces.ts",
+            "src/app/api/billing/checkout/route.ts",
+            "prisma/schema.prisma",
+            "src/app/(public)/page.tsx",
+            "src/lib/github-repo-sync.ts",
+            "src/app/(app)/dashboard/page.tsx"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5174,
+          "latencyMs": 67.5347899999997
+        },
+        {
+          "id": "context-compiler-15",
+          "kind": "nl",
+          "query": "Where are the MCP tools registered?",
+          "expect": [
+            "src/mcp/server.ts"
+          ],
+          "ranked": [
+            "src/mcp/server.ts",
+            "src/app/api/mcp/session/route.ts",
+            "src/components/features/repo/repo-mcp-setup-dialog.tsx",
+            "src/app/api/mcp/answer/route.ts",
+            "src/lib/mcp-request.ts",
+            "src/lib/db/mcp-api-keys.ts",
+            "src/app/api/mcp/file/route.ts",
+            "src/app/api/repo/[repoId]/mcp-keys/route.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 9217,
+          "latencyMs": 71.64901499999905
+        },
+        {
+          "id": "context-compiler-16",
+          "kind": "nl",
+          "query": "How is the grounded answer generated with model fallbacks?",
+          "expect": [
+            "ai-backend/ai.py"
+          ],
+          "ranked": [
+            "ai-backend/ai.py",
+            "src/lib/db/answer-sessions.ts",
+            "ai-backend/main.py",
+            "src/components/features/repo/answer-rich-text.tsx",
+            "ai-backend/config.py",
+            "src/app/api/repo/[repoId]/answers/[answerId]/export/route.ts",
+            "src/mcp/server.ts",
+            "src/app/api/repo/[repoId]/answer/route.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7103,
+          "latencyMs": 98.39786800000002
+        },
+        {
+          "id": "context-compiler-17",
+          "kind": "nl",
+          "query": "Where are workspace invites accepted?",
+          "expect": [
+            "src/app/api/workspaces/invites/[inviteId]/accept/route.ts"
+          ],
+          "ranked": [
+            "src/app/api/workspaces/invites/[inviteId]/accept/route.ts",
+            "src/lib/db/workspaces.ts",
+            "src/components/features/notifications/notification-invite-actions.tsx",
+            "src/app/api/workspaces/[workspaceId]/invites/route.ts",
+            "prisma/schema.prisma",
+            "src/app/api/workspaces/invites/[inviteId]/decline/route.ts",
+            "src/components/features/workspaces/invite-member-dialog.tsx",
+            "src/app/api/workspaces/active/route.ts",
+            "src/components/features/workspaces/workspace-switcher.tsx"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6063,
+          "latencyMs": 86.29375999999866
+        },
+        {
+          "id": "context-compiler-18",
+          "kind": "nl",
+          "query": "What is the database schema for code documents?",
+          "expect": [
+            "prisma/schema.prisma"
+          ],
+          "ranked": [
+            "src/lib/db/code-documents.ts",
+            "prisma/schema.prisma",
+            "ai-backend/vector_store.py",
+            "src/lib/db/answer-sessions.ts",
+            "src/lib/db/index.ts",
+            "src/lib/db/saved-carts.ts",
+            "src/lib/db/errors.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 8372,
+          "latencyMs": 83.4592190000003
+        },
+        {
+          "id": "context-compiler-19",
+          "kind": "task",
+          "query": "Add a rate limit to the MCP search endpoint",
+          "expect": [
+            "src/app/api/mcp/search/route.ts"
+          ],
+          "ranked": [
+            "src/app/api/mcp/search/route.ts",
+            "src/mcp/server.ts",
+            "src/app/api/mcp/answer/route.ts",
+            "src/app/api/mcp/file/route.ts",
+            "src/components/features/repo/repo-mcp-setup-dialog.tsx",
+            "src/lib/db/mcp-api-keys.ts",
+            "ai-backend/main.py",
+            "src/app/api/mcp/trace/route.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7192,
+          "latencyMs": 96.5566060000001
+        },
+        {
+          "id": "context-compiler-20",
+          "kind": "nl",
+          "query": "Where is the incremental scan diff computed?",
+          "expect": [
+            "ai-backend/scanner.py"
+          ],
+          "ranked": [
+            "ai-backend/scanner.py",
+            "src/lib/db/scan-jobs.ts",
+            "src/lib/scan-dispatch.ts",
+            "src/components/features/repositories/scan-status-badge.tsx",
+            "src/components/features/repo/scan-trigger-button.tsx",
+            "src/components/features/repo/scan-poller.tsx",
+            "src/lib/scan-auth.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 9918,
+          "latencyMs": 82.21026300000085
+        },
+        {
+          "id": "context-compiler-21",
+          "kind": "nl",
+          "query": "How does the app pick the active workspace for a user?",
+          "expect": [
+            "src/lib/db/workspaces.ts",
+            "src/lib/app-context.ts"
+          ],
+          "ranked": [
+            "src/app/api/workspaces/active/route.ts",
+            "src/lib/app-context.ts",
+            "src/components/features/app-top-nav.tsx",
+            "src/app/api/github-app/link/route.ts",
+            "src/app/api/github-app/callback/route.ts",
+            "src/app/(app)/layout.tsx",
+            "src/app/api/github-app/install/route.ts",
+            "src/app/api/workspaces/[workspaceId]/members/[memberUserId]/route.ts",
+            "src/app/api/workspaces/invites/[inviteId]/accept/route.ts",
+            "src/app/api/workspaces/invites/[inviteId]/decline/route.ts"
+          ],
+          "hit": 1,
+          "recall": 0.5,
+          "rr": 0.5,
+          "packRecall": 0.5,
+          "packTokens": 2756,
+          "latencyMs": 87.32598299999881
+        },
+        {
+          "id": "context-compiler-22",
+          "kind": "nl",
+          "query": "Where is the Prisma client created?",
+          "expect": [
+            "src/lib/prisma.ts"
+          ],
+          "ranked": [
+            "src/lib/db/client.ts",
+            "src/lib/prisma.ts",
+            "prisma/schema.prisma",
+            "src/utils/supabase/client.ts",
+            "src/lib/db/notifications.ts",
+            "src/lib/db/saved-carts.ts",
+            "src/lib/db/scan-jobs.ts",
+            "src/lib/db/answer-sessions.ts",
+            "src/lib/db/mcp-api-keys.ts",
+            "src/app/api/repositories/sync/route.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 4053,
+          "latencyMs": 65.01759499999935
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "name": "go-gin-realworld",
+        "repo": "gothinkster/golang-gin-realworld-example-app",
+        "commit": "626c372d259472148d93303f74aa9b9a1cdcef24",
+        "layout": "Go + Gin + GORM",
+        "questions": [
+          {
+            "id": "go-gin-realworld-01",
+            "kind": "nl",
+            "query": "Where are JWT tokens generated?",
+            "expect": [
+              "common/utils.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-02",
+            "kind": "nl",
+            "query": "How does the auth middleware read the token from a request?",
+            "expect": [
+              "users/middlewares.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-03",
+            "kind": "symbol",
+            "query": "AuthMiddleware",
+            "expect": [
+              "users/middlewares.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-04",
+            "kind": "nl",
+            "query": "Where are passwords hashed and checked?",
+            "expect": [
+              "users/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-05",
+            "kind": "nl",
+            "query": "How does following a user work?",
+            "expect": [
+              "users/models.go",
+              "users/routers.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-06",
+            "kind": "nl",
+            "query": "Where is an article favorited?",
+            "expect": [
+              "articles/models.go",
+              "articles/routers.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-07",
+            "kind": "nl",
+            "query": "How is the article list filtered by tag, author and favorited user?",
+            "expect": [
+              "articles/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-08",
+            "kind": "nl",
+            "query": "Where is the article feed for followed authors queried?",
+            "expect": [
+              "articles/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-09",
+            "kind": "nl",
+            "query": "Where are the article routes registered?",
+            "expect": [
+              "articles/routers.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-10",
+            "kind": "nl",
+            "query": "Where is the database connection initialized?",
+            "expect": [
+              "common/database.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-11",
+            "kind": "nl",
+            "query": "Which tables are migrated when the server starts?",
+            "expect": [
+              "hello.go",
+              "users/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-12",
+            "kind": "nl",
+            "query": "How is the request body for creating an article validated?",
+            "expect": [
+              "articles/validators.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-13",
+            "kind": "nl",
+            "query": "How are validation errors converted into the API error format?",
+            "expect": [
+              "common/utils.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-14",
+            "kind": "nl",
+            "query": "How are tags attached to an article?",
+            "expect": [
+              "articles/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-15",
+            "kind": "nl",
+            "query": "Where is user registration handled?",
+            "expect": [
+              "users/routers.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-16",
+            "kind": "nl",
+            "query": "How is an article converted to its JSON response?",
+            "expect": [
+              "articles/serializers.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-17",
+            "kind": "symbol",
+            "query": "BatchGetFavoriteCounts",
+            "expect": [
+              "articles/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-18",
+            "kind": "task",
+            "query": "Add a length limit on bio when users update their profile",
+            "expect": [
+              "users/validators.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-19",
+            "kind": "nl",
+            "query": "How does the login handler verify credentials?",
+            "expect": [
+              "users/routers.go",
+              "users/models.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-20",
+            "kind": "nl",
+            "query": "Where is the server started and the routes mounted?",
+            "expect": [
+              "hello.go"
+            ]
+          },
+          {
+            "id": "go-gin-realworld-21",
+            "kind": "nl",
+            "query": "How are comments on an article deleted?",
+            "expect": [
+              "articles/routers.go"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "go-gin-realworld-01",
+          "kind": "nl",
+          "query": "Where are JWT tokens generated?",
+          "expect": [
+            "common/utils.go"
+          ],
+          "ranked": [
+            "common/utils.go",
+            "users/middlewares.go",
+            "api/Conduit.postman_collection.json",
+            "users/serializers.go",
+            "api/run-api-tests.sh",
+            "users/models.go",
+            "scripts/run-api-tests.sh",
+            ".github/SETUP.md",
+            "go.mod"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6638,
+          "latencyMs": 63.196868000000904
+        },
+        {
+          "id": "go-gin-realworld-02",
+          "kind": "nl",
+          "query": "How does the auth middleware read the token from a request?",
+          "expect": [
+            "users/middlewares.go"
+          ],
+          "ranked": [
+            "users/middlewares.go",
+            "api/Conduit.postman_collection.json",
+            "api/run-api-tests.sh",
+            "hello.go",
+            "common/utils.go",
+            ".github/workflows/ci.yml",
+            "readme.md",
+            "FRONTEND_INSTRUCTIONS.md",
+            "MOBILE_INSTRUCTIONS.md"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6870,
+          "latencyMs": 65.78525799999989
+        },
+        {
+          "id": "go-gin-realworld-03",
+          "kind": "symbol",
+          "query": "AuthMiddleware",
+          "expect": [
+            "users/middlewares.go"
+          ],
+          "ranked": [
+            "hello.go",
+            "users/middlewares.go",
+            "users/unit_test.go",
+            "articles/unit_test.go",
+            "users/models.go",
+            "articles/models.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 8156,
+          "latencyMs": 54.23206100000061
+        },
+        {
+          "id": "go-gin-realworld-04",
+          "kind": "nl",
+          "query": "Where are passwords hashed and checked?",
+          "expect": [
+            "users/models.go"
+          ],
+          "ranked": [
+            "users/models.go",
+            "users/routers.go",
+            "users/validators.go",
+            "api/run-api-tests.sh",
+            "scripts/run-api-tests.sh",
+            "scripts/gofmt.sh",
+            "articles/routers.go",
+            "common/utils.go",
+            "api/Conduit.postman_collection.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5361,
+          "latencyMs": 52.69540899999993
+        },
+        {
+          "id": "go-gin-realworld-05",
+          "kind": "nl",
+          "query": "How does following a user work?",
+          "expect": [
+            "users/models.go",
+            "users/routers.go"
+          ],
+          "ranked": [
+            "users/models.go",
+            "users/routers.go",
+            "users/serializers.go",
+            "users/doc.go",
+            "api/Conduit.postman_collection.json",
+            "articles/models.go",
+            "users/middlewares.go",
+            "users/validators.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7276,
+          "latencyMs": 73.50637599999936
+        },
+        {
+          "id": "go-gin-realworld-06",
+          "kind": "nl",
+          "query": "Where is an article favorited?",
+          "expect": [
+            "articles/models.go",
+            "articles/routers.go"
+          ],
+          "ranked": [
+            "articles/serializers.go",
+            "articles/routers.go",
+            "articles/models.go",
+            "articles/validators.go",
+            "articles/doc.go",
+            "api/Conduit.postman_collection.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 10940,
+          "latencyMs": 56.65085800000088
+        },
+        {
+          "id": "go-gin-realworld-07",
+          "kind": "nl",
+          "query": "How is the article list filtered by tag, author and favorited user?",
+          "expect": [
+            "articles/models.go"
+          ],
+          "ranked": [
+            "articles/serializers.go",
+            "articles/routers.go",
+            "articles/models.go",
+            "articles/validators.go",
+            "api/Conduit.postman_collection.json",
+            "FRONTEND_INSTRUCTIONS.md"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 9234,
+          "latencyMs": 71.18849499999851
+        },
+        {
+          "id": "go-gin-realworld-08",
+          "kind": "nl",
+          "query": "Where is the article feed for followed authors queried?",
+          "expect": [
+            "articles/models.go"
+          ],
+          "ranked": [
+            "articles/models.go",
+            "articles/routers.go",
+            "articles/serializers.go",
+            "articles/validators.go",
+            "api/Conduit.postman_collection.json",
+            "users/models.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 9686,
+          "latencyMs": 62.09452099999908
+        },
+        {
+          "id": "go-gin-realworld-09",
+          "kind": "nl",
+          "query": "Where are the article routes registered?",
+          "expect": [
+            "articles/routers.go"
+          ],
+          "ranked": [
+            "articles/routers.go",
+            "articles/doc.go",
+            "users/routers.go",
+            "articles/validators.go",
+            "articles/models.go",
+            "api/Conduit.postman_collection.json",
+            "articles/serializers.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7884,
+          "latencyMs": 74.13292600000023
+        },
+        {
+          "id": "go-gin-realworld-10",
+          "kind": "nl",
+          "query": "Where is the database connection initialized?",
+          "expect": [
+            "common/database.go"
+          ],
+          "ranked": [
+            "common/database.go",
+            "data/.gitkeep",
+            ".env.example",
+            "users/models.go",
+            "articles/routers.go",
+            "articles/models.go",
+            ".gitignore"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4298,
+          "latencyMs": 66.67304399999921
+        },
+        {
+          "id": "go-gin-realworld-11",
+          "kind": "nl",
+          "query": "Which tables are migrated when the server starts?",
+          "expect": [
+            "hello.go",
+            "users/models.go"
+          ],
+          "ranked": [
+            "hello.go",
+            "scripts/run-api-tests.sh",
+            "users/models.go",
+            "api/Conduit.postman_collection.json",
+            "articles/routers.go",
+            "common/utils.go",
+            "doc.go",
+            "AGENTS.md",
+            "readme.md"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 10086,
+          "latencyMs": 70.78329300000041
+        },
+        {
+          "id": "go-gin-realworld-12",
+          "kind": "nl",
+          "query": "How is the request body for creating an article validated?",
+          "expect": [
+            "articles/validators.go"
+          ],
+          "ranked": [
+            "articles/serializers.go",
+            "articles/validators.go",
+            "articles/routers.go",
+            "api/Conduit.postman_collection.json",
+            "articles/models.go",
+            "users/validators.go",
+            "articles/doc.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 10935,
+          "latencyMs": 75.9269519999998
+        },
+        {
+          "id": "go-gin-realworld-13",
+          "kind": "nl",
+          "query": "How are validation errors converted into the API error format?",
+          "expect": [
+            "common/utils.go"
+          ],
+          "ranked": [
+            "api/run-api-tests.sh",
+            "api/Conduit.postman_collection.json",
+            "users/routers.go",
+            "articles/routers.go",
+            "scripts/run-api-tests.sh",
+            "common/utils.go",
+            "articles/models.go",
+            "AGENTS.md"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.16666666666666666,
+          "packRecall": 0,
+          "packTokens": 8535,
+          "latencyMs": 71.15462599999955
+        },
+        {
+          "id": "go-gin-realworld-14",
+          "kind": "nl",
+          "query": "How are tags attached to an article?",
+          "expect": [
+            "articles/models.go"
+          ],
+          "ranked": [
+            "articles/validators.go",
+            "articles/serializers.go",
+            "articles/models.go",
+            "articles/routers.go",
+            "articles/doc.go",
+            "api/Conduit.postman_collection.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 8656,
+          "latencyMs": 55.36297399999967
+        },
+        {
+          "id": "go-gin-realworld-15",
+          "kind": "nl",
+          "query": "Where is user registration handled?",
+          "expect": [
+            "users/routers.go"
+          ],
+          "ranked": [
+            "users/routers.go",
+            "users/middlewares.go",
+            "users/doc.go",
+            "users/serializers.go",
+            "users/models.go",
+            "users/validators.go",
+            "api/Conduit.postman_collection.json",
+            "hello.go",
+            "articles/models.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4416,
+          "latencyMs": 56.67094200000065
+        },
+        {
+          "id": "go-gin-realworld-16",
+          "kind": "nl",
+          "query": "How is an article converted to its JSON response?",
+          "expect": [
+            "articles/serializers.go"
+          ],
+          "ranked": [
+            "api/Conduit.postman_collection.json",
+            "articles/serializers.go",
+            "articles/routers.go",
+            "users/serializers.go",
+            "articles/validators.go",
+            "articles/unit_test.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 15376,
+          "latencyMs": 62.93472699999984
+        },
+        {
+          "id": "go-gin-realworld-17",
+          "kind": "symbol",
+          "query": "BatchGetFavoriteCounts",
+          "expect": [
+            "articles/models.go"
+          ],
+          "ranked": [
+            "articles/serializers.go",
+            "articles/models.go",
+            "articles/routers.go",
+            "common/database.go",
+            "users/models.go",
+            "api/Conduit.postman_collection.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 10945,
+          "latencyMs": 43.23381299999892
+        },
+        {
+          "id": "go-gin-realworld-18",
+          "kind": "task",
+          "query": "Add a length limit on bio when users update their profile",
+          "expect": [
+            "users/validators.go"
+          ],
+          "ranked": [
+            "users/serializers.go",
+            "users/routers.go",
+            "users/validators.go",
+            "users/models.go",
+            "users/doc.go",
+            "articles/routers.go",
+            "articles/serializers.go",
+            "api/Conduit.postman_collection.json",
+            "users/middlewares.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 5803,
+          "latencyMs": 74.13258899999892
+        },
+        {
+          "id": "go-gin-realworld-19",
+          "kind": "nl",
+          "query": "How does the login handler verify credentials?",
+          "expect": [
+            "users/routers.go",
+            "users/models.go"
+          ],
+          "ranked": [
+            "users/routers.go",
+            "api/Conduit.postman_collection.json",
+            "users/validators.go",
+            "users/middlewares.go",
+            "users/models.go",
+            "articles/models.go",
+            ".github/workflows/ci.yml"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 9951,
+          "latencyMs": 55.13083000000006
+        },
+        {
+          "id": "go-gin-realworld-20",
+          "kind": "nl",
+          "query": "Where is the server started and the routes mounted?",
+          "expect": [
+            "hello.go"
+          ],
+          "ranked": [
+            "users/routers.go",
+            "articles/routers.go",
+            "hello.go",
+            "scripts/run-api-tests.sh",
+            "api/Conduit.postman_collection.json",
+            "api/run-api-tests.sh",
+            "doc.go",
+            "users/doc.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 10208,
+          "latencyMs": 61.56514200000129
+        },
+        {
+          "id": "go-gin-realworld-21",
+          "kind": "nl",
+          "query": "How are comments on an article deleted?",
+          "expect": [
+            "articles/routers.go"
+          ],
+          "ranked": [
+            "articles/routers.go",
+            "articles/models.go",
+            "articles/serializers.go",
+            "articles/validators.go",
+            "articles/doc.go",
+            "api/Conduit.postman_collection.json"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7908,
+          "latencyMs": 52.672145999998975
+        }
+      ]
+    }
+  ]
+}

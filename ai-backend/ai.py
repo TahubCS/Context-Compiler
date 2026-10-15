@@ -15,12 +15,23 @@ from config import (
     ANSWER_MODEL_FALLBACKS,
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
     GOOGLE_GEMINI_API_KEY,
 )
+from hash_embedding import hash_embed
 
 logger = logging.getLogger("context-compiler.ai")
 
-gemini_client = genai.Client(api_key=GOOGLE_GEMINI_API_KEY)
+_gemini_client: genai.Client | None = None
+
+
+def _client() -> genai.Client:
+    global _gemini_client
+    if not GOOGLE_GEMINI_API_KEY:
+        raise RuntimeError("GOOGLE_GEMINI_API_KEY is not set")
+    if _gemini_client is None:
+        _gemini_client = genai.Client(api_key=GOOGLE_GEMINI_API_KEY)
+    return _gemini_client
 
 _MAX_RETRIES = 6
 _BASE_DELAY_S = 5.0
@@ -32,28 +43,71 @@ def _compute_wait(delay: float) -> float:
     return min(delay + jitter, _MAX_DELAY_S)
 
 
+# Gemini task types: stored code is embedded as documents, searches as code-retrieval
+# queries, which ranks code against natural-language questions better than untyped vectors.
+DOCUMENT_TASK = "RETRIEVAL_DOCUMENT"
+QUERY_TASK = "CODE_RETRIEVAL_QUERY"
+EMBED_BATCH_SIZE = 50
+
+
+def embed_texts(
+    texts: list[str],
+    task_type: str = DOCUMENT_TASK,
+    on_retry_wait: Callable[[float, int, int], None] | None = None,
+    max_retries: int = _MAX_RETRIES,
+    base_delay: float = _BASE_DELAY_S,
+) -> list[list[float]]:
+    """
+    Generate 768-dim embeddings for several texts, EMBED_BATCH_SIZE per request.
+
+    Scans use the default long retry chain. Interactive callers pass a small
+    max_retries so a rate limit fails fast instead of outliving the HTTP timeout.
+    """
+    if EMBEDDING_PROVIDER == "hash":
+        return [hash_embed(text, EMBEDDING_DIMENSIONS) for text in texts]
+
+    vectors: list[list[float]] = []
+    for start in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[start : start + EMBED_BATCH_SIZE]
+        vectors.extend(_embed_batch(batch, task_type, on_retry_wait, max_retries, base_delay))
+    return vectors
+
+
 def embed_text(
     text: str,
+    task_type: str = DOCUMENT_TASK,
     on_retry_wait: Callable[[float, int, int], None] | None = None,
+    max_retries: int = _MAX_RETRIES,
+    base_delay: float = _BASE_DELAY_S,
 ) -> list[float]:
-    """
-    Generate a 768-dim embedding vector for the given text.
-    """
-    delay = _BASE_DELAY_S
+    return embed_texts([text], task_type, on_retry_wait, max_retries, base_delay)[0]
 
-    for attempt in range(_MAX_RETRIES + 1):
+
+def _embed_batch(
+    texts: list[str],
+    task_type: str,
+    on_retry_wait: Callable[[float, int, int], None] | None,
+    max_retries: int,
+    base_delay: float,
+) -> list[list[float]]:
+    delay = base_delay
+
+    for attempt in range(max_retries + 1):
         try:
-            result = gemini_client.models.embed_content(
+            result = _client().models.embed_content(
                 model=EMBEDDING_MODEL,
-                contents=text,
-                config={"output_dimensionality": EMBEDDING_DIMENSIONS},
+                contents=texts,
+                config={"output_dimensionality": EMBEDDING_DIMENSIONS, "task_type": task_type},
             )
-            return result.embeddings[0].values
+            embeddings = result.embeddings or []
+            if len(embeddings) != len(texts):
+                raise RuntimeError(f"Gemini returned {len(embeddings)} embeddings for {len(texts)} texts")
+            return [embedding.values for embedding in embeddings]
         except ClientError as exc:
             if exc.code == 429:
-                if attempt == _MAX_RETRIES:
+                if attempt == max_retries:
                     logger.error(
-                        "Embedding rate-limited after %d retries, giving up.", _MAX_RETRIES
+                        "Embedding rate-limited after %d retries, giving up.", max_retries
                     )
                     raise
 
@@ -61,11 +115,11 @@ def embed_text(
                 logger.warning(
                     "Rate limited (429) on attempt %d/%d, waiting %.1fs before retry.",
                     attempt + 1,
-                    _MAX_RETRIES,
+                    max_retries,
                     wait,
                 )
                 if on_retry_wait:
-                    on_retry_wait(wait, attempt + 1, _MAX_RETRIES)
+                    on_retry_wait(wait, attempt + 1, max_retries)
                 time.sleep(wait)
                 delay = min(delay * 2, _MAX_DELAY_S)
             else:
@@ -74,6 +128,8 @@ def embed_text(
         except APIError as exc:
             logger.error("Gemini server error %s: %s", exc.code, exc.message)
             raise
+
+    raise RuntimeError("unreachable")
 
 
 def _answer_models() -> list[str]:
@@ -93,7 +149,7 @@ def _should_fallback_answer_error(exc: Exception) -> bool:
 
 
 def _generate_with_model_once(model: str, prompt: str) -> str:
-    response = gemini_client.models.generate_content(
+    response = _client().models.generate_content(
         model=model,
         contents=prompt,
     )
@@ -121,7 +177,10 @@ def build_grounded_fallback_answer(question: str, citations: list[dict], selecte
 
 
 def generate_grounded_answer(
-    question: str, citations: list[dict], selected_files: list[str] | None = None
+    question: str,
+    citations: list[dict],
+    selected_files: list[str] | None = None,
+    deadline: float | None = None,
 ) -> str:
     """
     Generate a concise answer using the retrieved repository context only.
@@ -159,6 +218,8 @@ def generate_grounded_answer(
 
     last_error: Exception | None = None
     for model in _answer_models():
+        if deadline is not None and time.monotonic() >= deadline:
+            raise TimeoutError("Answer time budget exhausted before trying model " + model)
         try:
             answer = _generate_with_model_once(model, prompt)
             if model != ANSWER_MODEL:

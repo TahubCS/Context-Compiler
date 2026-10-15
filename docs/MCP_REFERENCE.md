@@ -1,8 +1,28 @@
 # MCP reference
 
-The MCP entry point is `src/mcp/server.ts`. It implements **stdio only** and is read-only. A key binds one server process to one repository and workspace. There are no MCP resources or prompts in this release; repository access is exposed through the five tools below. All tools return MCP text content plus `structuredContent`; failures return `isError: true` with an actionable message.
+Context Compiler serves MCP two ways, with the same tools (defined in `src/mcp/tools.ts`): a remote **Streamable HTTP** endpoint at `<base-url>/api/mcp` (`src/app/api/mcp/route.ts`, stateless, JSON responses) and a local **stdio** bridge (`src/mcp/server.ts`). Both are read-only. repository access is exposed through the tools below, one resource template, and one prompt. All tools return MCP text content plus `structuredContent`; failures return `isError: true` with an actionable message.
 
-Common optional filters are `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful repository scan. Every request requires `CONTEXT_COMPILER_BASE_URL` and a valid repository-bound `CONTEXT_COMPILER_MCP_KEY`.
+## Keys and repository selection
+
+Every request needs a key: an `Authorization: Bearer ccmcp_...` header for the remote endpoint, or `CONTEXT_COMPILER_MCP_KEY` (plus `CONTEXT_COMPILER_BASE_URL`) for the stdio bridge. There are two kinds, both created on a repository's **Use With Agent** dialog:
+
+- **Repository key**: reads one repository. Tools use it automatically; asking for another repository is refused.
+- **Workspace key**: reads every non-archived repository in the workspace, so one registration covers all of them. Each call picks the repository from, in order:
+  1. the tool's `repository` argument (`owner/name`; GitHub URLs and SSH remotes are accepted too),
+  2. the client's `X-Context-Compiler-Repository` header (a per-project default), or, for the stdio bridge, `CONTEXT_COMPILER_REPOSITORY` or the `origin` remote of the folder the client started it in,
+  3. the workspace's only repository, if it has exactly one.
+
+  Otherwise the tool returns an error listing the available repositories.
+
+Every repository tool takes the optional `repository` argument plus the filters `language`, `fileCategory`, and `pathPrefix` (non-empty strings when supplied). Results depend on the latest successful scan. Every tool except `request_rescan` carries `readOnlyHint: true`.
+
+## Freshness
+
+Every repository tool's text output starts with the commit the index was built from and when it was scanned. The stdio bridge, which runs in the agent's checkout, also compares that commit with the working tree (committed changes since the indexed commit, uncommitted edits, and untracked files). It lists the files that differ and marks them `(changed locally)` in results, so the agent reads those from disk. The remote endpoint cannot see the checkout and reports only the indexed commit.
+
+## `list_repositories`
+
+No input. Returns the key's scope (`repository` or `workspace`), the workspace, and each repository with its scan status and last indexed commit. Agents use it to find the `repository` value for other tools.
 
 ## `search_codebase`
 
@@ -48,9 +68,12 @@ Build a prompt-ready, ranked working set for a task.
 |---|---|---|
 | `task` | string | Required; at least 1 character. |
 | `language`, `fileCategory`, `pathPrefix` | string | Optional filters. |
-| `maxSnippets` | integer | Optional; 1–10. |
+| `maxSnippets` | integer | Optional; 1–10 (default 6). |
+| `maxTokens` | integer | Optional; 500–30000 (default 6000). Token budget for the pack. |
 
-Output: formatted pack, snippets, selected/start-here files, task summary, selection reasons, duplicate count, and retrieval mode. Example: `{"task":"Add request timeouts to the MCP bridge","maxSnippets":6}`. Output is bounded by indexed chunks, not an entire-file guarantee.
+The pack is filled in rank order: whole snippets first, then the next one cut at a line boundary if at least 150 tokens remain, so it never exceeds the budget. Snippets whose chunks are already in the pack are skipped. Tokens are estimated at four characters each.
+
+Output: formatted pack, the snippets that fit, selected/start-here files, task summary, selection reasons, duplicate count, retrieval mode, and `tokens` (`used`, `budget`, `fullFiles`: the estimated cost of reading the selected files whole, `omittedForBudget`, `truncated`). Example: `{"task":"Add request timeouts to the MCP bridge","maxTokens":4000}`.
 
 ## `trace_feature_flow`
 
@@ -66,4 +89,20 @@ Output: repository/query, possible entrypoint, categorized files, read order, mi
 
 ## Protocol and errors
 
-The bridge first calls `GET /api/mcp/session` to validate its key, then calls the corresponding authenticated web route. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 15 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.
+The remote endpoint authenticates each request and returns 401 with `WWW-Authenticate: Bearer` when the key is missing or revoked; tool failures are returned as `isError` results. The stdio bridge connects immediately and calls the corresponding authenticated web route per tool (`/api/mcp/search`, `/answer`, `/file`, `/context-pack`, `/trace`, `/repositories`), sending its detected default repository as `X-Context-Compiler-Repository`; `doctor` calls `GET /api/mcp/session` and prints the key's scope and repositories. HTTP errors use the server's message; network, timeout, non-JSON, and wrong-base-URL cases are converted to safe tool errors. The key is sent only as a Bearer header. The default request timeout is 60 seconds and can be set from 1–120 seconds with `CONTEXT_COMPILER_TIMEOUT_MS`.
+
+## `request_rescan`
+
+Re-indexes a repository from its default branch. Input: optional `repository`. Works only with keys created with **Let agents request re-scans**; other keys get a 403-style tool error. Returns `queued` (with the scan job), `up_to_date`, or `already_scanning`; the scan runs in the background and `list_repositories` shows when it completes. Not read-only (`readOnlyHint: false`, `idempotentHint: true`).
+
+## Resource: `context-compiler://{owner}/{name}/overview`
+
+Markdown map of an indexed repository: file count and commit, languages, top-level layout (two levels for monorepo folders such as `packages/`), likely entrypoints, data layer, integrations, and guide files. Listed once per repository the key can read. Inferred from file paths.
+
+## Prompt: `plan-change`
+
+Arguments: `task` (required), `repository` (optional). Returns a message that asks the agent to call `build_context_pack`, then `trace_feature_flow` if the change crosses layers, to prefer files marked `(changed locally)` from disk, and to produce a plan (files, edit order, tests, risks) before editing.
+
+## Usage log
+
+Each repository tool call is recorded per key (tool, repository, success, latency, result count, and tokens returned; for context packs also the estimated full-file tokens). The setup dialog shows each key's calls over the last seven days and, for context packs, tokens used versus reading the files whole.

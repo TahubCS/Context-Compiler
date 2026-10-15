@@ -231,16 +231,19 @@ model McpApiKey {
   id           String     @id @default(uuid()) @db.Uuid
   userId       String     @db.Uuid
   workspaceId  String     @db.Uuid
-  repositoryId String     @db.Uuid
+  /// Null for a workspace key, which can read every repository in the workspace.
+  repositoryId String?    @db.Uuid
   name         String
   keyPrefix    String
   keyHash      String     @unique
+  /// Lets agents call request_rescan; every other tool is read-only.
+  canRequestScan Boolean  @default(false)
   lastUsedAt   DateTime?
   revokedAt    DateTime?
   createdAt    DateTime   @default(now())
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   Repository? @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
   @@index([userId, repositoryId, createdAt])
   @@index([workspaceId, repositoryId, createdAt])
@@ -279,6 +282,8 @@ model CodeDocument {
   embedding           Unsupported("vector(768)")?
   embeddingModel      String?
   embeddingDimensions Int?
+  /// Code-aware search tokens written by the scanner: file name (weight A), directories (B), content (D).
+  searchTokens        Unsupported("tsvector")?
   metadata            Json?
   repository          Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   createdAt           DateTime   @default(now())
@@ -291,6 +296,10 @@ model CodeDocument {
   @@index([repositoryId, fileCategory])
   @@index([repositoryId, pathBucket])
   @@index([repositoryId, lastSeenScanJobId])
+  @@index([searchTokens], type: Gin, map: "idx_code_documents_search")
+  // Prisma cannot express pgvector's HNSW index, so `db push` creates a btree here, which
+  // rejects 768-dim vectors. `bun run db:setup` replaces it with HNSW; keeping this line
+  // stops later `db push` runs from dropping that index.
   @@index([embedding], map: "idx_code_documents_embedding")
 }
 
@@ -386,4 +395,41 @@ model AnswerCitation {
 
   @@index([answerSessionId, orderIndex])
   @@index([codeDocumentId])
+}
+
+/// Sign-in requests from the `context-compiler-mcp connect` CLI. The CLI generates its MCP key
+/// locally and sends it once; only its hash is stored. Approving in the browser activates it.
+model CliAuthRequest {
+  id         String   @id @default(uuid()) @db.Uuid
+  keyHash    String   @unique
+  keyPrefix  String
+  userCode   String   @unique
+  clientName String
+  /// pending | approved | denied
+  status     String   @default("pending")
+  apiKeyId   String?  @db.Uuid
+  decidedBy  String?  @db.Uuid
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+/// One MCP tool call, for per-key usage and token-savings reporting.
+model McpToolCall {
+  id             String   @id @default(uuid()) @db.Uuid
+  apiKeyId       String   @db.Uuid
+  repositoryId   String?  @db.Uuid
+  tool           String
+  ok             Boolean
+  durationMs     Int
+  resultCount    Int?
+  /// Estimated tokens returned to the agent.
+  responseTokens Int?
+  /// For context packs: estimated tokens of reading the selected files whole.
+  fullFileTokens Int?
+  createdAt      DateTime @default(now())
+
+  @@index([apiKeyId, createdAt])
+  @@index([repositoryId, createdAt])
 }

@@ -1,0 +1,80 @@
+# Local or single-host deployment: PostgreSQL with pgvector, the AI backend, and the web app.
+#
+#   bun run setup                      # creates .env.local with generated secrets
+#   # fill in Supabase, GitHub App and Gemini values in .env.local
+#   docker compose --env-file .env.local up --build
+#
+# Sign-in uses Supabase (hosted), which is not part of this file.
+# Without a Gemini key, set EMBEDDING_PROVIDER=hash for offline (word-matching) embeddings.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: context_compiler
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d context_compiler"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: enables pgvector, applies the Prisma schema, and builds the vector index.
+  migrate:
+    build:
+      context: .
+    command: ["bun", "run", "db:setup"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/context_compiler
+      DIRECT_URL: postgresql://postgres:postgres@db:5432/context_compiler
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  ai-backend:
+    build:
+      context: ./ai-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/context_compiler
+      AI_BACKEND_SECRET: ${AI_BACKEND_SECRET:?run bun run setup first}
+      GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-gemini}
+      # Scan progress goes to the web container.
+      APP_BASE_URL: http://web:3000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_URL: ${NEXT_PUBLIC_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set in .env.local}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?set in .env.local}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_MCP_CLI_AVAILABLE: ${NEXT_PUBLIC_MCP_CLI_AVAILABLE:-false}
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/context_compiler
+      DIRECT_URL: postgresql://postgres:postgres@db:5432/context_compiler
+      AI_BACKEND_URL: http://ai-backend:8080
+      AI_CALLBACK_BASE_URL: http://web:3000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ai-backend:
+        condition: service_started
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

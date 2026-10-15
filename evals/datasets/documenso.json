@@ -1,0 +1,187 @@
+{
+  "name": "documenso",
+  "repo": "documenso/documenso",
+  "commit": "d4e6eeaf880dc2b3425dcb0242b9a4206ac10443",
+  "layout": "TypeScript monorepo (Remix + tRPC + Prisma)",
+  "heldOut": true,
+  "questions": [
+    {
+      "id": "documenso-01",
+      "kind": "nl",
+      "query": "How are webhook URLs checked so they cannot point at private network addresses?",
+      "expect": [
+        "packages/lib/server-only/webhooks/is-private-url.ts",
+        "packages/lib/server-only/webhooks/assert-webhook-url.ts"
+      ]
+    },
+    {
+      "id": "documenso-02",
+      "kind": "nl",
+      "query": "Where is a two-factor authentication token verified?",
+      "expect": [
+        "packages/lib/server-only/2fa/verify-2fa-token.ts"
+      ]
+    },
+    {
+      "id": "documenso-03",
+      "kind": "nl",
+      "query": "How are PDFs digitally signed with a local certificate?",
+      "expect": [
+        "packages/signing/transports/local.ts"
+      ]
+    },
+    {
+      "id": "documenso-04",
+      "kind": "nl",
+      "query": "Where is the signing certificate PDF generated?",
+      "expect": [
+        "packages/lib/server-only/pdf/generate-certificate-pdf.ts"
+      ]
+    },
+    {
+      "id": "documenso-05",
+      "kind": "nl",
+      "query": "How does a recipient sign a field?",
+      "expect": [
+        "packages/lib/server-only/field/sign-field-with-token.ts"
+      ]
+    },
+    {
+      "id": "documenso-06",
+      "kind": "nl",
+      "query": "Where is a document sealed after every recipient has signed?",
+      "expect": [
+        "packages/lib/jobs/definitions/internal/seal-document.handler.ts"
+      ]
+    },
+    {
+      "id": "documenso-07",
+      "kind": "nl",
+      "query": "How are user passwords hashed?",
+      "expect": [
+        "packages/lib/server-only/auth/hash.ts"
+      ]
+    },
+    {
+      "id": "documenso-08",
+      "kind": "nl",
+      "query": "Where is rate limiting implemented?",
+      "expect": [
+        "packages/lib/server-only/rate-limit/rate-limit.ts"
+      ]
+    },
+    {
+      "id": "documenso-09",
+      "kind": "nl",
+      "query": "How are webhook calls executed?",
+      "expect": [
+        "packages/lib/server-only/webhooks/execute-webhook-call.ts"
+      ]
+    },
+    {
+      "id": "documenso-10",
+      "kind": "nl",
+      "query": "How is it decided whose turn it is to sign when signing order is enabled?",
+      "expect": [
+        "packages/lib/server-only/recipient/get-is-recipient-turn.ts"
+      ]
+    },
+    {
+      "id": "documenso-11",
+      "kind": "nl",
+      "query": "How is email and password sign-in handled?",
+      "expect": [
+        "packages/auth/server/routes/email-password.ts"
+      ]
+    },
+    {
+      "id": "documenso-12",
+      "kind": "nl",
+      "query": "How does OAuth sign-in with Google start?",
+      "expect": [
+        "packages/auth/server/routes/oauth.ts"
+      ]
+    },
+    {
+      "id": "documenso-13",
+      "kind": "nl",
+      "query": "Where are passkeys registered for a user?",
+      "expect": [
+        "packages/lib/server-only/auth/create-passkey.ts"
+      ]
+    },
+    {
+      "id": "documenso-14",
+      "kind": "nl",
+      "query": "Where is the database schema for documents and recipients defined?",
+      "expect": [
+        "packages/prisma/schema.prisma"
+      ]
+    },
+    {
+      "id": "documenso-15",
+      "kind": "nl",
+      "query": "How does a recipient reject a document?",
+      "expect": [
+        "packages/lib/server-only/document/reject-document-with-token.ts"
+      ]
+    },
+    {
+      "id": "documenso-16",
+      "kind": "nl",
+      "query": "Where are Stripe webhooks handled?",
+      "expect": [
+        "apps/remix/app/routes/api+/stripe.webhook.ts"
+      ]
+    },
+    {
+      "id": "documenso-17",
+      "kind": "nl",
+      "query": "Where is the background job client defined?",
+      "expect": [
+        "packages/lib/jobs/client/client.ts"
+      ]
+    },
+    {
+      "id": "documenso-18",
+      "kind": "nl",
+      "query": "Where is the email asking a recipient to sign a document sent?",
+      "expect": [
+        "packages/lib/jobs/definitions/emails/send-signing-email.handler.ts"
+      ]
+    },
+    {
+      "id": "documenso-19",
+      "kind": "nl",
+      "query": "How is the public API v1 authenticated with an API token?",
+      "expect": [
+        "packages/api/v1/middleware/authenticated.ts"
+      ]
+    },
+    {
+      "id": "documenso-20",
+      "kind": "nl",
+      "query": "Where are signed field values inserted into the PDF?",
+      "expect": [
+        "packages/lib/server-only/pdf/insert-field-in-pdf-v2.ts",
+        "packages/lib/server-only/pdf/insert-field-in-pdf-v1.ts"
+      ]
+    },
+    {
+      "id": "documenso-21",
+      "kind": "nl",
+      "query": "How are documents searched and filtered in the documents list?",
+      "expect": [
+        "packages/lib/server-only/document/find-documents.ts"
+      ]
+    },
+    {
+      "id": "documenso-22",
+      "kind": "task",
+      "query": "Change how many two-factor backup codes are generated",
+      "expect": [
+        "packages/lib/server-only/2fa/setup-2fa.ts"
+      ]
+    }
+  ]
+}

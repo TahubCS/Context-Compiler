@@ -1,36 +1,86 @@
 # MCP client configuration examples
 
-Replace paths and placeholders. Keep the key in local client configuration or a secret manager; never commit it.
+Replace `https://your-context-compiler.example` with your deployment and `ccmcp_REPLACE_ME` with a repository key from the repository page (**Use With Agent**). Keep keys in local client configuration or a secret manager; never commit them.
 
-## Claude Code
+## One command (recommended once the CLI is published)
 
 ```bash
-claude mcp add context-compiler -s user \
-  -e CONTEXT_COMPILER_BASE_URL="https://your-context-compiler.example" \
-  -e CONTEXT_COMPILER_MCP_KEY="ccmcp_REPLACE_ME" \
-  -- bun run --cwd "/absolute/path/to/Context-Compiler" mcp:stdio
+npx context-compiler-mcp connect --url https://your-context-compiler.example
 ```
 
-## Codex CLI (`~/.codex/config.toml`)
+Signs in through the browser and registers a workspace key with every installed agent. See [packages/mcp](../packages/mcp/README.md).
+
+## Remote server
+
+Context Compiler serves MCP over Streamable HTTP at `<base-url>/api/mcp`. Nothing needs to be cloned or installed.
+
+### Claude Code
+
+Run in your checkout of the bound repository:
+
+```bash
+claude mcp add --transport http context-compiler https://your-context-compiler.example/api/mcp \
+  --header "Authorization: Bearer ccmcp_REPLACE_ME"
+```
+
+Add `-s user` to make it available in every project. Check with `/mcp` inside Claude Code.
+
+### Codex CLI
+
+```bash
+export CONTEXT_COMPILER_MCP_KEY="ccmcp_REPLACE_ME"   # put this in your shell profile
+codex mcp add context-compiler --url https://your-context-compiler.example/api/mcp \
+  --bearer-token-env-var CONTEXT_COMPILER_MCP_KEY
+```
+
+Or in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.context-compiler]
-command = "bun"
-args = ["run", "--cwd", "/absolute/path/to/Context-Compiler", "mcp:stdio"]
-
-[mcp_servers.context-compiler.env]
-CONTEXT_COMPILER_BASE_URL = "https://your-context-compiler.example"
-CONTEXT_COMPILER_MCP_KEY = "ccmcp_REPLACE_ME"
+url = "https://your-context-compiler.example/api/mcp"
+bearer_token_env_var = "CONTEXT_COMPILER_MCP_KEY"
 ```
 
-## Generic JSON client (Claude Desktop-style configuration)
+### Gemini CLI
+
+```bash
+gemini mcp add --transport http context-compiler https://your-context-compiler.example/api/mcp \
+  --header "Authorization: Bearer ccmcp_REPLACE_ME"
+```
+
+`--transport http` is required; without it the header is ignored. Check with `gemini mcp list`.
+
+### Generic JSON (`.mcp.json` and most editors)
+
+```json
+{
+  "mcpServers": {
+    "context-compiler": {
+      "type": "http",
+      "url": "https://your-context-compiler.example/api/mcp",
+      "headers": { "Authorization": "Bearer ccmcp_REPLACE_ME" }
+    }
+  }
+}
+```
+
+## Local stdio bridge (only for clients without remote server support)
+
+Requires a clone of this repository with `bun install` run inside it. Point the client at the bridge file itself rather than `bun run --cwd … mcp:stdio`: the bridge then starts in your project folder and, with a workspace key, uses that folder's `origin` remote as the default repository (override with `CONTEXT_COMPILER_REPOSITORY`).
+
+```bash
+claude mcp add context-compiler \
+  -e CONTEXT_COMPILER_BASE_URL="https://your-context-compiler.example" \
+  -e CONTEXT_COMPILER_MCP_KEY="ccmcp_REPLACE_ME" \
+  -- bun "/absolute/path/to/Context-Compiler/src/mcp/server.ts"
+```
 
 ```json
 {
   "mcpServers": {
     "context-compiler": {
       "command": "bun",
-      "args": ["run", "--cwd", "/absolute/path/to/Context-Compiler", "mcp:stdio"],
+      "args": ["/absolute/path/to/Context-Compiler/src/mcp/server.ts"],
       "env": {
         "CONTEXT_COMPILER_BASE_URL": "https://your-context-compiler.example",
         "CONTEXT_COMPILER_MCP_KEY": "ccmcp_REPLACE_ME"
@@ -40,4 +90,4 @@ CONTEXT_COMPILER_MCP_KEY = "ccmcp_REPLACE_ME"
 }
 ```
 
-Client configuration formats change independently; consult the client's current documentation if its parser rejects the example. Context Compiler requires an MCP client that supports local stdio servers.
+Client configuration formats change independently; consult the client's current documentation if its parser rejects an example.

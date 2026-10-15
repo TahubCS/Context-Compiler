@@ -1,0 +1,759 @@
+{
+  "label": "heldout-documenso-lexical-v1",
+  "baseUrl": "http://127.0.0.1:3100",
+  "k": 5,
+  "report": [
+    {
+      "dataset": {
+        "name": "documenso",
+        "repo": "documenso/documenso",
+        "commit": "d4e6eeaf880dc2b3425dcb0242b9a4206ac10443",
+        "layout": "TypeScript monorepo (Remix + tRPC + Prisma)",
+        "heldOut": true,
+        "questions": [
+          {
+            "id": "documenso-01",
+            "kind": "nl",
+            "query": "How are webhook URLs checked so they cannot point at private network addresses?",
+            "expect": [
+              "packages/lib/server-only/webhooks/is-private-url.ts",
+              "packages/lib/server-only/webhooks/assert-webhook-url.ts"
+            ]
+          },
+          {
+            "id": "documenso-02",
+            "kind": "nl",
+            "query": "Where is a two-factor authentication token verified?",
+            "expect": [
+              "packages/lib/server-only/2fa/verify-2fa-token.ts"
+            ]
+          },
+          {
+            "id": "documenso-03",
+            "kind": "nl",
+            "query": "How are PDFs digitally signed with a local certificate?",
+            "expect": [
+              "packages/signing/transports/local.ts"
+            ]
+          },
+          {
+            "id": "documenso-04",
+            "kind": "nl",
+            "query": "Where is the signing certificate PDF generated?",
+            "expect": [
+              "packages/lib/server-only/pdf/generate-certificate-pdf.ts"
+            ]
+          },
+          {
+            "id": "documenso-05",
+            "kind": "nl",
+            "query": "How does a recipient sign a field?",
+            "expect": [
+              "packages/lib/server-only/field/sign-field-with-token.ts"
+            ]
+          },
+          {
+            "id": "documenso-06",
+            "kind": "nl",
+            "query": "Where is a document sealed after every recipient has signed?",
+            "expect": [
+              "packages/lib/jobs/definitions/internal/seal-document.handler.ts"
+            ]
+          },
+          {
+            "id": "documenso-07",
+            "kind": "nl",
+            "query": "How are user passwords hashed?",
+            "expect": [
+              "packages/lib/server-only/auth/hash.ts"
+            ]
+          },
+          {
+            "id": "documenso-08",
+            "kind": "nl",
+            "query": "Where is rate limiting implemented?",
+            "expect": [
+              "packages/lib/server-only/rate-limit/rate-limit.ts"
+            ]
+          },
+          {
+            "id": "documenso-09",
+            "kind": "nl",
+            "query": "How are webhook calls executed?",
+            "expect": [
+              "packages/lib/server-only/webhooks/execute-webhook-call.ts"
+            ]
+          },
+          {
+            "id": "documenso-10",
+            "kind": "nl",
+            "query": "How is it decided whose turn it is to sign when signing order is enabled?",
+            "expect": [
+              "packages/lib/server-only/recipient/get-is-recipient-turn.ts"
+            ]
+          },
+          {
+            "id": "documenso-11",
+            "kind": "nl",
+            "query": "How is email and password sign-in handled?",
+            "expect": [
+              "packages/auth/server/routes/email-password.ts"
+            ]
+          },
+          {
+            "id": "documenso-12",
+            "kind": "nl",
+            "query": "How does OAuth sign-in with Google start?",
+            "expect": [
+              "packages/auth/server/routes/oauth.ts"
+            ]
+          },
+          {
+            "id": "documenso-13",
+            "kind": "nl",
+            "query": "Where are passkeys registered for a user?",
+            "expect": [
+              "packages/lib/server-only/auth/create-passkey.ts"
+            ]
+          },
+          {
+            "id": "documenso-14",
+            "kind": "nl",
+            "query": "Where is the database schema for documents and recipients defined?",
+            "expect": [
+              "packages/prisma/schema.prisma"
+            ]
+          },
+          {
+            "id": "documenso-15",
+            "kind": "nl",
+            "query": "How does a recipient reject a document?",
+            "expect": [
+              "packages/lib/server-only/document/reject-document-with-token.ts"
+            ]
+          },
+          {
+            "id": "documenso-16",
+            "kind": "nl",
+            "query": "Where are Stripe webhooks handled?",
+            "expect": [
+              "apps/remix/app/routes/api+/stripe.webhook.ts"
+            ]
+          },
+          {
+            "id": "documenso-17",
+            "kind": "nl",
+            "query": "Where is the background job client defined?",
+            "expect": [
+              "packages/lib/jobs/client.ts"
+            ]
+          },
+          {
+            "id": "documenso-18",
+            "kind": "nl",
+            "query": "Where is the email asking a recipient to sign a document sent?",
+            "expect": [
+              "packages/lib/jobs/definitions/emails/send-signing-email.handler.ts"
+            ]
+          },
+          {
+            "id": "documenso-19",
+            "kind": "nl",
+            "query": "How is the public API v1 authenticated with an API token?",
+            "expect": [
+              "packages/api/v1/middleware/authenticated.ts"
+            ]
+          },
+          {
+            "id": "documenso-20",
+            "kind": "nl",
+            "query": "Where are signed field values inserted into the PDF?",
+            "expect": [
+              "packages/lib/server-only/pdf/insert-field-in-pdf-v2.ts",
+              "packages/lib/server-only/pdf/insert-field-in-pdf-v1.ts"
+            ]
+          },
+          {
+            "id": "documenso-21",
+            "kind": "nl",
+            "query": "How are documents searched and filtered in the documents list?",
+            "expect": [
+              "packages/lib/server-only/document/find-documents.ts"
+            ]
+          },
+          {
+            "id": "documenso-22",
+            "kind": "task",
+            "query": "Change how many two-factor backup codes are generated",
+            "expect": [
+              "packages/lib/server-only/2fa/setup-2fa.ts"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "documenso-01",
+          "kind": "nl",
+          "query": "How are webhook URLs checked so they cannot point at private network addresses?",
+          "expect": [
+            "packages/lib/server-only/webhooks/is-private-url.ts",
+            "packages/lib/server-only/webhooks/assert-webhook-url.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/webhooks/assert-webhook-url.ts",
+            "packages/lib/server-only/webhooks/is-private-url.ts",
+            "packages/trpc/server/webhook-router/schema.ts",
+            "packages/prisma/helper.ts",
+            "packages/lib/server-only/user/service-accounts/legacy-service-account.ts",
+            "packages/lib/server-only/user/service-accounts/deleted-account.ts",
+            "apps/docs/content/docs/developers/webhooks/setup.mdx",
+            "docker/development/compose.yml",
+            "apps/docs/content/docs/self-hosting/configuration/environment.mdx"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4034,
+          "latencyMs": 1997.5277299999998
+        },
+        {
+          "id": "documenso-02",
+          "kind": "nl",
+          "query": "Where is a two-factor authentication token verified?",
+          "expect": [
+            "packages/lib/server-only/2fa/verify-2fa-token.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/2fa/verify-2fa-token.ts",
+            "packages/auth/server/routes/two-factor.ts",
+            "packages/auth/server/routes/two-factor.types.ts",
+            "packages/trpc/server/admin-router/reset-two-factor-authentication.ts",
+            "packages/trpc/server/admin-router/reset-two-factor-authentication.types.ts",
+            "packages/lib/server-only/2fa/email/validate-2fa-token-from-email.ts",
+            "packages/lib/server-only/2fa/email/send-2fa-token-email.ts",
+            "apps/remix/app/routes/embed+/_v0+/sign.$token.tsx",
+            "apps/remix/app/routes/embed+/_v0+/direct.$token.tsx",
+            "packages/lib/server-only/document/complete-document-with-token.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 2892,
+          "latencyMs": 1497.9244500000004
+        },
+        {
+          "id": "documenso-03",
+          "kind": "nl",
+          "query": "How are PDFs digitally signed with a local certificate?",
+          "expect": [
+            "packages/signing/transports/local.ts"
+          ],
+          "ranked": [
+            "packages/signing/transports/local.ts",
+            "packages/signing/index.ts",
+            "packages/lib/server-only/pdf/generate-certificate-pdf.ts",
+            "apps/remix/app/routes/_internal+/[__htmltopdf]+/certificate.tsx",
+            "packages/lib/translations/en/web.po",
+            "packages/lib/translations/pt-BR/web.po",
+            "packages/lib/translations/zh/web.po",
+            "packages/lib/translations/ko/web.po",
+            "packages/lib/translations/ja/web.po"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 11455,
+          "latencyMs": 1485.1770019999994
+        },
+        {
+          "id": "documenso-04",
+          "kind": "nl",
+          "query": "Where is the signing certificate PDF generated?",
+          "expect": [
+            "packages/lib/server-only/pdf/generate-certificate-pdf.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/pdf/generate-partial-signed-pdf.ts",
+            "packages/lib/server-only/pdf/generate-certificate-pdf.ts",
+            "packages/lib/server-only/pdf/render-certificate.ts",
+            "packages/trpc/server/document-router/download-document-certificate.ts",
+            "packages/lib/server-only/pdf/generate-audit-log-pdf.ts",
+            "packages/trpc/server/envelope-router/download-envelope-certificate-pdf.types.ts",
+            "packages/lib/server-only/htmltopdf/get-certificate-pdf.ts",
+            "scripts/generate-overflow-test-pdf.mjs"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 6351,
+          "latencyMs": 1387.650157
+        },
+        {
+          "id": "documenso-05",
+          "kind": "nl",
+          "query": "How does a recipient sign a field?",
+          "expect": [
+            "packages/lib/server-only/field/sign-field-with-token.ts"
+          ],
+          "ranked": [
+            "apps/remix/app/components/general/document-signing/document-signing-field-container.tsx",
+            "packages/prisma/types/recipient-with-fields.ts",
+            "packages/ui/components/document/envelope-recipient-field-tooltip.tsx",
+            "packages/trpc/server/envelope-router/sign-envelope-field.ts",
+            "packages/lib/server-only/recipient/get-recipient-signatures.ts",
+            "apps/remix/app/components/general/document-signing/document-signing-initials-field.tsx",
+            "packages/lib/server-only/envelope/get-envelope-for-recipient-signing.ts",
+            "packages/ee/server-only/signing/csc/prepare-recipient-signing.ts",
+            "packages/lib/server-only/field/remove-signed-field-with-token.ts",
+            "apps/remix/app/components/general/document-signing/document-signing-email-field.tsx"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 5906,
+          "latencyMs": 1161.0226619999994
+        },
+        {
+          "id": "documenso-06",
+          "kind": "nl",
+          "query": "Where is a document sealed after every recipient has signed?",
+          "expect": [
+            "packages/lib/jobs/definitions/internal/seal-document.handler.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/signature-level/assert-compatible-recipient-grouping.ts",
+            "packages/ee/server-only/signing/csc/prepare-recipient-signing.ts",
+            "packages/lib/jobs/definitions/internal/seal-document.handler.ts",
+            "apps/remix/app/components/general/document-signing/document-signing-auto-sign.tsx",
+            "packages/lib/utils/recipient-groups.ts",
+            "apps/docs/content/docs/concepts/signing-workflow.mdx",
+            "packages/lib/utils/recipients.ts",
+            "packages/lib/server-only/recipient/assign-omitted-recipient-signing-orders.ts",
+            "apps/docs/content/docs/users/documents/advanced/signing-reminders.mdx"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.3333333333333333,
+          "packRecall": 1,
+          "packTokens": 9406,
+          "latencyMs": 1929.3654079999997
+        },
+        {
+          "id": "documenso-07",
+          "kind": "nl",
+          "query": "How are user passwords hashed?",
+          "expect": [
+            "packages/lib/server-only/auth/hash.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/user/update-password.ts",
+            "packages/lib/server-only/user/reset-password.ts",
+            "packages/lib/server-only/2fa/verify-password.ts",
+            "packages/lib/server-only/user/create-user.ts",
+            "packages/lib/utils/user-auth-methods.ts",
+            "packages/lib/types/user-auth-method.ts",
+            "packages/lib/server-only/auth/hash.ts",
+            "packages/lib/server-only/user/get-user-auth-methods.ts",
+            "packages/prisma/seed/users.ts",
+            "packages/lib/server-only/user/forgot-password.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.14285714285714285,
+          "packRecall": 0,
+          "packTokens": 3175,
+          "latencyMs": 1077.3921090000003
+        },
+        {
+          "id": "documenso-08",
+          "kind": "nl",
+          "query": "Where is rate limiting implemented?",
+          "expect": [
+            "packages/lib/server-only/rate-limit/rate-limit.ts"
+          ],
+          "ranked": [
+            "packages/lib/jobs/definitions/internal/cleanup-rate-limits.ts",
+            "packages/lib/server-only/rate-limit/types.ts",
+            "packages/lib/server-only/rate-limit/rate-limits.ts",
+            "packages/lib/server-only/rate-limit/check-organisation-rate-limits.ts",
+            "packages/lib/jobs/definitions/internal/cleanup-rate-limits.handler.ts",
+            "packages/lib/server-only/rate-limit/rate-limit.ts",
+            "packages/lib/server-only/rate-limit/assert-organisation-rates-and-limits.ts",
+            "packages/lib/server-only/rate-limit/rate-limit-middleware.ts",
+            "apps/remix/app/components/general/rate-limit-array-input.tsx",
+            "packages/lib/server-only/rate-limit/check-monthly-quota.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.16666666666666666,
+          "packRecall": 1,
+          "packTokens": 3686,
+          "latencyMs": 739.9867520000007
+        },
+        {
+          "id": "documenso-09",
+          "kind": "nl",
+          "query": "How are webhook calls executed?",
+          "expect": [
+            "packages/lib/server-only/webhooks/execute-webhook-call.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/webhooks/execute-webhook-call.ts",
+            "packages/lib/jobs/definitions/internal/execute-webhook.handler.ts",
+            "packages/trpc/server/webhook-router/resend-webhook-call.ts",
+            "packages/trpc/server/webhook-router/resend-webhook-call.types.ts",
+            "packages/trpc/server/webhook-router/find-webhook-calls.types.ts",
+            "packages/trpc/server/webhook-router/find-webhook-calls.ts",
+            "packages/lib/jobs/definitions/internal/execute-webhook.ts",
+            "packages/lib/server-only/webhooks/trigger/trigger-webhook.ts",
+            "apps/remix/app/components/general/webhook-logs-sheet.tsx",
+            "packages/trpc/server/webhook-router/router.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3126,
+          "latencyMs": 803.5853939999979
+        },
+        {
+          "id": "documenso-10",
+          "kind": "nl",
+          "query": "How is it decided whose turn it is to sign when signing order is enabled?",
+          "expect": [
+            "packages/lib/server-only/recipient/get-is-recipient-turn.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/signature-level/assert-compatible-signing-order.ts",
+            "packages/lib/server-only/recipient/assign-omitted-recipient-signing-orders.ts",
+            "packages/lib/server-only/envelope/get-envelope-for-recipient-signing.ts",
+            "apps/remix/app/components/general/envelope-signing/envelope-signer-header.tsx",
+            "packages/ui/primitives/signature-pad/signature-pad-dialog.tsx",
+            "apps/remix/app/routes/_recipient+/sign.$token+/_index.tsx",
+            "packages/ui/primitives/signature-pad/signature-pad.tsx",
+            "packages/ui/primitives/document-flow/add-signers.tsx",
+            "packages/ee/server-only/signing/csc/client/types.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 8843,
+          "latencyMs": 2511.413654
+        },
+        {
+          "id": "documenso-11",
+          "kind": "nl",
+          "query": "How is email and password sign-in handled?",
+          "expect": [
+            "packages/auth/server/routes/email-password.ts"
+          ],
+          "ranked": [
+            "packages/auth/server/routes/email-password.ts",
+            "packages/lib/jobs/definitions/emails/send-password-reset-success-email.ts",
+            "packages/lib/jobs/definitions/emails/send-recipient-signed-email.handler.ts",
+            "packages/lib/jobs/definitions/emails/send-signing-email.handler.ts",
+            "packages/lib/jobs/definitions/emails/send-password-reset-success-email.handler.ts",
+            "apps/remix/app/components/forms/signin.tsx",
+            "packages/lib/jobs/definitions/emails/send-document-pending-email.handler.ts",
+            "packages/lib/jobs/definitions/emails/send-rejection-emails.handler.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5854,
+          "latencyMs": 1411.0801759999995
+        },
+        {
+          "id": "documenso-12",
+          "kind": "nl",
+          "query": "How does OAuth sign-in with Google start?",
+          "expect": [
+            "packages/auth/server/routes/oauth.ts"
+          ],
+          "ranked": [
+            "packages/lib/constants/embed-auth.ts",
+            "packages/lib/constants/auth.ts",
+            "apps/remix/app/components/forms/signin.tsx",
+            "apps/remix/app/components/embed/embed-popup-auth.tsx",
+            "packages/signing/transports/google-cloud.ts",
+            "apps/remix/app/routes/_unauthenticated+/signin.tsx",
+            "apps/remix/app/routes/_unauthenticated+/signup.tsx",
+            "packages/ee/server-only/signing/csc/cookies/oauth-flow-cookie.ts",
+            "packages/ee/server-only/signing/csc/hono/oauth-authorize.ts",
+            "apps/remix/app/components/general/document-signing/document-signing-auth-passkey.tsx"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 7608,
+          "latencyMs": 1422.3051680000026
+        },
+        {
+          "id": "documenso-13",
+          "kind": "nl",
+          "query": "Where are passkeys registered for a user?",
+          "expect": [
+            "packages/lib/server-only/auth/create-passkey.ts"
+          ],
+          "ranked": [
+            "packages/lib/utils/user-auth-methods.ts",
+            "packages/lib/server-only/user/get-user-auth-methods.ts",
+            "packages/lib/server-only/auth/delete-passkey.ts",
+            "packages/lib/server-only/auth/update-passkey.ts",
+            "packages/lib/server-only/auth/create-passkey-registration-options.ts",
+            "packages/lib/server-only/auth/create-passkey-authentication-options.ts",
+            "apps/remix/app/components/dialogs/passkey-create-dialog.tsx",
+            "packages/lib/server-only/auth/find-passkeys.ts",
+            "packages/trpc/server/auth-router/delete-passkey.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 2762,
+          "latencyMs": 1178.3790759999974
+        },
+        {
+          "id": "documenso-14",
+          "kind": "nl",
+          "query": "Where is the database schema for documents and recipients defined?",
+          "expect": [
+            "packages/prisma/schema.prisma"
+          ],
+          "ranked": [
+            "packages/lib/types/embed-document-sign-schema.ts",
+            "packages/lib/jobs/definitions/internal/process-recipient-expired.handler.ts",
+            "packages/lib/jobs/definitions/emails/send-document-pending-email.ts",
+            "packages/lib/jobs/definitions/emails/send-admin-recipient-removed-emails.ts",
+            "packages/lib/jobs/definitions/internal/seal-document.handler.ts",
+            "apps/remix/app/components/embed/authoring/configure-document-recipients.tsx",
+            "packages/lib/jobs/definitions/emails/send-document-deleted-emails.ts",
+            "packages/lib/jobs/definitions/emails/send-document-created-from-direct-template-email.ts",
+            "packages/lib/jobs/definitions/emails/send-recipient-signed-email.ts",
+            "apps/remix/app/components/tables/admin-document-recipient-item-table.tsx"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 5209,
+          "latencyMs": 1764.7706319999998
+        },
+        {
+          "id": "documenso-15",
+          "kind": "nl",
+          "query": "How does a recipient reject a document?",
+          "expect": [
+            "packages/lib/server-only/document/reject-document-with-token.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/document/reject-document-with-token.ts",
+            "packages/lib/server-only/document/reject-document-on-behalf-of.ts",
+            "packages/email/templates/document-rejection-confirmed.tsx",
+            "apps/remix/app/routes/_recipient+/sign.$token+/rejected.tsx",
+            "apps/remix/app/components/tables/admin-document-recipients-table.tsx",
+            "packages/trpc/server/envelope-router/envelope-recipients/reject-envelope-recipient-on-behalf-of.types.ts",
+            "packages/email/template-components/template-document-rejection-confirmed.tsx",
+            "packages/email/templates/document-rejected.tsx",
+            "packages/trpc/server/envelope-router/envelope-recipients/reject-envelope-recipient-on-behalf-of.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 8694,
+          "latencyMs": 1201.1554950000063
+        },
+        {
+          "id": "documenso-16",
+          "kind": "nl",
+          "query": "Where are Stripe webhooks handled?",
+          "expect": [
+            "apps/remix/app/routes/api+/stripe.webhook.ts"
+          ],
+          "ranked": [
+            "apps/remix/app/routes/api+/stripe.webhook.ts",
+            "packages/ee/server-only/stripe/webhook/handler.ts",
+            "apps/remix/.bin/stripe-dev.sh",
+            "apps/remix/app/routes/api+/webhook.trigger.ts",
+            "packages/lib/jobs/definitions/internal/execute-webhook.ts",
+            "packages/ee/server-only/stripe/sync-stripe-customer-subscription.ts",
+            "packages/lib/jobs/definitions/internal/execute-webhook.handler.ts",
+            "packages/lib/server-only/webhooks/trigger/handler.ts",
+            "packages/lib/server-only/webhooks/zapier/unsubscribe.ts",
+            "packages/lib/server-only/webhooks/zapier/subscribe.ts"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4030,
+          "latencyMs": 840.844213000004
+        },
+        {
+          "id": "documenso-17",
+          "kind": "nl",
+          "query": "Where is the background job client defined?",
+          "expect": [
+            "packages/lib/jobs/client.ts"
+          ],
+          "ranked": [
+            "packages/lib/jobs/client/local.ts",
+            "packages/lib/jobs/client/client.ts",
+            "packages/lib/jobs/client/bullmq.ts",
+            "packages/lib/jobs/definitions/internal/cleanup-rate-limits.ts",
+            "packages/lib/jobs/definitions/internal/seal-document-sweep.ts",
+            "packages/lib/jobs/client.ts",
+            "packages/lib/jobs/client/inngest.ts",
+            "packages/lib/jobs/definitions/emails/send-password-reset-success-email.ts",
+            "packages/lib/jobs/definitions/emails/send-document-deleted-emails.handler.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.16666666666666666,
+          "packRecall": 0,
+          "packTokens": 5607,
+          "latencyMs": 1084.5064839999977
+        },
+        {
+          "id": "documenso-18",
+          "kind": "nl",
+          "query": "Where is the email asking a recipient to sign a document sent?",
+          "expect": [
+            "packages/lib/jobs/definitions/emails/send-signing-email.handler.ts"
+          ],
+          "ranked": [
+            "packages/lib/types/document-email.ts",
+            "apps/remix/app/components/general/document-signing/document-signing-email-field.tsx",
+            "apps/remix/app/components/general/document-signing/document-signing-recipient-provider.tsx",
+            "packages/ui/components/document/document-email-checkboxes.tsx",
+            "packages/lib/server-only/document/resend-document.ts",
+            "apps/docs/content/docs/users/documents/advanced/recipient-expiration.mdx",
+            "packages/lib/server-only/admin/admin-delete-recipient.ts",
+            "packages/lib/jobs/definitions/emails/send-document-completed-emails.handler.ts",
+            "packages/lib/utils/recipient-groups.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 7757,
+          "latencyMs": 1999.5791869999957
+        },
+        {
+          "id": "documenso-19",
+          "kind": "nl",
+          "query": "How is the public API v1 authenticated with an API token?",
+          "expect": [
+            "packages/api/v1/middleware/authenticated.ts"
+          ],
+          "ranked": [
+            "packages/trpc/server/api-token-router/get-api-tokens.ts",
+            "packages/trpc/server/api-token-router/delete-api-token.ts",
+            "packages/trpc/server/api-token-router/router.ts",
+            "packages/lib/server-only/webhooks/zapier/validateApiToken.ts",
+            "packages/trpc/server/api-token-router/create-api-token.ts",
+            "packages/api/v1/middleware/authenticated.ts",
+            "packages/trpc/server/api-token-router/get-api-tokens.types.ts",
+            "packages/trpc/server/api-token-router/delete-api-token.types.ts",
+            "packages/trpc/server/api-token-router/create-api-token.types.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.16666666666666666,
+          "packRecall": 1,
+          "packTokens": 2659,
+          "latencyMs": 1369.9574770000036
+        },
+        {
+          "id": "documenso-20",
+          "kind": "nl",
+          "query": "Where are signed field values inserted into the PDF?",
+          "expect": [
+            "packages/lib/server-only/pdf/insert-field-in-pdf-v2.ts",
+            "packages/lib/server-only/pdf/insert-field-in-pdf-v1.ts"
+          ],
+          "ranked": [
+            "apps/remix/app/utils/field-signing/email-field.ts",
+            "apps/remix/app/utils/field-signing/dropdown-field.ts",
+            "apps/remix/app/utils/field-signing/name-field.ts",
+            "apps/remix/app/utils/field-signing/initial-field.ts",
+            "packages/lib/server-only/pdf/insert-form-values-in-pdf.ts",
+            "apps/remix/app/utils/field-signing/text-field.ts",
+            "apps/remix/app/utils/field-signing/number-field.ts",
+            "apps/remix/app/components/general/document-signing/document-signing-field-container.tsx",
+            "apps/remix/app/components/general/document-signing/document-signing-email-field.tsx",
+            "packages/lib/server-only/pdf/insert-field-in-pdf-v1.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0.1,
+          "packRecall": 0,
+          "packTokens": 2493,
+          "latencyMs": 1853.3603610000064
+        },
+        {
+          "id": "documenso-21",
+          "kind": "nl",
+          "query": "How are documents searched and filtered in the documents list?",
+          "expect": [
+            "packages/lib/server-only/document/find-documents.ts"
+          ],
+          "ranked": [
+            "apps/remix/app/components/tables/documents-table-status-filter.tsx",
+            "apps/remix/app/components/tables/documents-table-period-filter.tsx",
+            "apps/remix/app/components/tables/documents-table-sender-filter.tsx",
+            "apps/remix/app/utils/documents-search-params.ts",
+            "packages/trpc/server/document-router/search-document.types.ts",
+            "packages/trpc/server/document-router/find-document-audit-logs.types.ts",
+            "packages/lib/server-only/document/find-document-audit-logs.ts",
+            "apps/remix/app/components/general/document/document-search.tsx",
+            "packages/lib/server-only/template/build-template-search-filter.ts",
+            "apps/remix/app/components/embed/multisign/multi-sign-document-list.tsx"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 3260,
+          "latencyMs": 1546.0721209999974
+        },
+        {
+          "id": "documenso-22",
+          "kind": "task",
+          "query": "Change how many two-factor backup codes are generated",
+          "expect": [
+            "packages/lib/server-only/2fa/setup-2fa.ts"
+          ],
+          "ranked": [
+            "packages/lib/server-only/2fa/verify-backup-code.ts",
+            "apps/remix/app/components/forms/2fa/two-factor-code-dialog.tsx",
+            "packages/lib/server-only/2fa/view-backup-codes.ts",
+            "packages/auth/server/routes/two-factor.ts",
+            "packages/lib/server-only/2fa/get-backup-code.ts",
+            "packages/auth/server/routes/two-factor.types.ts",
+            "packages/trpc/server/admin-router/reset-two-factor-authentication.ts",
+            "apps/remix/app/components/dialogs/admin-user-reset-two-factor-dialog.tsx",
+            "packages/trpc/server/admin-router/reset-two-factor-authentication.types.ts",
+            "packages/lib/server-only/2fa/email/generate-2fa-credentials-from-email.ts"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 3894,
+          "latencyMs": 1340.0506959999984
+        }
+      ]
+    }
+  ]
+}

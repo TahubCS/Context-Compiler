@@ -20,8 +20,40 @@ logger = logging.getLogger("context-compiler")
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-GOOGLE_GEMINI_API_KEY: str = os.environ["GOOGLE_GEMINI_API_KEY"]
+# "gemini" (default) or "hash": deterministic offline embeddings for tests, CI and evals.
+EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "gemini").strip().lower()
+if EMBEDDING_PROVIDER not in {"gemini", "hash"}:
+    raise RuntimeError("EMBEDDING_PROVIDER must be 'gemini' or 'hash'.")
+
+# Required for Gemini embeddings; optional with the hash provider (answers then use the
+# extractive fallback).
+GOOGLE_GEMINI_API_KEY: str = os.environ.get("GOOGLE_GEMINI_API_KEY", "").strip()
+if EMBEDDING_PROVIDER == "gemini" and not GOOGLE_GEMINI_API_KEY:
+    raise RuntimeError("GOOGLE_GEMINI_API_KEY is required unless EMBEDDING_PROVIDER=hash.")
 DATABASE_URL: str = os.environ["DATABASE_URL"]
+
+# Shared secret the web app sends as `Authorization: Bearer <secret>`.
+# Every route except /health requires it.
+AI_BACKEND_SECRET: str = os.environ.get("AI_BACKEND_SECRET", "").strip()
+if len(AI_BACKEND_SECRET) < 32:
+    raise RuntimeError(
+        "AI_BACKEND_SECRET must be set to at least 32 characters "
+        "(generate one with `openssl rand -base64 32`) and match the web app's value."
+    )
+
+# Origin of the web app. When set, scan callbacks may only target this origin.
+APP_BASE_URL: str = os.environ.get("APP_BASE_URL", "").strip().rstrip("/")
+
+# Hosts the scanner may clone from.
+ALLOWED_GIT_HOSTS: set[str] = {
+    host.strip().lower()
+    for host in os.environ.get("ALLOWED_GIT_HOSTS", "github.com").split(",")
+    if host.strip()
+}
+
+# Interactive requests (search/answer) must finish well inside the web app's timeouts.
+QUERY_EMBED_MAX_RETRIES = int(os.getenv("QUERY_EMBED_MAX_RETRIES", "1"))
+ANSWER_TIMEOUT_SECONDS = float(os.getenv("ANSWER_TIMEOUT_SECONDS", "25"))
 
 # ── Scanner constants ─────────────────────────────────────────────────────────
 
@@ -30,7 +62,8 @@ CHUNK_OVERLAP_LINES = 20
 PROGRESS_EVERY = 10    # Call back every N files processed
 SCAN_HEARTBEAT_INTERVAL_SECONDS = int(os.getenv("SCAN_HEARTBEAT_INTERVAL_SECONDS", "25"))
 SCAN_GIT_HISTORY_DEPTH = int(os.getenv("SCAN_GIT_HISTORY_DEPTH", "50"))
-CURRENT_INDEX_FORMAT_VERSION = 2
+# 3: search tokens for lexical search, and embeddings with retrieval task types.
+CURRENT_INDEX_FORMAT_VERSION = 3
 
 SKIP_DIRS: set[str] = {
     ".git", "node_modules", "vendor", "__pycache__", ".venv", "venv",
@@ -70,7 +103,7 @@ LANGUAGE_MAP: dict[str, str] = {
 
 # ── Embedding model ───────────────────────────────────────────────────────────
 
-EMBEDDING_MODEL = "models/gemini-embedding-001"
+EMBEDDING_MODEL = "models/gemini-embedding-001" if EMBEDDING_PROVIDER == "gemini" else "hash-v1"
 EMBEDDING_DIMENSIONS = 768
 ANSWER_MODEL = os.getenv("GEMINI_ANSWER_MODEL", "gemini-2.5-flash")
 ANSWER_MODEL_FALLBACKS = [

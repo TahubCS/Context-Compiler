@@ -1,0 +1,177 @@
+{
+  "name": "express-prisma-realworld",
+  "repo": "gothinkster/node-express-realworld-example-app",
+  "commit": "30b68e1e881462b2f4164ea09ab4c4f5699c7b0b",
+  "layout": "Express + Prisma (TypeScript)",
+  "questions": [
+    {
+      "id": "express-prisma-realworld-01",
+      "kind": "nl",
+      "query": "Where are JWT tokens signed?",
+      "expect": [
+        "src/app/routes/auth/token.utils.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-02",
+      "kind": "nl",
+      "query": "How does the API require or optionally read a JWT on requests?",
+      "expect": [
+        "src/app/routes/auth/auth.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-03",
+      "kind": "nl",
+      "query": "Where are passwords hashed on registration?",
+      "expect": [
+        "src/app/routes/auth/auth.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-04",
+      "kind": "nl",
+      "query": "How does login check the password?",
+      "expect": [
+        "src/app/routes/auth/auth.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-05",
+      "kind": "nl",
+      "query": "How are article slugs created?",
+      "expect": [
+        "src/app/routes/article/article.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-06",
+      "kind": "nl",
+      "query": "Where is an article favorited?",
+      "expect": [
+        "src/app/routes/article/article.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-07",
+      "kind": "nl",
+      "query": "How is the list of articles filtered by tag, author and favorited user?",
+      "expect": [
+        "src/app/routes/article/article.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-08",
+      "kind": "nl",
+      "query": "Where is the feed of articles from followed authors built?",
+      "expect": [
+        "src/app/routes/article/article.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-09",
+      "kind": "nl",
+      "query": "Where are all API routers mounted under /api?",
+      "expect": [
+        "src/app/routes/routes.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-10",
+      "kind": "nl",
+      "query": "Where are unauthorized JWT errors turned into 401 responses?",
+      "expect": [
+        "src/main.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-11",
+      "kind": "nl",
+      "query": "How does following another user work?",
+      "expect": [
+        "src/app/routes/profile/profile.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-12",
+      "kind": "nl",
+      "query": "What does the database schema for articles and tags look like?",
+      "expect": [
+        "src/prisma/schema.prisma"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-13",
+      "kind": "nl",
+      "query": "Where is the Prisma client created?",
+      "expect": [
+        "src/prisma/prisma-client.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-14",
+      "kind": "nl",
+      "query": "How is an article mapped to the API response shape?",
+      "expect": [
+        "src/app/routes/article/article.mapper.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-15",
+      "kind": "symbol",
+      "query": "HttpException",
+      "expect": [
+        "src/app/models/http-exception.model.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-16",
+      "kind": "nl",
+      "query": "Where are tags listed?",
+      "expect": [
+        "src/app/routes/tag/tag.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-17",
+      "kind": "nl",
+      "query": "Where is the current user's profile updated?",
+      "expect": [
+        "src/app/routes/auth/auth.service.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-18",
+      "kind": "task",
+      "query": "Add pagination to the comments of an article",
+      "expect": [
+        "src/app/routes/article/article.service.ts",
+        "src/app/routes/article/article.controller.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-19",
+      "kind": "nl",
+      "query": "How is the following flag in a profile response computed?",
+      "expect": [
+        "src/app/routes/profile/profile.utils.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-20",
+      "kind": "nl",
+      "query": "Where is the database seeded with fake users and articles?",
+      "expect": [
+        "src/prisma/seed.ts"
+      ]
+    },
+    {
+      "id": "express-prisma-realworld-21",
+      "kind": "nl",
+      "query": "Who is allowed to delete a comment?",
+      "expect": [
+        "src/app/routes/article/article.service.ts"
+      ]
+    }
+  ]
+}

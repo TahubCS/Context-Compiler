@@ -7,7 +7,8 @@ import {
 } from "@/lib/db"
 import { resolveScanCredential } from "@/lib/scan-auth"
 import { getGitHubDefaultBranchHeadSha } from "@/lib/github-repository-refs"
-import { getAiBackendUrl } from "@/lib/runtime-urls"
+import { isRepositoryIndexOutdated } from "@/lib/index-format"
+import { getAiBackendHeaders, getAiBackendUrl, getScanCallbackBaseUrl } from "@/lib/runtime-urls"
 
 export type ScanDispatchResult =
   | { status: "dispatched"; scanJobId: string }
@@ -81,7 +82,13 @@ export async function dispatchRepositoryScan(input: {
         token: scanCredential.token,
       })
 
-  if (resolvedSha && repository.lastIndexedCommitSha && resolvedSha === repository.lastIndexedCommitSha) {
+  // An index written in an older format is rebuilt even when the branch has not moved.
+  if (
+    resolvedSha &&
+    repository.lastIndexedCommitSha &&
+    resolvedSha === repository.lastIndexedCommitSha &&
+    !isRepositoryIndexOutdated(repository.indexFormatVersion)
+  ) {
     return { status: "up_to_date", sha: resolvedSha }
   }
 
@@ -112,7 +119,7 @@ export async function dispatchRepositoryScan(input: {
   try {
     backendResponse = await fetch(`${backendUrl}/scan`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAiBackendHeaders(),
       body: JSON.stringify({
         scan_job_id: scanJobId,
         repository_id: repository.id,
@@ -121,7 +128,7 @@ export async function dispatchRepositoryScan(input: {
         previous_indexed_commit_sha: repository.lastIndexedCommitSha,
         repository_index_format_version: repository.indexFormatVersion,
         github_token: scanCredential.token,
-        callback_url: `${appBaseUrl}/api/repo/${repoId}/scan/status`,
+        callback_url: `${getScanCallbackBaseUrl(appBaseUrl)}/api/repo/${repoId}/scan/status`,
         callback_secret: process.env.AI_CALLBACK_SECRET,
       }),
       signal: AbortSignal.timeout(5000),

@@ -56,3 +56,9 @@ skills/
 
 .vscode/
 SECURITY-SCAN-REPORT.md
+
+# eval keys
+evals/keys.local.json
+
+# CLI package build output
+packages/mcp/dist/

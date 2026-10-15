@@ -1,0 +1,180 @@
+{
+  "name": "go-gin-realworld",
+  "repo": "gothinkster/golang-gin-realworld-example-app",
+  "commit": "626c372d259472148d93303f74aa9b9a1cdcef24",
+  "layout": "Go + Gin + GORM",
+  "questions": [
+    {
+      "id": "go-gin-realworld-01",
+      "kind": "nl",
+      "query": "Where are JWT tokens generated?",
+      "expect": [
+        "common/utils.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-02",
+      "kind": "nl",
+      "query": "How does the auth middleware read the token from a request?",
+      "expect": [
+        "users/middlewares.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-03",
+      "kind": "symbol",
+      "query": "AuthMiddleware",
+      "expect": [
+        "users/middlewares.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-04",
+      "kind": "nl",
+      "query": "Where are passwords hashed and checked?",
+      "expect": [
+        "users/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-05",
+      "kind": "nl",
+      "query": "How does following a user work?",
+      "expect": [
+        "users/models.go",
+        "users/routers.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-06",
+      "kind": "nl",
+      "query": "Where is an article favorited?",
+      "expect": [
+        "articles/models.go",
+        "articles/routers.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-07",
+      "kind": "nl",
+      "query": "How is the article list filtered by tag, author and favorited user?",
+      "expect": [
+        "articles/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-08",
+      "kind": "nl",
+      "query": "Where is the article feed for followed authors queried?",
+      "expect": [
+        "articles/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-09",
+      "kind": "nl",
+      "query": "Where are the article routes registered?",
+      "expect": [
+        "articles/routers.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-10",
+      "kind": "nl",
+      "query": "Where is the database connection initialized?",
+      "expect": [
+        "common/database.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-11",
+      "kind": "nl",
+      "query": "Which tables are migrated when the server starts?",
+      "expect": [
+        "hello.go",
+        "users/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-12",
+      "kind": "nl",
+      "query": "How is the request body for creating an article validated?",
+      "expect": [
+        "articles/validators.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-13",
+      "kind": "nl",
+      "query": "How are validation errors converted into the API error format?",
+      "expect": [
+        "common/utils.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-14",
+      "kind": "nl",
+      "query": "How are tags attached to an article?",
+      "expect": [
+        "articles/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-15",
+      "kind": "nl",
+      "query": "Where is user registration handled?",
+      "expect": [
+        "users/routers.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-16",
+      "kind": "nl",
+      "query": "How is an article converted to its JSON response?",
+      "expect": [
+        "articles/serializers.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-17",
+      "kind": "symbol",
+      "query": "BatchGetFavoriteCounts",
+      "expect": [
+        "articles/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-18",
+      "kind": "task",
+      "query": "Add a length limit on bio when users update their profile",
+      "expect": [
+        "users/validators.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-19",
+      "kind": "nl",
+      "query": "How does the login handler verify credentials?",
+      "expect": [
+        "users/routers.go",
+        "users/models.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-20",
+      "kind": "nl",
+      "query": "Where is the server started and the routes mounted?",
+      "expect": [
+        "hello.go"
+      ]
+    },
+    {
+      "id": "go-gin-realworld-21",
+      "kind": "nl",
+      "query": "How are comments on an article deleted?",
+      "expect": [
+        "articles/routers.go"
+      ]
+    }
+  ]
+}

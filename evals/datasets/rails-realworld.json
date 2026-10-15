@@ -1,0 +1,154 @@
+{
+  "name": "rails-realworld",
+  "repo": "gothinkster/rails-realworld-example-app",
+  "commit": "a2ae4fff78b3337683cea988c023281dcb5551b9",
+  "layout": "Ruby on Rails",
+  "questions": [
+    {
+      "id": "rails-realworld-01",
+      "kind": "nl",
+      "query": "Where are JWT tokens generated?",
+      "expect": [
+        "app/models/user.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-02",
+      "kind": "nl",
+      "query": "How are requests authenticated with the Authorization header?",
+      "expect": [
+        "app/controllers/application_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-03",
+      "kind": "nl",
+      "query": "How are article slugs generated?",
+      "expect": [
+        "app/models/article.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-04",
+      "kind": "nl",
+      "query": "Where does a user favorite an article?",
+      "expect": [
+        "app/controllers/favorites_controller.rb",
+        "app/models/user.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-05",
+      "kind": "nl",
+      "query": "How does following a user work?",
+      "expect": [
+        "app/controllers/follows_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-06",
+      "kind": "nl",
+      "query": "How are articles filtered by author or favorited user?",
+      "expect": [
+        "app/models/article.rb",
+        "app/controllers/articles_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-07",
+      "kind": "nl",
+      "query": "Where is the feed of articles from followed users?",
+      "expect": [
+        "app/controllers/articles_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-08",
+      "kind": "nl",
+      "query": "Where are the API routes defined?",
+      "expect": [
+        "config/routes.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-09",
+      "kind": "nl",
+      "query": "What does the database schema look like?",
+      "expect": [
+        "db/schema.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-10",
+      "kind": "nl",
+      "query": "How is the article JSON response rendered?",
+      "expect": [
+        "app/views/articles/_article.json.jbuilder"
+      ]
+    },
+    {
+      "id": "rails-realworld-11",
+      "kind": "nl",
+      "query": "How is login handled?",
+      "expect": [
+        "app/controllers/sessions_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-12",
+      "kind": "nl",
+      "query": "Where are camelCase request params converted to snake_case?",
+      "expect": [
+        "app/controllers/application_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-13",
+      "kind": "nl",
+      "query": "Where are tags listed?",
+      "expect": [
+        "app/controllers/tags_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-14",
+      "kind": "nl",
+      "query": "How are comments created and deleted?",
+      "expect": [
+        "app/controllers/comments_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-15",
+      "kind": "nl",
+      "query": "Where is the current user's profile updated?",
+      "expect": [
+        "app/controllers/users_controller.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-16",
+      "kind": "nl",
+      "query": "How is the profile JSON with following status rendered?",
+      "expect": [
+        "app/views/profiles/_profile.json.jbuilder"
+      ]
+    },
+    {
+      "id": "rails-realworld-17",
+      "kind": "task",
+      "query": "Add a maximum title length for articles",
+      "expect": [
+        "app/models/article.rb"
+      ]
+    },
+    {
+      "id": "rails-realworld-18",
+      "kind": "nl",
+      "query": "Where is Devise configured?",
+      "expect": [
+        "config/initializers/devise.rb"
+      ]
+    }
+  ]
+}

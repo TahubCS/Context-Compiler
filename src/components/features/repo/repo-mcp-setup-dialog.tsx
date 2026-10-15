@@ -6,9 +6,11 @@ import {
   Copy,
   Cpu,
   KeyRound,
+  Laptop,
   PlugZap,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Terminal,
   Trash2,
 } from "lucide-react"
@@ -26,16 +28,30 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 type McpKeyItem = {
   id: string
+  repositoryId: string | null
+  canRequestScan?: boolean
   name: string
   keyPrefix: string
   lastUsedAt: string | null
   revokedAt: string | null
   createdAt: string
+  usage?: { calls: number; failures: number; packTokens: number; packFullFileTokens: number } | null
+}
+
+function formatUsage(usage: McpKeyItem["usage"]) {
+  if (!usage || usage.calls === 0) return "No calls in the last 7 days"
+  const failures = usage.failures > 0 ? `, ${usage.failures} failed` : ""
+  const savings =
+    usage.packFullFileTokens > usage.packTokens
+      ? `; context packs used ~${usage.packTokens.toLocaleString()} tokens instead of ~${usage.packFullFileTokens.toLocaleString()} for the full files`
+      : ""
+  return `${usage.calls} call${usage.calls === 1 ? "" : "s"} in the last 7 days${failures}${savings}`
 }
 
 type RepoMcpSetupDialogProps = {
@@ -52,64 +68,101 @@ function formatTimestamp(value: string | null) {
   }).format(new Date(value))
 }
 
-const CLAUDE_STEPS = [
+type Step = { title: string; body: string }
+
+function claudeSteps(repositoryName: string, workspaceScope: boolean): Step[] {
+  return [
+    workspaceScope
+      ? {
+          title: "Open any terminal",
+          body: "Use PowerShell (Windows) or Terminal (Mac/Linux), not the Claude app. The -s user flag registers the server for every project, and the agent passes the repository it is working in on each call.",
+        }
+      : {
+          title: `Open a terminal in your checkout of ${repositoryName}`,
+          body: "Use PowerShell (Windows) or Terminal (Mac/Linux), not the Claude app. The key only works for this repository, and running the command there keeps the server scoped to this project.",
+        },
+    {
+      title: "Run the command",
+      body: "It registers the remote server in Claude Code's config (~/.claude.json). Nothing to clone or install.",
+    },
+    {
+      title: "Check it with /mcp",
+      body: "Start claude and type /mcp. context-compiler should show as connected with its tools: search_codebase, answer_repo_question, get_file_context, build_context_pack, trace_feature_flow and list_repositories.",
+    },
+  ]
+}
+
+// Set NEXT_PUBLIC_MCP_CLI_AVAILABLE=true once the context-compiler-mcp package is published.
+const CLI_AVAILABLE = process.env.NEXT_PUBLIC_MCP_CLI_AVAILABLE === "true"
+
+const CLI_STEPS: Step[] = [
   {
-    title: "Clone context-compiler locally",
-    body: "Get a local copy of the context-compiler repo and run bun install inside it. You need it so the MCP server binary is available on your machine.",
+    title: "Run it in any terminal",
+    body: "It opens your browser to confirm a code. No key to create or copy: the CLI's key is activated when you approve.",
   },
   {
-    title: "Enter your local path above",
-    body: "Type the absolute path to your clone (e.g. C:\\Users\\you\\context-compiler on Windows or /Users/you/context-compiler on Mac). This fills in cwd in the generated command.",
+    title: "It registers every agent it finds",
+    body: "Claude Code, Codex and Gemini CLI get one workspace key covering all your repositories. The agent picks the repository it is working in on each call.",
   },
   {
-    title: "Run the CLI command in PowerShell or Terminal",
-    body: "Open PowerShell (Windows) or Terminal (Mac/Linux) — not the Claude app, a regular terminal. Paste the single-line command and press Enter. It writes directly into ~/.claude/settings.json with no manual file editing.",
-  },
-  {
-    title: "Verify with /mcp inside Claude Code",
-    body: "Open Claude Code (the desktop app or VS Code extension). Type /mcp and press Enter. You should see context-compiler listed as connected. The tools search_codebase, answer_repo_question, get_file_context, build_context_pack, and trace_feature_flow are now available.",
+    title: "Check or undo",
+    body: "npx context-compiler-mcp doctor checks the key and each agent. npx context-compiler-mcp disconnect removes the registrations and revokes the key.",
   },
 ]
 
-const CODEX_STEPS = [
+const CODEX_STEPS: Step[] = [
   {
-    title: "Clone context-compiler locally",
-    body: "Get a local copy of the context-compiler repo and run bun install inside it.",
+    title: "Make the key available to Codex",
+    body: "Codex reads the key from the CONTEXT_COMPILER_MCP_KEY environment variable. Add the export line to your shell profile (~/.zshrc, ~/.bashrc), or on Windows run setx CONTEXT_COMPILER_MCP_KEY \"<key>\" once, so Codex sees it every time it starts.",
   },
   {
-    title: "Enter your local path above",
-    body: "Type the absolute path to your context-compiler clone. On Windows use forward slashes or double backslashes (e.g. C:\\\\Users\\\\you\\\\context-compiler).",
+    title: "Register the server",
+    body: "Run the codex mcp add command. It writes the server into ~/.codex/config.toml. If you would rather not use an environment variable, paste the config.toml block instead.",
   },
   {
-    title: "Open ~/.codex/config.toml in a text editor",
-    body: "On Windows this is C:\\Users\\you\\.codex\\config.toml. On Mac/Linux it is ~/.codex/config.toml. Create the file if it does not exist. Paste the TOML snippet at the bottom.",
-  },
-  {
-    title: "Restart Codex CLI",
-    body: "Close and reopen any Codex session. Run codex in your terminal. Context Compiler tools will appear automatically — you can ask Codex to search_codebase, trace_feature_flow, or answer_repo_question.",
+    title: "Restart Codex",
+    body: "Start a new Codex session and run /mcp to see context-compiler and its tools.",
   },
 ]
 
-const OTHER_STEPS = [
+const GEMINI_STEPS: Step[] = [
   {
-    title: "Clone context-compiler locally",
-    body: "Any MCP stdio-compatible agent needs a local copy of context-compiler with bun install run inside it.",
+    title: "Run the command",
+    body: "The --transport http flag matters: without it Gemini CLI assumes a local stdio server and ignores the header. Add --scope user to make the server available in every project.",
   },
   {
-    title: "Set the two environment variables",
-    body: "Your agent must pass CONTEXT_COMPILER_BASE_URL and CONTEXT_COMPILER_MCP_KEY into the process environment when it spawns the server.",
-  },
-  {
-    title: "Spawn via stdio transport",
-    body: "Configure your agent to run bun run mcp:stdio from your context-compiler directory. Test the shell command above manually first — you should see a startup confirmation on stderr.",
-  },
-  {
-    title: "Four read-only tools available",
-    body: "search_codebase, answer_repo_question, get_file_context, build_context_pack, and trace_feature_flow — all scoped to this repository only.",
+    title: "Check it",
+    body: "Run gemini mcp list, or type /mcp inside Gemini CLI. context-compiler should list its tools.",
   },
 ]
 
-function StepList({ steps }: { steps: { title: string; body: string }[] }) {
+const OTHER_STEPS: Step[] = [
+  {
+    title: "Use your client's remote server settings",
+    body: "Any client that supports Streamable HTTP MCP servers works. Point it at the URL and send the key as an Authorization: Bearer header.",
+  },
+  {
+    title: "Field names vary by client",
+    body: "The JSON shown is the .mcp.json format used by Claude Code and many editors. Gemini CLI calls the URL field httpUrl; check your client's docs if it rejects the config.",
+  },
+]
+
+const STDIO_STEPS: Step[] = [
+  {
+    title: "Only if your client cannot use remote servers",
+    body: "The local bridge needs a clone of context-compiler with bun install run inside it. It forwards each tool call to this web app.",
+  },
+  {
+    title: "Enter the clone's absolute path",
+    body: "For example C:\\Users\\you\\context-compiler on Windows or /Users/you/context-compiler on Mac. The commands below update as you type.",
+  },
+  {
+    title: "Register and verify",
+    body: "Run the Claude Code command or paste the JSON into your client. Test the bridge first with bun run mcp:doctor using the same two environment variables.",
+  },
+]
+
+function StepList({ steps }: { steps: Step[] }) {
   return (
     <ol className="space-y-4">
       {steps.map((step, i) => (
@@ -127,6 +180,31 @@ function StepList({ steps }: { steps: { title: string; body: string }[] }) {
   )
 }
 
+function SnippetBlock({
+  title,
+  value,
+  onCopy,
+  minHeight,
+}: {
+  title: string
+  value: string
+  onCopy: (value: string, message: string) => void
+  minHeight: string
+}) {
+  return (
+    <div className="min-w-0 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <Button variant="outline" size="sm" onClick={() => onCopy(value, "Copied.")}>
+          <Copy />
+          Copy
+        </Button>
+      </div>
+      <Textarea value={value} readOnly className={`${minHeight} min-w-0 font-mono text-xs`} />
+    </div>
+  )
+}
+
 export function RepoMcpSetupDialog({
   repoId,
   repositoryName,
@@ -141,26 +219,69 @@ export function RepoMcpSetupDialog({
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null)
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null)
   const [localProjectPath, setLocalProjectPath] = useState("")
+  const [workspaceScope, setWorkspaceScope] = useState(false)
+  const [allowRescan, setAllowRescan] = useState(false)
 
-  // NEXT_PUBLIC_URL is inlined at build time — always correct even when running the
-  // app locally, so snippets never show localhost as the server URL.
+  // Prefer the configured public URL (inlined at build time) so snippets point at the
+  // deployed app even when this page is served from a local dev server.
+  const [browserOrigin, setBrowserOrigin] = useState<string | null>(null)
   const resolvedBaseUrl = (
     appBaseUrl ??
-    process.env.NEXT_PUBLIC_URL?.replace(/\/+$/, "") ??
+    process.env.NEXT_PUBLIC_URL ??
+    browserOrigin ??
     "https://your-context-compiler-url"
-  )
+  ).replace(/\/+$/, "")
+  const mcpUrl = `${resolvedBaseUrl}/api/mcp`
   const keyValue = plaintextKey || "<paste-your-repo-key>"
-  const cwd = localProjectPath.trim() || "<path-to-context-compiler>"
+  const cwd = (localProjectPath.trim() || "<path-to-context-compiler>").replace(/[\\/]+$/, "")
+  // Run the bridge file directly (not `bun run --cwd`), so it starts in the agent's project
+  // folder and can read that folder's git remote to pick the repository.
+  const bridgeScript = `${cwd}/src/mcp/server.ts`
 
-  const mcpServersSnippet = useMemo(
+  // A workspace key works in every project, so register it for the user rather than one folder.
+  const cliSnippet = `npx context-compiler-mcp connect --url ${resolvedBaseUrl}`
+
+  const claudeRemoteSnippet = `claude mcp add --transport http${workspaceScope ? " -s user" : ""} context-compiler ${mcpUrl} --header "Authorization: Bearer ${keyValue}"`
+
+  const codexRemoteSnippet = [
+    `export CONTEXT_COMPILER_MCP_KEY="${keyValue}"`,
+    `codex mcp add context-compiler --url ${mcpUrl} --bearer-token-env-var CONTEXT_COMPILER_MCP_KEY`,
+  ].join("\n")
+
+  const codexTomlSnippet = [
+    `[mcp_servers.context-compiler]`,
+    `url = "${mcpUrl}"`,
+    `http_headers = { Authorization = "Bearer ${keyValue}" }`,
+  ].join("\n")
+
+  const geminiRemoteSnippet = `gemini mcp add --transport http context-compiler ${mcpUrl} --header "Authorization: Bearer ${keyValue}"`
+
+  const remoteJsonSnippet = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          mcpServers: {
+            "context-compiler": {
+              type: "http",
+              url: mcpUrl,
+              headers: { Authorization: `Bearer ${keyValue}` },
+            },
+          },
+        },
+        null,
+        2
+      ),
+    [mcpUrl, keyValue]
+  )
+
+  const stdioJsonSnippet = useMemo(
     () =>
       JSON.stringify(
         {
           mcpServers: {
             "context-compiler": {
               command: "bun",
-              args: ["run", "mcp:stdio"],
-              cwd,
+              args: [bridgeScript],
               env: {
                 CONTEXT_COMPILER_BASE_URL: resolvedBaseUrl,
                 CONTEXT_COMPILER_MCP_KEY: keyValue,
@@ -171,36 +292,10 @@ export function RepoMcpSetupDialog({
         null,
         2
       ),
-    [cwd, resolvedBaseUrl, keyValue]
+    [bridgeScript, resolvedBaseUrl, keyValue]
   )
 
-  const shellSnippet = useMemo(
-    () =>
-      `cd ${cwd}\n\nCONTEXT_COMPILER_BASE_URL="${resolvedBaseUrl}" \\\nCONTEXT_COMPILER_MCP_KEY="${keyValue}" \\\nbun run mcp:stdio`,
-    [cwd, resolvedBaseUrl, keyValue]
-  )
-
-  // Claude Code: single-line CLI command — works on PowerShell, bash, and zsh
-  const claudeCliSnippet = useMemo(
-    () =>
-      `claude mcp add context-compiler -s user -e CONTEXT_COMPILER_BASE_URL="${resolvedBaseUrl}" -e CONTEXT_COMPILER_MCP_KEY="${keyValue}" -- bun run --cwd "${cwd}" mcp:stdio`,
-    [cwd, resolvedBaseUrl, keyValue]
-  )
-
-  // Codex uses TOML, not JSON
-  const codexTomlSnippet = useMemo(() => {
-    const escapedCwd = cwd.replace(/\\/g, "\\\\")
-    return [
-      `[mcp_servers.context-compiler]`,
-      `command = "bun"`,
-      `args = ["run", "mcp:stdio"]`,
-      `cwd = "${escapedCwd}"`,
-      ``,
-      `[mcp_servers.context-compiler.env]`,
-      `CONTEXT_COMPILER_BASE_URL = "${resolvedBaseUrl}"`,
-      `CONTEXT_COMPILER_MCP_KEY = "${keyValue}"`,
-    ].join("\n")
-  }, [cwd, resolvedBaseUrl, keyValue])
+  const claudeStdioSnippet = `claude mcp add context-compiler -e CONTEXT_COMPILER_BASE_URL="${resolvedBaseUrl}" -e CONTEXT_COMPILER_MCP_KEY="${keyValue}" -- bun "${bridgeScript}"`
 
   const loadKeys = useCallback(async () => {
     setIsLoading(true)
@@ -225,7 +320,11 @@ export function RepoMcpSetupDialog({
       const response = await fetch(`/api/repo/${repoId}/mcp-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          scope: workspaceScope ? "workspace" : "repository",
+          canRequestScan: allowRescan,
+        }),
       })
       const data = (await response.json()) as {
         key?: McpKeyItem
@@ -286,6 +385,7 @@ export function RepoMcpSetupDialog({
 
   function handleOpenChange(next: boolean) {
     if (next) {
+      setBrowserOrigin(window.location.origin)
       void loadKeys()
     } else {
       setPlaintextKey("")
@@ -372,9 +472,32 @@ export function RepoMcpSetupDialog({
                     {isSubmitting ? "Creating..." : "Create Repo Key"}
                   </Button>
                 </div>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  The key authenticates as you, but only for this repository.
-                </p>
+                <div className="mt-4 flex items-start gap-3">
+                  <Switch
+                    id="mcp-key-workspace-scope"
+                    checked={workspaceScope}
+                    onCheckedChange={setWorkspaceScope}
+                  />
+                  <Label htmlFor="mcp-key-workspace-scope" className="block space-y-1 font-normal">
+                    <span className="block text-sm font-medium text-foreground">
+                      Every repository in this workspace
+                    </span>
+                    <span className="block text-sm leading-6 text-muted-foreground">
+                      {workspaceScope
+                        ? "One key and one registration for all your repositories. The agent picks the repository it is working in on each call."
+                        : `The key authenticates as you, but only for ${repositoryName}.`}
+                    </span>
+                  </Label>
+                </div>
+                <div className="mt-4 flex items-start gap-3">
+                  <Switch id="mcp-key-allow-rescan" checked={allowRescan} onCheckedChange={setAllowRescan} />
+                  <Label htmlFor="mcp-key-allow-rescan" className="block space-y-1 font-normal">
+                    <span className="block text-sm font-medium text-foreground">Let agents request re-scans</span>
+                    <span className="block text-sm leading-6 text-muted-foreground">
+                      Allows the request_rescan tool, so an agent can refresh a stale index. Everything else stays read-only.
+                    </span>
+                  </Label>
+                </div>
               </div>
 
               {/* Inline plaintext reveal */}
@@ -412,25 +535,20 @@ export function RepoMcpSetupDialog({
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Step 2 — Connect your agent
               </p>
+              <p className="text-sm leading-7 text-muted-foreground">
+                Your agent connects straight to{" "}
+                <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">{mcpUrl}</code>. There is
+                nothing to clone or install. Create a key first so the commands below include it.
+              </p>
 
-              {/* Shared path input — applies to all agent configs */}
-              <div className="space-y-1.5">
-                <Label htmlFor="local-project-path">Local path to context-compiler</Label>
-                <Input
-                  id="local-project-path"
-                  value={localProjectPath}
-                  onChange={(e) => setLocalProjectPath(e.target.value)}
-                  placeholder="/Users/you/context-compiler"
-                  className="font-mono text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Absolute path to your local context-compiler clone. Sets <code>cwd</code> in the
-                  generated config so the MCP server starts from the right directory.
-                </p>
-              </div>
-
-              <Tabs defaultValue="claude">
-                <TabsList variant="line" className="w-full justify-start">
+              <Tabs defaultValue={CLI_AVAILABLE ? "cli" : "claude"}>
+                <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+                  {CLI_AVAILABLE ? (
+                    <TabsTrigger value="cli" className="gap-1.5">
+                      <PlugZap className="size-3.5" />
+                      One command
+                    </TabsTrigger>
+                  ) : null}
                   <TabsTrigger value="claude" className="gap-1.5">
                     <Bot className="size-3.5" />
                     Claude Code
@@ -439,136 +557,117 @@ export function RepoMcpSetupDialog({
                     <Terminal className="size-3.5" />
                     Codex
                   </TabsTrigger>
+                  <TabsTrigger value="gemini" className="gap-1.5">
+                    <Sparkles className="size-3.5" />
+                    Gemini CLI
+                  </TabsTrigger>
                   <TabsTrigger value="other" className="gap-1.5">
                     <Cpu className="size-3.5" />
-                    Other Agent
+                    Other client
+                  </TabsTrigger>
+                  <TabsTrigger value="stdio" className="gap-1.5">
+                    <Laptop className="size-3.5" />
+                    Advanced: local stdio
                   </TabsTrigger>
                 </TabsList>
 
-                {/* ── Claude Code ── */}
+                {CLI_AVAILABLE ? (
+                  <TabsContent value="cli" className="mt-5">
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                      <SnippetBlock
+                        title="Terminal command (no key needed)"
+                        value={cliSnippet}
+                        onCopy={copyText}
+                        minHeight="min-h-20"
+                      />
+                      <StepList steps={CLI_STEPS} />
+                    </div>
+                  </TabsContent>
+                ) : null}
+
                 <TabsContent value="claude" className="mt-5">
                   <div className="grid min-w-0 gap-6 lg:grid-cols-2">
-                    <div className="min-w-0 space-y-4">
-                      {/* Primary: CLI command */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            CLI command{" "}
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                              recommended
-                            </span>
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyText(claudeCliSnippet, "CLI command copied.")}
-                          >
-                            <Copy />
-                            Copy
-                          </Button>
-                        </div>
-                        <Textarea
-                          value={claudeCliSnippet}
-                          readOnly
-                          className="min-h-28 min-w-0 font-mono text-xs"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Run this in <strong>PowerShell</strong> (Windows) or <strong>Terminal</strong> (Mac/Linux) — not inside the Claude app itself.
-                          It writes the server config into{" "}
-                          <code className="rounded-sm bg-muted px-1 py-0.5">~/.claude/settings.json</code>{" "}
-                          automatically. Restart Claude Code after running it.
-                        </p>
-                      </div>
-                      {/* Secondary: manual JSON */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            Or edit{" "}
-                            <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">
-                              ~/.claude/settings.json
-                            </code>{" "}
-                            manually
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyText(mcpServersSnippet, "Config copied.")}
-                          >
-                            <Copy />
-                            Copy
-                          </Button>
-                        </div>
-                        <Textarea
-                          value={mcpServersSnippet}
-                          readOnly
-                          className="min-h-44 min-w-0 font-mono text-xs"
-                        />
-                      </div>
-                    </div>
-                    <StepList steps={CLAUDE_STEPS} />
+                    <SnippetBlock
+                      title="Terminal command"
+                      value={claudeRemoteSnippet}
+                      onCopy={copyText}
+                      minHeight="min-h-28"
+                    />
+                    <StepList steps={claudeSteps(repositoryName, workspaceScope)} />
                   </div>
                 </TabsContent>
 
-                {/* ── Codex ── */}
                 <TabsContent value="codex" className="mt-5">
                   <div className="grid min-w-0 gap-6 lg:grid-cols-2">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          Paste into{" "}
-                          <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">
-                            ~/.codex/config.toml
-                          </code>
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyText(codexTomlSnippet, "Config copied.")}
-                        >
-                          <Copy />
-                          Copy
-                        </Button>
-                      </div>
-                      <Textarea
-                        value={codexTomlSnippet}
-                        readOnly
-                        className="min-h-48 min-w-0 font-mono text-xs"
+                    <div className="min-w-0 space-y-4">
+                      <SnippetBlock
+                        title="Terminal commands"
+                        value={codexRemoteSnippet}
+                        onCopy={copyText}
+                        minHeight="min-h-28"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Codex uses TOML format. Create the file if it doesn&apos;t exist yet. Backslashes
-                        in Windows paths are doubled automatically.
-                      </p>
+                      <SnippetBlock
+                        title="Or paste into ~/.codex/config.toml"
+                        value={codexTomlSnippet}
+                        onCopy={copyText}
+                        minHeight="min-h-24"
+                      />
                     </div>
                     <StepList steps={CODEX_STEPS} />
                   </div>
                 </TabsContent>
 
-                {/* ── Other Agent ── */}
+                <TabsContent value="gemini" className="mt-5">
+                  <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                    <SnippetBlock
+                      title="Terminal command"
+                      value={geminiRemoteSnippet}
+                      onCopy={copyText}
+                      minHeight="min-h-28"
+                    />
+                    <StepList steps={GEMINI_STEPS} />
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="other" className="mt-5">
                   <div className="grid min-w-0 gap-6 lg:grid-cols-2">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">Shell command</p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyText(shellSnippet, "Shell command copied.")}
-                        >
-                          <Copy />
-                          Copy
-                        </Button>
-                      </div>
-                      <Textarea
-                        value={shellSnippet}
-                        readOnly
-                        className="min-h-32 min-w-0 font-mono text-xs"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Any agent that supports the MCP stdio transport works. Set the two env vars
-                        and configure your agent to spawn this command.
-                      </p>
-                    </div>
+                    <SnippetBlock
+                      title="Remote server JSON"
+                      value={remoteJsonSnippet}
+                      onCopy={copyText}
+                      minHeight="min-h-44"
+                    />
                     <StepList steps={OTHER_STEPS} />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="stdio" className="mt-5">
+                  <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                    <div className="min-w-0 space-y-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="local-project-path">Local path to context-compiler</Label>
+                        <Input
+                          id="local-project-path"
+                          value={localProjectPath}
+                          onChange={(e) => setLocalProjectPath(e.target.value)}
+                          placeholder="/Users/you/context-compiler"
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                      <SnippetBlock
+                        title="Claude Code command"
+                        value={claudeStdioSnippet}
+                        onCopy={copyText}
+                        minHeight="min-h-28"
+                      />
+                      <SnippetBlock
+                        title="JSON config"
+                        value={stdioJsonSnippet}
+                        onCopy={copyText}
+                        minHeight="min-h-44"
+                      />
+                    </div>
+                    <StepList steps={STDIO_STEPS} />
                   </div>
                 </TabsContent>
               </Tabs>
@@ -616,6 +715,8 @@ export function RepoMcpSetupDialog({
                             <Badge variant={isRevoked ? "outline" : "secondary"}>
                               {isRevoked ? "Revoked" : "Active"}
                             </Badge>
+                            {key.repositoryId === null ? <Badge variant="outline">Workspace</Badge> : null}
+                            {key.canRequestScan ? <Badge variant="outline">Can re-scan</Badge> : null}
                             {isFreshlyCreated ? <Badge>Just created</Badge> : null}
                           </div>
                           <p className="font-mono text-xs text-muted-foreground">
@@ -636,6 +737,9 @@ export function RepoMcpSetupDialog({
                         <div>Created {formatTimestamp(key.createdAt)}</div>
                         <div>Last used {formatTimestamp(key.lastUsedAt)}</div>
                       </div>
+                      {!isRevoked ? (
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{formatUsage(key.usage)}</p>
+                      ) : null}
                     </div>
                   )
                 })
@@ -646,10 +750,8 @@ export function RepoMcpSetupDialog({
 
         <DialogFooter className="border-t border-border px-6 py-4">
           <p className="mr-auto text-xs leading-6 text-muted-foreground">
-            The local stdio server only needs{" "}
-            <code className="rounded-sm bg-muted px-1 py-0.5">CONTEXT_COMPILER_BASE_URL</code> and{" "}
-            <code className="rounded-sm bg-muted px-1 py-0.5">CONTEXT_COMPILER_MCP_KEY</code> — no
-            other credentials required.
+            Agents only need the URL and a key. Keys are read-only and work for this repository
+            alone; revoke one to cut off its access immediately.
           </p>
         </DialogFooter>
       </DialogContent>

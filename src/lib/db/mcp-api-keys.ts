@@ -4,6 +4,8 @@ import { prisma } from "./client"
 
 const MCP_API_KEY_LIST_SELECT = {
   id: true,
+  repositoryId: true,
+  canRequestScan: true,
   name: true,
   keyPrefix: true,
   lastUsedAt: true,
@@ -11,9 +13,22 @@ const MCP_API_KEY_LIST_SELECT = {
   createdAt: true,
 } as const
 
+const MCP_REPOSITORY_SELECT = {
+  id: true,
+  fullName: true,
+  defaultBranch: true,
+  scanStatus: true,
+  lastIndexedCommitSha: true,
+  indexFormatVersion: true,
+  lastScannedAt: true,
+} as const
+
+export type McpRepository = Prisma.RepositoryGetPayload<{ select: typeof MCP_REPOSITORY_SELECT }>
+
 const MCP_API_KEY_RESOLVE_SELECT = {
   id: true,
   name: true,
+  canRequestScan: true,
   keyPrefix: true,
   lastUsedAt: true,
   createdAt: true,
@@ -29,17 +44,11 @@ const MCP_API_KEY_RESOLVE_SELECT = {
       id: true,
       name: true,
       slug: true,
+      githubInstallationId: true,
     },
   },
   repository: {
-    select: {
-      id: true,
-      fullName: true,
-      defaultBranch: true,
-      scanStatus: true,
-      lastIndexedCommitSha: true,
-      indexFormatVersion: true,
-    },
+    select: MCP_REPOSITORY_SELECT,
   },
 } as const
 
@@ -58,20 +67,22 @@ export async function listMcpApiKeysForRepository(
 ): Promise<McpApiKeyListItem[]> {
   return prisma.mcpApiKey.findMany({
     where: {
-      repositoryId,
       workspaceId,
       userId,
+      OR: [{ repositoryId }, { repositoryId: null }],
     },
     select: MCP_API_KEY_LIST_SELECT,
     orderBy: [{ createdAt: "desc" }],
   })
 }
 
+/** Creates a key bound to one repository, or to the whole workspace when repositoryId is null. */
 export async function createMcpApiKeyForRepository(
-  repositoryId: string,
+  repositoryId: string | null,
   workspaceId: string,
   userId: string,
-  name: string
+  name: string,
+  options: { canRequestScan?: boolean } = {}
 ): Promise<{ apiKey: McpApiKeyListItem; plaintextKey: string }> {
   const { plaintextKey, keyPrefix } = generateMcpApiKey()
   const keyHash = hashMcpApiKey(plaintextKey)
@@ -84,6 +95,7 @@ export async function createMcpApiKeyForRepository(
       name,
       keyPrefix,
       keyHash,
+      canRequestScan: options.canRequestScan ?? false,
     },
     select: MCP_API_KEY_LIST_SELECT,
   })
@@ -100,9 +112,9 @@ export async function revokeMcpApiKey(
   const result = await prisma.mcpApiKey.updateMany({
     where: {
       id: apiKeyId,
-      repositoryId,
       workspaceId,
       userId,
+      OR: [{ repositoryId }, { repositoryId: null }],
       revokedAt: null,
     },
     data: {
@@ -136,4 +148,23 @@ export async function resolveMcpApiKey(plaintextKey: string): Promise<ResolvedMc
     .catch(() => {})
 
   return apiKey
+}
+
+/** Repositories a key can read: its own, or every non-archived repository in its workspace. */
+export async function listMcpRepositories(apiKey: ResolvedMcpApiKey): Promise<McpRepository[]> {
+  if (apiKey.repository) {
+    return [apiKey.repository]
+  }
+  return prisma.repository.findMany({
+    where: { workspaceId: apiKey.workspace.id, isArchived: false },
+    select: MCP_REPOSITORY_SELECT,
+    orderBy: [{ fullName: "asc" }],
+  })
+}
+
+export async function revokeOwnMcpApiKey(apiKeyId: string): Promise<void> {
+  await prisma.mcpApiKey.updateMany({
+    where: { id: apiKeyId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
 }

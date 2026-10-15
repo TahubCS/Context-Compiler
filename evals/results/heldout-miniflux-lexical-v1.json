@@ -1,0 +1,743 @@
+{
+  "label": "heldout-miniflux-lexical-v1",
+  "baseUrl": "http://127.0.0.1:3100",
+  "k": 5,
+  "report": [
+    {
+      "dataset": {
+        "name": "miniflux",
+        "repo": "miniflux/v2",
+        "commit": "c317f84bc3779bc5d936b75408b631589983c81a",
+        "layout": "Go service (internal/ packages)",
+        "heldOut": true,
+        "questions": [
+          {
+            "id": "miniflux-01",
+            "kind": "nl",
+            "query": "How are API requests authenticated with an API key or basic auth?",
+            "expect": [
+              "internal/api/middleware.go"
+            ]
+          },
+          {
+            "id": "miniflux-02",
+            "kind": "nl",
+            "query": "Where is HTML from feed entries sanitized?",
+            "expect": [
+              "internal/reader/sanitizer/sanitizer.go"
+            ]
+          },
+          {
+            "id": "miniflux-03",
+            "kind": "nl",
+            "query": "How is the estimated reading time of an entry calculated?",
+            "expect": [
+              "internal/reader/readingtime/readingtime.go"
+            ]
+          },
+          {
+            "id": "miniflux-04",
+            "kind": "nl",
+            "query": "Where are the database schema migrations defined?",
+            "expect": [
+              "internal/database/migrations.go"
+            ]
+          },
+          {
+            "id": "miniflux-05",
+            "kind": "nl",
+            "query": "How does the background scheduler refresh feeds?",
+            "expect": [
+              "internal/cli/scheduler.go",
+              "internal/worker/worker.go"
+            ]
+          },
+          {
+            "id": "miniflux-06",
+            "kind": "nl",
+            "query": "Where are HTTP requests for fetching feeds built, including the user agent and proxy?",
+            "expect": [
+              "internal/reader/fetcher/request_builder.go"
+            ]
+          },
+          {
+            "id": "miniflux-07",
+            "kind": "nl",
+            "query": "How does subscription discovery find feed URLs on a website?",
+            "expect": [
+              "internal/reader/subscription/finder.go"
+            ]
+          },
+          {
+            "id": "miniflux-08",
+            "kind": "nl",
+            "query": "Where are entries saved to Wallabag?",
+            "expect": [
+              "internal/integration/wallabag/wallabag.go"
+            ]
+          },
+          {
+            "id": "miniflux-09",
+            "kind": "nl",
+            "query": "How are entries sent to all of a user's enabled integrations?",
+            "expect": [
+              "internal/integration/integration.go"
+            ]
+          },
+          {
+            "id": "miniflux-10",
+            "kind": "nl",
+            "query": "Where are the HTTP routes registered?",
+            "expect": [
+              "internal/http/server/routes.go"
+            ]
+          },
+          {
+            "id": "miniflux-11",
+            "kind": "nl",
+            "query": "How is OpenID Connect login implemented?",
+            "expect": [
+              "internal/oauth2/oidc.go"
+            ]
+          },
+          {
+            "id": "miniflux-12",
+            "kind": "nl",
+            "query": "Where are configuration options parsed from environment variables?",
+            "expect": [
+              "internal/config/parser.go"
+            ]
+          },
+          {
+            "id": "miniflux-13",
+            "kind": "nl",
+            "query": "How are entries queried with filters like status, category and search text?",
+            "expect": [
+              "internal/storage/entry_query_builder.go"
+            ]
+          },
+          {
+            "id": "miniflux-14",
+            "kind": "nl",
+            "query": "Where is the Fever API implemented?",
+            "expect": [
+              "internal/fever/handler.go"
+            ]
+          },
+          {
+            "id": "miniflux-15",
+            "kind": "nl",
+            "query": "How are images proxied to protect reader privacy?",
+            "expect": [
+              "internal/mediaproxy/rewriter.go"
+            ]
+          },
+          {
+            "id": "miniflux-16",
+            "kind": "nl",
+            "query": "How are feed icons found?",
+            "expect": [
+              "internal/reader/icon/finder.go"
+            ]
+          },
+          {
+            "id": "miniflux-17",
+            "kind": "nl",
+            "query": "Where is a new admin user created from the command line?",
+            "expect": [
+              "internal/cli/create_admin.go"
+            ]
+          },
+          {
+            "id": "miniflux-18",
+            "kind": "nl",
+            "query": "How is the watch time of YouTube videos fetched for entries?",
+            "expect": [
+              "internal/reader/processor/youtube.go"
+            ]
+          },
+          {
+            "id": "miniflux-19",
+            "kind": "nl",
+            "query": "How are OPML files imported?",
+            "expect": [
+              "internal/reader/opml/handler.go"
+            ]
+          },
+          {
+            "id": "miniflux-20",
+            "kind": "nl",
+            "query": "Where are web sessions stored in the database?",
+            "expect": [
+              "internal/storage/web_session.go"
+            ]
+          },
+          {
+            "id": "miniflux-21",
+            "kind": "nl",
+            "query": "How is a single feed refreshed and its new entries stored?",
+            "expect": [
+              "internal/reader/handler/handler.go"
+            ]
+          },
+          {
+            "id": "miniflux-22",
+            "kind": "task",
+            "query": "Add a new integration that posts entries to Mastodon",
+            "expect": [
+              "internal/integration/integration.go"
+            ]
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "miniflux-01",
+          "kind": "nl",
+          "query": "How are API requests authenticated with an API key or basic auth?",
+          "expect": [
+            "internal/api/middleware.go"
+          ],
+          "ranked": [
+            "internal/api/middleware.go",
+            "internal/model/api_key.go",
+            "internal/storage/api_key.go",
+            "internal/api/api.go",
+            "internal/api/api_key_handlers.go",
+            "internal/ui/static/js/webauthn_handler.js",
+            "internal/oauth2/google.go",
+            "client/request.go",
+            "internal/googlereader/handler.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6106,
+          "latencyMs": 517.3658290000001
+        },
+        {
+          "id": "miniflux-02",
+          "kind": "nl",
+          "query": "Where is HTML from feed entries sanitized?",
+          "expect": [
+            "internal/reader/sanitizer/sanitizer.go"
+          ],
+          "ranked": [
+            "contrib/bruno/miniflux/Get feed entries.bru",
+            "internal/ui/feed_entries.go",
+            "internal/ui/feed_entries_all.go",
+            "internal/ui/entry_feed.go",
+            "internal/ui/category_entries.go",
+            "internal/ui/unread_entries.go",
+            "internal/ui/feed_update.go",
+            "internal/ui/starred_entries.go",
+            "internal/template/templates/views/feed_entries.html",
+            "internal/template/templates/views/category_feeds.html"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 3295,
+          "latencyMs": 369.89542000000006
+        },
+        {
+          "id": "miniflux-03",
+          "kind": "nl",
+          "query": "How is the estimated reading time of an entry calculated?",
+          "expect": [
+            "internal/reader/readingtime/readingtime.go"
+          ],
+          "ranked": [
+            "internal/reader/processor/reading_time.go",
+            "internal/ui/entry_scraper.go",
+            "internal/api/entry_handlers.go",
+            "internal/template/templates/views/entry.html",
+            "internal/reader/readingtime/readingtime.go",
+            "internal/reader/processor/processor.go",
+            "internal/storage/entry.go",
+            "internal/model/entry.go",
+            "internal/ui/unread_entry_feed.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.2,
+          "packRecall": 1,
+          "packTokens": 9616,
+          "latencyMs": 452.04293699999994
+        },
+        {
+          "id": "miniflux-04",
+          "kind": "nl",
+          "query": "Where are the database schema migrations defined?",
+          "expect": [
+            "internal/database/migrations.go"
+          ],
+          "ranked": [
+            "internal/database/database.go",
+            "internal/database/migrations.go",
+            "internal/database/postgresql.go",
+            "internal/cli/cli.go",
+            ".github/ISSUE_TEMPLATE/proposal.yml",
+            "Makefile",
+            "contrib/docker-compose/traefik.yml",
+            "contrib/docker-compose/basic.yml"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 7015,
+          "latencyMs": 222.96746699999994
+        },
+        {
+          "id": "miniflux-05",
+          "kind": "nl",
+          "query": "How does the background scheduler refresh feeds?",
+          "expect": [
+            "internal/cli/scheduler.go",
+            "internal/worker/worker.go"
+          ],
+          "ranked": [
+            "internal/cli/scheduler.go",
+            "internal/ui/feed_refresh.go",
+            "internal/ui/category_refresh.go",
+            "internal/model/feed.go",
+            "internal/cli/refresh_feeds.go",
+            "contrib/bruno/miniflux/Refresh category feeds.bru",
+            "contrib/bruno/miniflux/Refresh a single feed.bru",
+            "contrib/bruno/miniflux/Refresh all feeds.bru",
+            "internal/template/templates/common/feed_menu.html"
+          ],
+          "hit": 1,
+          "recall": 0.5,
+          "rr": 1,
+          "packRecall": 0.5,
+          "packTokens": 6896,
+          "latencyMs": 321.9466990000001
+        },
+        {
+          "id": "miniflux-06",
+          "kind": "nl",
+          "query": "Where are HTTP requests for fetching feeds built, including the user agent and proxy?",
+          "expect": [
+            "internal/reader/fetcher/request_builder.go"
+          ],
+          "ranked": [
+            "internal/model/feed.go",
+            "internal/reader/fetcher/request_builder.go",
+            "internal/ui/form/feed.go",
+            "contrib/bruno/miniflux/Delete a feed.bru",
+            "internal/ui/feed_edit.go",
+            "contrib/bruno/miniflux/Update a feed.bru",
+            "contrib/bruno/miniflux/Mark feed as read.bru",
+            "contrib/bruno/miniflux/Get feed icon by feed ID.bru"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 8338,
+          "latencyMs": 696.7753979999998
+        },
+        {
+          "id": "miniflux-07",
+          "kind": "nl",
+          "query": "How does subscription discovery find feed URLs on a website?",
+          "expect": [
+            "internal/reader/subscription/finder.go"
+          ],
+          "ranked": [
+            "internal/reader/subscription/finder.go",
+            "internal/template/templates/views/choose_subscription.html",
+            "internal/api/subscription_handlers.go",
+            "internal/reader/subscription/subscription.go",
+            "internal/validator/subscription.go",
+            "internal/ui/subscription_submit.go",
+            "internal/model/feed.go",
+            "internal/ui/subscription_bookmarklet.go",
+            "internal/ui/subscription_add.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6217,
+          "latencyMs": 328.3212659999999
+        },
+        {
+          "id": "miniflux-08",
+          "kind": "nl",
+          "query": "Where are entries saved to Wallabag?",
+          "expect": [
+            "internal/integration/wallabag/wallabag.go"
+          ],
+          "ranked": [
+            "internal/integration/wallabag/wallabag.go",
+            "internal/template/templates/views/shared_entries.html",
+            "internal/ui/history_entries.go",
+            "contrib/bruno/miniflux/Get all entries.bru",
+            "internal/ui/starred_entries.go",
+            "internal/template/templates/views/tag_entries.html",
+            "contrib/bruno/miniflux/Update entries status.bru",
+            "internal/ui/feed_entries.go",
+            "internal/template/templates/views/feed_entries.html",
+            "contrib/bruno/miniflux/Mark all user entries as read.bru"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 4387,
+          "latencyMs": 273.88849800000025
+        },
+        {
+          "id": "miniflux-09",
+          "kind": "nl",
+          "query": "How are entries sent to all of a user's enabled integrations?",
+          "expect": [
+            "internal/integration/integration.go"
+          ],
+          "ranked": [
+            "internal/integration/integration.go",
+            "internal/model/integration.go",
+            "internal/storage/integration.go",
+            "internal/ui/integration_show.go",
+            "internal/integration/apprise/apprise.go",
+            "internal/integration/matrixbot/matrixbot.go",
+            "internal/integration/wallabag/wallabag.go",
+            "internal/integration/ntfy/ntfy.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 12930,
+          "latencyMs": 442.28459399999974
+        },
+        {
+          "id": "miniflux-10",
+          "kind": "nl",
+          "query": "Where are the HTTP routes registered?",
+          "expect": [
+            "internal/http/server/routes.go"
+          ],
+          "ranked": [
+            "internal/http/server/routes.go",
+            "internal/ui/routes.go",
+            "internal/http/server/server.go",
+            "internal/http/request/params.go",
+            "internal/http/response/json.go",
+            "internal/http/response/text.go",
+            "internal/http/server/middleware.go",
+            "internal/http/server/healthcheck.go",
+            "internal/http/request/cookie.go",
+            "internal/http/response/builder.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5195,
+          "latencyMs": 340.88212999999996
+        },
+        {
+          "id": "miniflux-11",
+          "kind": "nl",
+          "query": "How is OpenID Connect login implemented?",
+          "expect": [
+            "internal/oauth2/oidc.go"
+          ],
+          "ranked": [
+            "internal/oauth2/oidc.go",
+            "client/model.go",
+            "internal/model/user.go",
+            "internal/storage/user.go",
+            "internal/locale/translations/fr_FR.json",
+            "internal/ui/login_check.go",
+            "internal/ui/login_show.go",
+            "internal/template/templates/views/login.html"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 8617,
+          "latencyMs": 229.18936799999938
+        },
+        {
+          "id": "miniflux-12",
+          "kind": "nl",
+          "query": "Where are configuration options parsed from environment variables?",
+          "expect": [
+            "internal/config/parser.go"
+          ],
+          "ranked": [
+            "internal/config/parser.go",
+            "contrib/ansible/roles/mgrote.miniflux/README.md",
+            "internal/config/parser_test.go",
+            "internal/config/options_parsing_test.go",
+            "internal/integration/wallabag/wallabag_test.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 10636,
+          "latencyMs": 348.9230159999988
+        },
+        {
+          "id": "miniflux-13",
+          "kind": "nl",
+          "query": "How are entries queried with filters like status, category and search text?",
+          "expect": [
+            "internal/storage/entry_query_builder.go"
+          ],
+          "ranked": [
+            "internal/template/templates/views/search.html",
+            "internal/template/templates/views/category_entries.html",
+            "internal/ui/entry_update_status.go",
+            "contrib/bruno/miniflux/Get category entries.bru",
+            "contrib/bruno/miniflux/Update entries status.bru",
+            "contrib/bruno/miniflux/Mark all category entries as read.bru",
+            "internal/ui/category_entries.go",
+            "internal/ui/entry_category.go",
+            "internal/ui/entry_search.go",
+            "internal/ui/search.go"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 4026,
+          "latencyMs": 591.3011439999991
+        },
+        {
+          "id": "miniflux-14",
+          "kind": "nl",
+          "query": "Where is the Fever API implemented?",
+          "expect": [
+            "internal/fever/handler.go"
+          ],
+          "ranked": [
+            "internal/fever/README.md",
+            "internal/fever/handler.go",
+            "internal/fever/middleware.go",
+            "internal/fever/response.go",
+            "internal/api/enclosure_handlers.go",
+            "internal/api/icon_handlers.go",
+            "internal/api/messages.go",
+            "internal/api/api.go",
+            "internal/api/api_key_handlers.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.5,
+          "packRecall": 1,
+          "packTokens": 5611,
+          "latencyMs": 225.1772519999995
+        },
+        {
+          "id": "miniflux-15",
+          "kind": "nl",
+          "query": "How are images proxied to protect reader privacy?",
+          "expect": [
+            "internal/mediaproxy/rewriter.go"
+          ],
+          "ranked": [
+            "internal/reader/rss/rss.go",
+            "internal/reader/rewrite/content_rewrite_rules.go",
+            "internal/reader/itunes/itunes.go",
+            "internal/reader/icon/finder.go",
+            "internal/reader/json/json.go",
+            "internal/reader/rewrite/content_rewrite_functions.go",
+            "internal/reader/googleplay/googleplay.go",
+            "internal/reader/scraper/rules.go",
+            "internal/reader/atom/atom_10.go"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 7872,
+          "latencyMs": 407.4809180000011
+        },
+        {
+          "id": "miniflux-16",
+          "kind": "nl",
+          "query": "How are feed icons found?",
+          "expect": [
+            "internal/reader/icon/finder.go"
+          ],
+          "ranked": [
+            "internal/ui/feed_icon.go",
+            "internal/reader/icon/checker.go",
+            "internal/api/icon_handlers.go",
+            "internal/reader/icon/finder.go",
+            "internal/storage/feed_query_builder.go",
+            "contrib/bruno/miniflux/Get feed icon by icon ID.bru",
+            "contrib/bruno/miniflux/Get feed icon by feed ID.bru",
+            "internal/template/templates/common/feed_menu.html",
+            "internal/ui/entry_feed.go",
+            "internal/api/feed_handlers.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 0.25,
+          "packRecall": 1,
+          "packTokens": 4626,
+          "latencyMs": 265.4279580000002
+        },
+        {
+          "id": "miniflux-17",
+          "kind": "nl",
+          "query": "Where is a new admin user created from the command line?",
+          "expect": [
+            "internal/cli/create_admin.go"
+          ],
+          "ranked": [
+            "internal/cli/create_admin.go",
+            "internal/ui/form/user.go",
+            "internal/ui/user_create.go",
+            "internal/template/templates/views/users.html",
+            "internal/model/user.go",
+            "internal/storage/user.go",
+            "internal/ui/user_save.go",
+            "internal/api/user_handlers.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 5008,
+          "latencyMs": 420.7391090000001
+        },
+        {
+          "id": "miniflux-18",
+          "kind": "nl",
+          "query": "How is the watch time of YouTube videos fetched for entries?",
+          "expect": [
+            "internal/reader/processor/youtube.go"
+          ],
+          "ranked": [
+            "internal/reader/processor/youtube.go",
+            "internal/reader/processor/reading_time.go",
+            "internal/reader/processor/processor.go",
+            "internal/reader/processor/nebula.go",
+            "internal/reader/processor/odysee.go",
+            "miniflux.1",
+            "internal/reader/processor/bilibili.go",
+            "internal/storage/entry_query_builder.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 6275,
+          "latencyMs": 483.3772839999983
+        },
+        {
+          "id": "miniflux-19",
+          "kind": "nl",
+          "query": "How are OPML files imported?",
+          "expect": [
+            "internal/reader/opml/handler.go"
+          ],
+          "ranked": [
+            "internal/reader/opml/handler.go",
+            "internal/ui/opml_export.go",
+            "internal/ui/opml_upload.go",
+            "internal/api/opml_handlers.go",
+            "contrib/bruno/miniflux/OPML Import.bru",
+            "internal/cli/export_feeds.go",
+            "internal/reader/opml/opml.go",
+            "internal/reader/opml/parser.go",
+            "internal/reader/opml/serializer.go",
+            "internal/reader/opml/subscription.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 3283,
+          "latencyMs": 193.2648339999996
+        },
+        {
+          "id": "miniflux-20",
+          "kind": "nl",
+          "query": "Where are web sessions stored in the database?",
+          "expect": [
+            "internal/storage/web_session.go"
+          ],
+          "ranked": [
+            "internal/storage/web_session.go",
+            "internal/model/web_session.go",
+            "internal/ui/web_session_middleware.go",
+            "internal/database/migrations.go",
+            "internal/ui/session_remove.go",
+            "internal/ui/session_list.go",
+            "internal/storage/webauthn.go"
+          ],
+          "hit": 1,
+          "recall": 1,
+          "rr": 1,
+          "packRecall": 1,
+          "packTokens": 7772,
+          "latencyMs": 311.56260499999917
+        },
+        {
+          "id": "miniflux-21",
+          "kind": "nl",
+          "query": "How is a single feed refreshed and its new entries stored?",
+          "expect": [
+            "internal/reader/handler/handler.go"
+          ],
+          "ranked": [
+            "internal/storage/entry.go",
+            "internal/ui/feed_refresh.go",
+            "internal/ui/category_refresh.go",
+            "contrib/bruno/miniflux/Refresh a single feed.bru",
+            "internal/storage/feed.go",
+            "contrib/bruno/miniflux/Refresh all feeds.bru",
+            "internal/storage/nav_metadata.go",
+            "internal/storage/entry_query_builder.go",
+            "internal/model/feed.go"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 6214,
+          "latencyMs": 450.85933099999966
+        },
+        {
+          "id": "miniflux-22",
+          "kind": "task",
+          "query": "Add a new integration that posts entries to Mastodon",
+          "expect": [
+            "internal/integration/integration.go"
+          ],
+          "ranked": [
+            "internal/integration/discord/discord.go",
+            "internal/integration/slack/slack.go",
+            "internal/integration/apprise/apprise.go",
+            "internal/integration/wallabag/wallabag.go",
+            "internal/integration/ntfy/ntfy.go",
+            "internal/integration/pushover/pushover.go",
+            "internal/integration/pinboard/post.go",
+            "internal/integration/linkding/linkding.go",
+            "internal/integration/readwise/readwise.go",
+            "internal/integration/linkwarden/linkwarden.go"
+          ],
+          "hit": 0,
+          "recall": 0,
+          "rr": 0,
+          "packRecall": 0,
+          "packTokens": 5853,
+          "latencyMs": 426.00573800000166
+        }
+      ]
+    }
+  ]
+}

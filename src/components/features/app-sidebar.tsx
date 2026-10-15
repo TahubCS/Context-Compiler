@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bell, Code2, GitBranch, LayoutDashboard, Settings, Shield } from "lucide-react"
+import { Bell, GitBranch, LayoutDashboard, Settings, Shield } from "lucide-react"
+import { AppLogoMark } from "@/components/features/app-logo"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -25,7 +26,7 @@ export function AppSidebar({ hasRepos, isPlatformAdmin = false }: AppSidebarProp
     <aside className="sticky top-0 flex h-screen w-16 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:w-56">
       <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border px-3 md:px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Code2 className="size-5 shrink-0 text-primary" />
+          <AppLogoMark className="text-foreground" />
           <span className="hidden truncate text-sm font-semibold text-foreground md:block">
             Context Compiler
           </span>

@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run build
+      - name: Build and smoke-test the CLI package
+        working-directory: packages/mcp
+        run: bun run build && node dist/cli.js --help
+
+  ai-backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cc_test
+    defaults:
+      run:
+        working-directory: ai-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: ai-backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m compileall -q .
+      - run: python -m pytest -q
+
+  # Full pipeline on real repositories: scan with the offline hash embedder, then ask the eval
+  # questions through /api/mcp. Fails if retrieval recall regresses.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cc
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/cc
+      MCP_API_KEY_SECRET: ZTJlLW1jcC1rZXktc2VjcmV0LWUyZS1tY3Ata2V5LXM=
+      AI_BACKEND_URL: http://127.0.0.1:8000
+      AI_BACKEND_SECRET: e2e-backend-secret-e2e-backend-secret-1234
+      AI_CALLBACK_SECRET: e2e-callback-secret
+      EMBEDDING_PROVIDER: hash
+      APP_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:9
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: e2e-placeholder
+      EVAL_APP_URL: http://127.0.0.1:3000
+      EVAL_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: ai-backend/requirements*.txt
+      - run: bun install --frozen-lockfile
+      - run: pip install -r ai-backend/requirements.txt
+      - run: bun run db:setup
+      - name: Start the AI backend
+        working-directory: ai-backend
+        run: nohup uvicorn main:app --host 127.0.0.1 --port 8000 > ../ai-backend.log 2>&1 &
+      - run: bun run build
+      - name: Start the web app
+        run: |
+          nohup bun run start > web.log 2>&1 &
+          # Any HTTP response means the server is up (health is 503 here: no GitHub App in CI).
+          for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:3000/api/health && break; sleep 2; done
+          curl -s http://127.0.0.1:3000/api/health
+      - run: bun run eval:setup-local --dataset go-gin-realworld,django-realworld,express-prisma-realworld
+      - run: bun run eval --dataset go-gin-realworld,django-realworld,express-prisma-realworld --label ci --min-recall 0.85
+      - name: Service logs
+        if: failure()
+        run: tail -n 100 ai-backend.log web.log
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the web image
+        run: >-
+          docker build -t context-compiler-web
+          --build-arg NEXT_PUBLIC_URL=http://localhost:3000
+          --build-arg NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+          --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=ci-placeholder
+          .
+      - name: Build the AI backend image
+        run: docker build -t context-compiler-ai ai-backend
+      - name: AI backend refuses to start without a secret
+        run: |
+          if docker run --rm -e DATABASE_URL=postgresql://x@127.0.0.1/x -e EMBEDDING_PROVIDER=hash context-compiler-ai \
+               /app/.venv/bin/python -c "import main"; then
+            echo "expected startup to fail without AI_BACKEND_SECRET"; exit 1
+          fi
+      - name: Compose file is valid
+        run: |
+          cp .env.example .env.local
+          docker compose --env-file .env.local config --quiet
